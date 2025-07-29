@@ -1,7 +1,7 @@
 import jpype
 from datetime import datetime
-from claim import Claim, DiagnosisCode, ProcedureCode
-from claim_output import MsdrgOutput
+from claim import Claim, DiagnosisCode, ProcedureCode, PoaType
+from claim_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgGrouperFlags
 from datetime import datetime
 
 MSDRG_VSTART = "400"
@@ -23,6 +23,11 @@ class DrgClient:
             self.hospital_status = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgHospitalStatusOptionFlag")
             self.sex = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgSex")
             self.poa_values = jpype.JClass("com.mmm.his.cer.foundation.model.GfcPoa")
+            self.msdrg_grouping_impact = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgGroupingImpact")
+            self.poa_error_code = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgPoaErrorCode")
+            self.msdrg_severity_flag = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgCodeSeverityFlag")
+            self.msdrg_hac_status = jpype.JClass("gov.agency.msdrg.model.v2.enumeration.MsdrgHacStatus")
+
         except Exception as e:
             raise RuntimeError(f"Failed to initialize enumerations: {e}")
     
@@ -185,13 +190,13 @@ class DrgClient:
         for dx in claim.secondary_dxs:
             if dx:
                 if isinstance(dx, DiagnosisCode):
-                    if str(dx.poa).upper() == "Y":
+                    if dx.poa == PoaType.Y:
                         poa_value = self.poa_values.Y
-                    elif str(dx.poa).upper() == "N":
+                    elif dx.poa == PoaType.N:
                         poa_value = self.poa_values.N
-                    elif str(dx.poa).upper() == "U":
+                    elif dx.poa == PoaType.U:
                         poa_value = self.poa_values.U
-                    elif str(dx.poa).upper() == "W":
+                    elif dx.poa == PoaType.W:
                         poa_value = self.poa_values.W
                     java_dxs.add(self.drg_dx_class(dx.code, poa_value))
                 else:
@@ -217,62 +222,62 @@ class DrgClient:
         
         try:
             # Grouper Information
-            output.grouper_flags = java_drg_output.getGrouperFlags()
-            output.initial_grc = java_drg_output.getInitialGrc()
-            output.final_grc = java_drg_output.getFinalGrc()
-            
+            output.grouper_flags.from_java(java_drg_output.getGrouperFlags())
+            output.initial_grc = str(java_drg_output.getInitialGrc().name())
+            output.final_grc = str(java_drg_output.getFinalGrc().name())
+
             # Initial Grouping Results
             initial_mdc = java_drg_output.getInitialMdc()
             if initial_mdc is not None:
-                output.initial_mdc_value = initial_mdc.getValue()
-                output.initial_mdc_description = initial_mdc.getDescription()
+                output.initial_mdc_value = str(initial_mdc.getValue())
+                output.initial_mdc_description = str(initial_mdc.getDescription())
                 
             initial_drg = java_drg_output.getInitialDrg()
             if initial_drg is not None:
-                output.initial_drg_value = initial_drg.getValue()
-                output.initial_drg_description = initial_drg.getDescription()
+                output.initial_drg_value = str(initial_drg.getValue())
+                output.initial_drg_description = str(initial_drg.getDescription())
                 
             initial_base_drg = java_drg_output.getInitialBaseDrg()
             if initial_base_drg is not None:
-                output.initial_base_drg_value = initial_base_drg.getValue()
-                output.initial_base_drg_description = initial_base_drg.getDescription()
+                output.initial_base_drg_value = str(initial_base_drg.getValue())
+                output.initial_base_drg_description = str(initial_base_drg.getDescription())
                 
             # output.initial_med_surg_type = java_drg_output.getInitialMedSurgType()
-            output.initial_severity = java_drg_output.getInitialSeverity()
-            output.initial_drg_sdx_severity = java_drg_output.getInitialDrgSdxSeverity()
-            
+            output.initial_severity = str(java_drg_output.getInitialSeverity().name())
+            output.initial_drg_sdx_severity = str(java_drg_output.getInitialDrgSdxSeverity().name())
+
             # Final Grouping Results
             final_mdc = java_drg_output.getFinalMdc()
             if final_mdc is not None:
-                output.final_mdc_value = final_mdc.getValue()
-                output.final_mdc_description = final_mdc.getDescription()
+                output.final_mdc_value = str(final_mdc.getValue())
+                output.final_mdc_description = str(final_mdc.getDescription())
                 
             final_drg = java_drg_output.getFinalDrg()
             if final_drg is not None:
-                output.final_drg_value = final_drg.getValue()
-                output.final_drg_description = final_drg.getDescription()
+                output.final_drg_value = str(final_drg.getValue())
+                output.final_drg_description = str(final_drg.getDescription())
                 
             final_base_drg = java_drg_output.getFinalBaseDrg()
             if final_base_drg is not None:
-                output.final_base_drg_value = final_base_drg.getValue()
-                output.final_base_drg_description = final_base_drg.getDescription()
+                output.final_base_drg_value = str(final_base_drg.getValue())
+                output.final_base_drg_description = str(final_base_drg.getDescription())
                 
             # output.final_med_surg_type = java_drg_output.getFinalMedSurgType()
-            output.final_severity = java_drg_output.getFinalSeverity()
-            output.final_drg_sdx_severity = java_drg_output.getFinalDrgSdxSeverity()
-            
+            output.final_severity = str(java_drg_output.getFinalSeverity().name())
+            output.final_drg_sdx_severity = str(java_drg_output.getFinalDrgSdxSeverity().name())
+
             # HAC Information
-            output.hac_status = java_drg_output.getHacStatus()
+            output.hac_status = str(java_drg_output.getHacStatus().name())
             output.num_hac_categories_satisfied = java_drg_output.getNumHacCategoriesSatisfied()
             
             # Diagnosis and Procedure Output
-            output.principal_dx_output = java_drg_output.getPdxOutput()
+            output.principal_dx_output.from_java(java_drg_output.getPdxOutput())
             
             # Secondary diagnosis outputs
             sdx_outputs = java_drg_output.getSdxOutput()
             if sdx_outputs is not None:
                 for sdx_output in sdx_outputs:
-                    output.secondary_dx_outputs.append(sdx_output)
+                    output.secondary_dx_outputs.append(MsdrgOutputDxCode().from_java(sdx_output))
             
             # Procedure outputs
             proc_outputs = java_drg_output.getProcOutput()
@@ -306,6 +311,6 @@ class DrgClient:
             raise RuntimeError("DRG output is not present")
         drg_result = drg_output.get()
         
-        claim_output = self.extract_msdrg_output(drg_result)
-        print(claim_output)
+        return self.extract_msdrg_output(drg_result)
+        
 
