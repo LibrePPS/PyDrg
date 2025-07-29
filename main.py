@@ -1,16 +1,16 @@
 from drg_client import DrgClient
 import jpype
 import os
-from claim import Claim, DiagnosisCode, ProcedureCode
+from claim import Claim, DiagnosisCode, ProcedureCode, PoaType
 
 
 if __name__ == "__main__":
-    jar_path = os.environ.get("MSDRG_JAR_PATH", "path/to/msdrg.jar")
+    jar_path = os.environ.get("MSDRG_JAR_PATH", "jars/*")
     jpype.startJVM(classpath=jar_path)
     drg_client = DrgClient()
 
     claim = Claim()
-    claim.principal_dx = DiagnosisCode(code="I10", poa="Y")
+    claim.principal_dx = DiagnosisCode(code="I10", poa=PoaType.Y)
     claim.patient_status = "01"
     claim.patient.age = 65
     claim.patient.sex = "M"
