@@ -100,6 +100,16 @@ class DxType(Enum):
     PRIMARY = 1
     SECONDARY = 2
 
+class PoaType(Enum):
+    Y = "Y"
+    N = "N"
+    W = "W"  # Clinically unable to determine a time of admission
+    U = "U"  # Insufficient documentation to determine if present on admission
+    ONE = "1"  # Exempt from POA reporting/Unreported/Not used
+    E = "E"  # Exempt from POA reporting/Unreported/Not used
+    BLANK = ""  # Exempt from POA reporting/Unreported/Not used
+    INVALID = "INVALID"  # Invalid
+
 class LineItem:
     def __init__(self, service_date=None, revenue_code="", hcpcs="", modifiers=None, units=0, charges=0.0, ndc="", ndc_units=0.0, pos="", contractor_bypass=None, contractor_status_indicator="", contractor_apc="", contractor_payment_indicator="", contractor_discounting_formula="", contractor_reject_flag="", contractor_packaging_flag="", contractor_payment_adjust_flag01="", contractor_payment_adjust_flag02="", contractor_payment_method="", act_flag_input="", servicing_provider=None):
         self.service_date = service_date
