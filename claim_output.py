@@ -43,7 +43,7 @@ class MsdrgOutputDxCode:
             "grouping_impact": self.grouping_impact,
             "final_severity_flag": self.final_severity_flag,
             "initial_severity_flag": self.initial_severity_flag,
-            "hac_list": self.hac_list,
+            "hac_list": [hac.to_json() for hac in self.hac_list],
             "poa_error_code": self.poa_error_code,
             "recognized_by_grouper": self.recognized_by_grouper
         }

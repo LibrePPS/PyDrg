@@ -7,7 +7,7 @@ A Python interface for DRG (Diagnosis-Related Group) grouping using Java-based D
 - Processes claims and returns DRG results
 
 ## Requirements
-- Python 3.7+
+- Python 3.10+
 - Java (JRE/JDK, version compatible with your JARs)
 - JPype1
 - DRG Java JAR files (provided in the `jars/` directory)

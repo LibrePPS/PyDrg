@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """
-CMS Pricer Software Downloader
-
-This script connects to the CMS website, finds all ZIP files in the
-'Software (Executable JAR Files)' section, and downloads them to a local directory.
-It also downloads the MSDRG Grouper and MCE Editor JAR files from the MS-DRG classifications page
-and the IOCE Editor from the Quarterly Release Files page.
-It extracts JAR files from all downloaded ZIPs and moves them to a 'jars' folder.
+# CMS Software Downloader
+This script downloads and processes the necessary JAR files and ZIP packages for the CMS MSDRG Grouper
+and MCE Editor software, including the necessary dependencies like GFC, GRPC, and SLF4J.
 """
 
 import os

@@ -1,5 +1,15 @@
 from enum import Enum
 
+class PoaType(Enum):
+    Y = "Y"
+    N = "N"
+    W = "W"  # Clinically unable to determine a time of admission
+    U = "U"  # Insufficient documentation to determine if present on admission
+    ONE = "1"  # Exempt from POA reporting/Unreported/Not used
+    E = "E"  # Exempt from POA reporting/Unreported/Not used
+    BLANK = ""  # Exempt from POA reporting/Unreported/Not used
+    INVALID = "INVALID"  # Invalid
+
 class Address:
     def __init__(self, address1="", address2="", city="", state="", zip="", country="", phone="", fax="", additional_data=None):
         self.address1 = address1
@@ -89,26 +99,16 @@ class SpanCode:
         self.start_date = start_date
         self.end_date = end_date
 
-class DiagnosisCode:
-    def __init__(self, code="", poa="", dx_type=None):
-        self.code = code
-        self.poa = poa
-        self.dx_type = dx_type
-
 class DxType(Enum):
     UNKNOWN = 0
     PRIMARY = 1
     SECONDARY = 2
 
-class PoaType(Enum):
-    Y = "Y"
-    N = "N"
-    W = "W"  # Clinically unable to determine a time of admission
-    U = "U"  # Insufficient documentation to determine if present on admission
-    ONE = "1"  # Exempt from POA reporting/Unreported/Not used
-    E = "E"  # Exempt from POA reporting/Unreported/Not used
-    BLANK = ""  # Exempt from POA reporting/Unreported/Not used
-    INVALID = "INVALID"  # Invalid
+class DiagnosisCode:
+    def __init__(self, code="", poa:PoaType=PoaType.BLANK, dx_type:DxType=DxType.UNKNOWN):
+        self.code = code
+        self.poa = poa
+        self.dx_type = dx_type
 
 class LineItem:
     def __init__(self, service_date=None, revenue_code="", hcpcs="", modifiers=None, units=0, charges=0.0, ndc="", ndc_units=0.0, pos="", contractor_bypass=None, contractor_status_indicator="", contractor_apc="", contractor_payment_indicator="", contractor_discounting_formula="", contractor_reject_flag="", contractor_packaging_flag="", contractor_payment_adjust_flag01="", contractor_payment_adjust_flag02="", contractor_payment_method="", act_flag_input="", servicing_provider=None):

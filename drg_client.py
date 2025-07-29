@@ -3,8 +3,21 @@ from datetime import datetime
 from claim import Claim, DiagnosisCode, ProcedureCode, PoaType
 from claim_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgGrouperFlags
 from datetime import datetime
-
+from enum import Enum
 MSDRG_VSTART = "400"
+
+class MsdrgAffectDrgOptionFlag(Enum):
+    COMPUTE = "COMPUTE"
+    DO_NOT_COMPUTE = "DO_NOT_COMPUTE"
+
+class MarkingLogicTieBreaker(Enum):
+    CLINICAL_SIGNIFICANCE = "CLINICAL_SIGNIFICANCE"
+    CODE_ORDER = "CODE_ORDER"
+
+class MsdrgHospitalStatusOptionFlag(Enum):
+    NON_EXEMPT = "NON_EXEMPT"
+    EXEMPT = "EXEMPT"
+    UNKNOWN = "UNKNOWN"
 
 class DrgClient:
     def __init__(self):
@@ -38,6 +51,9 @@ class DrgClient:
             self.drg_dx_class = jpype.JClass("gov.agency.msdrg.model.v2.transfer.input.MsdrgInputDxCode")
             self.drg_px_class = jpype.JClass("gov.agency.msdrg.model.v2.transfer.input.MsdrgInputPrCode")
             self.array_list_class = jpype.JClass("java.util.ArrayList")
+            self.runtime_options_class = jpype.JClass("gov.agency.msdrg.model.v2.RuntimeOptions")
+            self.drg_options_class = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgRuntimeOption")
+            self.msdrg_option_flags_class = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgOption")
         except Exception as e:
             raise RuntimeError(f"Failed to initialize input classes: {e}")
 
@@ -82,6 +98,43 @@ class DrgClient:
                 curr_version = self.increment_version(curr_version)
                 continue
             curr_version = self.increment_version(curr_version)
+
+    def reconfigure(self, drg_version:str, hospital_status: MsdrgHospitalStatusOptionFlag, affect_drg: MsdrgAffectDrgOptionFlag, logic_tiebreaker: MarkingLogicTieBreaker):
+        """
+        Reconfigure the DRG client with new options.
+        """
+        if not isinstance(hospital_status, MsdrgHospitalStatusOptionFlag):
+            raise ValueError("Invalid hospital status option")
+        if not isinstance(affect_drg, MsdrgAffectDrgOptionFlag):
+            raise ValueError("Invalid affect DRG option")
+        if not isinstance(logic_tiebreaker, MarkingLogicTieBreaker):
+            raise ValueError("Invalid logic tie breaker option")
+
+        runtime_options = self.runtime_options_class()
+        match hospital_status:
+            case MsdrgHospitalStatusOptionFlag.NON_EXEMPT:
+                runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
+            case MsdrgHospitalStatusOptionFlag.EXEMPT:
+                runtime_options.setPoaReportingExempt(self.hospital_status.EXEMPT)
+            case MsdrgHospitalStatusOptionFlag.UNKNOWN:
+                runtime_options.setPoaReportingExempt(self.hospital_status.UNKNOWN)
+        match affect_drg:
+            case MsdrgAffectDrgOptionFlag.COMPUTE:
+                runtime_options.setComputeAffectDrg(self.affect_drg_option.COMPUTE)
+            case MsdrgAffectDrgOptionFlag.DO_NOT_COMPUTE:
+                runtime_options.setComputeAffectDrg(self.affect_drg_option.DO_NOT_COMPUTE)
+        match logic_tiebreaker:
+            case MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE:
+                runtime_options.setMarkingLogicTieBreaker(self.logic_tiebreaker.CLINICAL_SIGNIFICANCE)
+            case MarkingLogicTieBreaker.CODE_ORDER:
+                runtime_options.setMarkingLogicTieBreaker(self.logic_tiebreaker.CODE_ORDER)
+        if drg_version not in self.drg_versions:
+            raise ValueError(f"DRG version {drg_version} is not loaded")
+        drg_component = self.drg_versions[drg_version]
+        msdrg_runtime_option = self.drg_options_class()
+        msdrg_runtime_option.put(self.msdrg_option_flags_class.RUNTIME_OPTION_FLAGS, runtime_options)
+        drg_component.reconfigure(msdrg_runtime_option)
+        return drg_component
 
     def determine_end_version(self):
         """
@@ -290,7 +343,7 @@ class DrgClient:
             
         return output
         
-    def process(self, claim: Claim, drg_version=None):
+    def process(self, claim: Claim, drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
         if drg_version is None:
             """Determine the DRG version based on the claim date"""
             if type(claim.thru_date) is str:
@@ -302,7 +355,7 @@ class DrgClient:
             drg_version = self.determine_drg_version(claim_date)
         if drg_version not in self.drg_versions:
             raise ValueError(f"DRG version {drg_version} is not loaded")
-        drg_component = self.drg_versions[drg_version]
+        drg_component = self.reconfigure(drg_version, hospital_status, affect_drg, logic_tiebreaker)
         drg_input = self.create_drg_input(claim)
         drg_claim = self.drg_claim_class(drg_input)
         drg_component.process(drg_claim)
