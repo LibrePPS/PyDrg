@@ -1,6 +1,7 @@
 import jpype
 from datetime import datetime
 from claim import Claim, DiagnosisCode, ProcedureCode
+from claim_output import MsdrgOutput
 from datetime import datetime
 
 MSDRG_VSTART = "400"
@@ -208,6 +209,82 @@ class DrgClient:
             input.withProcedureCodes(java_pxs)
         return input.build()
         
+    def extract_msdrg_output(self, java_drg_output):
+        """
+        Extract all data from the Java MsdrgOutput object and populate a Python MsdrgOutput object.
+        """
+        output = MsdrgOutput()
+        
+        try:
+            # Grouper Information
+            output.grouper_flags = java_drg_output.getGrouperFlags()
+            output.initial_grc = java_drg_output.getInitialGrc()
+            output.final_grc = java_drg_output.getFinalGrc()
+            
+            # Initial Grouping Results
+            initial_mdc = java_drg_output.getInitialMdc()
+            if initial_mdc is not None:
+                output.initial_mdc_value = initial_mdc.getValue()
+                output.initial_mdc_description = initial_mdc.getDescription()
+                
+            initial_drg = java_drg_output.getInitialDrg()
+            if initial_drg is not None:
+                output.initial_drg_value = initial_drg.getValue()
+                output.initial_drg_description = initial_drg.getDescription()
+                
+            initial_base_drg = java_drg_output.getInitialBaseDrg()
+            if initial_base_drg is not None:
+                output.initial_base_drg_value = initial_base_drg.getValue()
+                output.initial_base_drg_description = initial_base_drg.getDescription()
+                
+            # output.initial_med_surg_type = java_drg_output.getInitialMedSurgType()
+            output.initial_severity = java_drg_output.getInitialSeverity()
+            output.initial_drg_sdx_severity = java_drg_output.getInitialDrgSdxSeverity()
+            
+            # Final Grouping Results
+            final_mdc = java_drg_output.getFinalMdc()
+            if final_mdc is not None:
+                output.final_mdc_value = final_mdc.getValue()
+                output.final_mdc_description = final_mdc.getDescription()
+                
+            final_drg = java_drg_output.getFinalDrg()
+            if final_drg is not None:
+                output.final_drg_value = final_drg.getValue()
+                output.final_drg_description = final_drg.getDescription()
+                
+            final_base_drg = java_drg_output.getFinalBaseDrg()
+            if final_base_drg is not None:
+                output.final_base_drg_value = final_base_drg.getValue()
+                output.final_base_drg_description = final_base_drg.getDescription()
+                
+            # output.final_med_surg_type = java_drg_output.getFinalMedSurgType()
+            output.final_severity = java_drg_output.getFinalSeverity()
+            output.final_drg_sdx_severity = java_drg_output.getFinalDrgSdxSeverity()
+            
+            # HAC Information
+            output.hac_status = java_drg_output.getHacStatus()
+            output.num_hac_categories_satisfied = java_drg_output.getNumHacCategoriesSatisfied()
+            
+            # Diagnosis and Procedure Output
+            output.principal_dx_output = java_drg_output.getPdxOutput()
+            
+            # Secondary diagnosis outputs
+            sdx_outputs = java_drg_output.getSdxOutput()
+            if sdx_outputs is not None:
+                for sdx_output in sdx_outputs:
+                    output.secondary_dx_outputs.append(sdx_output)
+            
+            # Procedure outputs
+            proc_outputs = java_drg_output.getProcOutput()
+            if proc_outputs is not None:
+                for proc_output in proc_outputs:
+                    output.procedure_outputs.append(proc_output)
+                    
+        except Exception as e:
+            print(f"Warning: Could not extract some output fields: {e}")
+            
+        return output
+        
     def process(self, claim: Claim, drg_version=None):
         if drg_version is None:
             """Determine the DRG version based on the claim date"""
@@ -228,6 +305,7 @@ class DrgClient:
         if drg_output.isPresent() == 0:
             raise RuntimeError("DRG output is not present")
         drg_result = drg_output.get()
-        #@TODO: Get DRG results and map to an output object
-        print(drg_result.getFinalDrg().getValue())
+        
+        claim_output = self.extract_msdrg_output(drg_result)
+        print(claim_output)
 
