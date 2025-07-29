@@ -22,6 +22,10 @@ A Python interface for DRG (Diagnosis-Related Group) grouping using Java-based D
    ```bash
    pip install -r requirements.txt
    ```
+   or
+   ```bash
+   uv sync
+   ```
 3. Ensure Java is installed and available in your PATH.
 
 ## Setup
