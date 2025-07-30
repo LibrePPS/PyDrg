@@ -234,11 +234,11 @@ class DrgClient:
 
         if claim.admit_dx:
             input.withAdmissionDiagnosisCode(
-                self.drg_dx_class(claim.admit_dx.code, self.poa_values.Y))
+                self.drg_dx_class(claim.admit_dx.code.replace(".", ""), self.poa_values.Y))
 
         if claim.principal_dx:
             input.withPrincipalDiagnosisCode(
-                self.drg_dx_class(claim.principal_dx.code, self.poa_values.Y))
+                self.drg_dx_class(claim.principal_dx.code.replace(".", ""), self.poa_values.Y))
         else:
             raise ValueError("Principal diagnosis must be provided")    
 
@@ -254,7 +254,7 @@ class DrgClient:
                         poa_value = self.poa_values.U
                     elif dx.poa == PoaType.W:
                         poa_value = self.poa_values.W
-                    java_dxs.add(self.drg_dx_class(dx.code, poa_value))
+                    java_dxs.add(self.drg_dx_class(dx.code.replace(".", ""), poa_value))
                 else:
                     raise ValueError("Secondary diagnosis must be a DiagnosisCode object")
         if len(java_dxs) > 0:

@@ -80,16 +80,8 @@ class MsdrgOutputPrCode:
         self.hac_usage = []
 
     def from_java(self, java_obj):
-        # Wrapped in try/except to handle cases where the object is None (I can't find this in the documentation)
-        try:
-            self.grouping_impact = str(java_obj.getGroupingImpact().name())
-        except AttributeError:
-            self.grouping_impact = "UNKNOWN"
-        # Wrapped in try/except to handle cases where the object is None (I can't find this in the documentation)
-        try:
-            self.is_or_procedure = java_obj.isOrProcedure()
-        except AttributeError:
-            self.is_or_procedure = False
+        self.grouping_impact = str(java_obj.getProcedureAffectsDrg().name())
+        self.is_or_procedure = java_obj.isProcedureIsOperatingRoomProcedure()
 
         self.recognized_by_grouper = java_obj.isProcedureRecognizedByGrouper()
         hac_usage = java_obj.getHacUsage()
