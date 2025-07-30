@@ -19,35 +19,34 @@ def claim_example():
     return claim
 
 def json_claim_example():
-    # claim_json = {
-    #     "from_date": "2025-07-01",
-    #     "thru_date": "2025-07-10",
-    #     "los": 9,
-    #     "patient_status": "01",
-    #     "admit_date": "2025-07-01",
-    #     "principal_dx": {
-    #         "code": "A021",
-    #         "poa": "Y",
-    #         "dx_type": "PRIMARY"
-    #     },
-    #     "admit_dx": {
-    #         "code": "A021", 
-    #         "poa": "Y",
-    #         "dx_type": "PRIMARY"
-    #     },
-    #     "secondary_dxs": [
-    #         {
-    #             "code": "I82411",
-    #             "poa": "N",
-    #             "dx_type": "SECONDARY"
-    #         }
-    #     ],
-    #     "patient": {
-    #         "age": 65,
-    #         "sex": "M"
-    #     }
-    # }
-    claim_json = {"claimid": "CLM002", "from_date": "2024-02-10", "thru_date": "2024-02-13", "los": 3, "patient_status": "01", "admit_date": "2024-02-10", "principal_dx": {"code": "S72.001A", "poa": "Y", "dx_type": "PRIMARY"}, "admit_dx": {"code": "S72.001A", "poa": "Y", "dx_type": "PRIMARY"}, "secondary_dxs": [{"code": "M80.00XA", "poa": "Y", "dx_type": "SECONDARY"}], "inpatient_pxs": [{"code": "0SR9019", "date": "2024-02-10"}], "patient": {"age": 58, "sex": "F"}}
+    claim_json = {
+        "from_date": "2025-07-01",
+        "thru_date": "2025-07-10",
+        "los": 9,
+        "patient_status": "01",
+        "admit_date": "2025-07-01",
+        "principal_dx": {
+            "code": "A021",
+            "poa": "Y",
+            "dx_type": "PRIMARY"
+        },
+        "admit_dx": {
+            "code": "A021", 
+            "poa": "Y",
+            "dx_type": "PRIMARY"
+        },
+        "secondary_dxs": [
+            {
+                "code": "I82411",
+                "poa": "N",
+                "dx_type": "SECONDARY"
+            }
+        ],
+        "patient": {
+            "age": 65,
+            "sex": "M"
+        }
+    }
     
     return Claim.from_json(claim_json)
 
