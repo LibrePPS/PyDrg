@@ -1,9 +1,12 @@
-import jpype
+import jpype, json
 from datetime import datetime
 from claim import Claim, DiagnosisCode, ProcedureCode, PoaType
-from claim_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgGrouperFlags
+from claim_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgGrouperFlags, MsdrgOutputPrCode
 from datetime import datetime
 from enum import Enum
+from typing import List
+from tqdm import tqdm
+
 MSDRG_VSTART = "400"
 
 class MsdrgAffectDrgOptionFlag(Enum):
@@ -336,7 +339,7 @@ class DrgClient:
             proc_outputs = java_drg_output.getProcOutput()
             if proc_outputs is not None:
                 for proc_output in proc_outputs:
-                    output.procedure_outputs.append(proc_output)
+                    output.procedure_outputs.append(MsdrgOutputPrCode().from_java(proc_output))
                     
         except Exception as e:
             print(f"Warning: Could not extract some output fields: {e}")
@@ -365,5 +368,35 @@ class DrgClient:
         drg_result = drg_output.get()
         
         return self.extract_msdrg_output(drg_result)
-        
+    
+    def batch_load_claims(self, file_path: str):
+        list_of_claims = []
+        with open(file_path, 'r') as file:
+            for line in file:
+                claim = Claim.from_json(json.loads(line))
+                list_of_claims.append(claim)
+        return list_of_claims
+    
+    def batch_process(self, claims: List[Claim], drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
+        list_of_outputs = []
+        for claim in claims:
+            try:
+                result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
+                list_of_outputs.append(json.dumps(result.to_json(), indent=2))
+            except Exception as e:
+                print(f"Error processing claim {claim.claimid}: {e}")
+        return list_of_outputs
+    
+    def batch_process_with_progress(self, claims: List[Claim], drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
+        """
+        Batch process a list of claims with progress bar.
+        """
+        list_of_outputs = []
+        for claim in tqdm(claims, desc="Processing claims"):
+            try:
+                result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
+                list_of_outputs.append(json.dumps(result.to_json(), indent=2))
+            except Exception as e:
+                print(f"Error processing claim {claim.claimid}: {e}")
+        return list_of_outputs
 
