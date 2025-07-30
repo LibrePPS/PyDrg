@@ -133,3 +133,6 @@ cython_debug/
 
 # Java JARs
 jars/
+
+# Example data
+example_data/claims_output.txt

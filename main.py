@@ -66,9 +66,7 @@ if __name__ == "__main__":
     output2 = drg_client.process(claim2)
     print(json.dumps(output2.to_json(), indent=2))
 
-    print("=== Batch Process with Progress Example ===")
+    print("=== Batch Process with Stats Example ===")
     claims = drg_client.batch_load_claims("example_data/claims.txt")
-    outputs = drg_client.batch_process_with_progress(claims)
-    for output in outputs:
-        print(output)
-        print()
+    stats = drg_client.batch_process_with_stats(claims, "example_data/claims_output.txt")
+    print(json.dumps(stats, indent=2))

@@ -373,30 +373,87 @@ class DrgClient:
         list_of_claims = []
         with open(file_path, 'r') as file:
             for line in file:
-                claim = Claim.from_json(json.loads(line))
-                list_of_claims.append(claim)
+                try:
+                    claim = Claim.from_json(json.loads(line))
+                    list_of_claims.append(claim)
+                except Exception as e:
+                    print(f"Error loading claim: {e}")
         return list_of_claims
     
-    def batch_process(self, claims: List[Claim], drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
-        list_of_outputs = []
-        for claim in claims:
-            try:
-                result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
-                list_of_outputs.append(json.dumps(result.to_json(), indent=2))
-            except Exception as e:
-                print(f"Error processing claim {claim.claimid}: {e}")
-        return list_of_outputs
-    
-    def batch_process_with_progress(self, claims: List[Claim], drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
-        """
-        Batch process a list of claims with progress bar.
-        """
-        list_of_outputs = []
-        for claim in tqdm(claims, desc="Processing claims"):
-            try:
-                result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
-                list_of_outputs.append(json.dumps(result.to_json(), indent=2))
-            except Exception as e:
-                print(f"Error processing claim {claim.claimid}: {e}")
-        return list_of_outputs
+    def batch_process(self, claims: List[Claim], output_file_path: str, drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
+        with open(output_file_path, 'w') as f:
+            for claim in claims:
+                try:
+                    result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
+                    f.write(json.dumps(result.to_json(), indent=2) + '\n')
+                except Exception as e:
+                    print(f"Error processing claim {claim.claimid}: {e}")
 
+    def batch_process_with_stats(self, claims: List[Claim], output_file_path: str, drg_version=None, hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT, affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE, logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE):
+        """
+        Batch process a list of claims with progress bar and statistics.
+        Returns dictionary with processing statistics.
+        """
+        import time
+        from collections import Counter
+        
+        start_time = time.time()
+        stats = {
+            'total_claims': len(claims),
+            'successful_claims': 0,
+            'failed_claims': 0,
+            'processing_times': [],
+            'errors': [],
+            'drg_distribution': Counter(),
+            'mdc_distribution': Counter(),
+            'severity_distribution': Counter(),
+            'hac_status_distribution': Counter(),
+            'avg_processing_time': 0,
+            'total_processing_time': 0,
+            'fastest_claim': {'time': float('inf'), 'id': None},
+            'slowest_claim': {'time': 0, 'id': None}
+        }
+        
+        with open(output_file_path, 'w') as f:
+            for claim in claims:
+                claim_start = time.time()
+                try:
+                    result = self.process(claim, drg_version, hospital_status, affect_drg, logic_tiebreaker)
+                    claim_time = time.time() - claim_start
+                    
+                    f.write(json.dumps(result.to_json(), indent=2) + '\n')
+                    
+                    stats['successful_claims'] += 1
+                    stats['processing_times'].append(claim_time)
+                    
+                    if claim_time < stats['fastest_claim']['time']:
+                        stats['fastest_claim'] = {'time': claim_time, 'id': claim.claimid}
+                    if claim_time > stats['slowest_claim']['time']:
+                        stats['slowest_claim'] = {'time': claim_time, 'id': claim.claimid}
+                    
+                    if result.final_drg_value:
+                        stats['drg_distribution'][result.final_drg_value] += 1
+                    if result.final_mdc_value:
+                        stats['mdc_distribution'][result.final_mdc_value] += 1
+                    if result.final_severity:
+                        stats['severity_distribution'][result.final_severity] += 1
+                    if result.hac_status:
+                        stats['hac_status_distribution'][result.hac_status] += 1
+                        
+                except Exception as e:
+                    claim_time = time.time() - claim_start
+                    stats['failed_claims'] += 1
+                    stats['processing_times'].append(claim_time)
+                    stats['errors'].append({
+                        'claim_id': claim.claimid,
+                        'error': str(e),
+                        'processing_time': claim_time
+                    })
+                    print(f"Error processing claim {claim.claimid}: {e}")
+        
+        end_time = time.time()
+        stats['total_processing_time'] = end_time - start_time
+        if stats['processing_times']:
+            stats['avg_processing_time'] = sum(stats['processing_times']) / len(stats['processing_times'])
+
+        return stats
