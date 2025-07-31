@@ -34,6 +34,7 @@ logger = logging.getLogger("cms_downloader")
 DOWNLOAD_DIR = "downloads"
 JARS_DIR = "jars"
 MSDRG_URL = "https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/ms-drg-classifications-and-software"
+IOCE_URL = "https://www.cms.gov/medicare/coding-billing/outpatient-code-editor-oce/quarterly-release-files"
 JAVA_SOURCE_PATTERN = "java-source.zip"
 JAVA_STANDALONE_PATTERN = "java-standalone"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -259,6 +260,107 @@ def download_msdrg_files():
         logger.error(f"Error downloading MSDRG files: {str(e)}")
         return None
 
+def download_ioce_files():
+    """Download IOCE Editor Java files."""
+    try:
+        logger.info(f"Connecting to IOCE website: {IOCE_URL}")
+        session = requests.Session()
+        headers = {"User-Agent": USER_AGENT}
+        
+        # First request to find the java-standalone link
+        response = session.get(IOCE_URL, headers=headers)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find the link with "java-standalone" text
+        java_standalone_link = None
+        for link in soup.find_all('a'):
+            href = link.get('href', '')
+            inner_text = link.get_text()
+            if JAVA_STANDALONE_PATTERN in href.lower() \
+            or 'Java Standalone' in inner_text:
+                java_standalone_link = href
+                logger.info(f"Found IOCE standalone Java link: {java_standalone_link}")
+                break
+        
+        if not java_standalone_link:
+            logger.error(f"Could not find '{JAVA_STANDALONE_PATTERN}' link on the IOCE page")
+            return None
+        
+        # Follow the link to the license agreement page
+        license_url = urljoin(IOCE_URL, java_standalone_link)
+        license_response = session.get(license_url, headers=headers)
+        license_response.raise_for_status()
+        
+        license_soup = BeautifulSoup(license_response.content, 'html.parser')
+        
+        # Find the form with the "agree" button
+        form = None
+        for form_tag in license_soup.find_all('form'):
+            if form_tag.find('input', attrs={'name': 'agree'}):
+                form = form_tag
+                break
+        
+        if not form:
+            logger.error("Could not find license agreement form")
+            return None
+        
+        # Get the form action URL
+        form_action = form.get('action', '')
+        if not form_action:
+            logger.error("Could not find form action URL")
+            return None
+        
+        form_url = urljoin(license_url, form_action)
+        
+        # Extract all form data - includes hidden fields
+        form_data = {}
+        for input_tag in form.find_all('input'):
+            name = input_tag.get('name')
+            value = input_tag.get('value', '')
+            if name:
+                form_data[name] = value
+        
+        # Make sure we have the 'agree' value
+        form_data['agree'] = 'Yes'
+        
+        # Submit the form to download the file
+        logger.info("Submitting license agreement form")
+        download_response = session.post(form_url, data=form_data, headers=headers, stream=True)
+        download_response.raise_for_status()
+        
+        # Get the filename from Content-Disposition header if available
+        content_disposition = download_response.headers.get('Content-Disposition', '')
+        filename = ''
+        if 'filename=' in content_disposition:
+            filename = re.findall('filename=(.+)', content_disposition)[0].strip('"\'')
+        
+        # If no filename in header, use a default
+        if not filename:
+            filename = f"ioce_java_standalone_{int(time.time())}.zip"
+        
+        # Save the file
+        file_path = os.path.join(DOWNLOAD_DIR, filename)
+        with open(file_path, 'wb') as f, tqdm(
+            desc=filename,
+            total=int(download_response.headers.get('content-length', 0)),
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar:
+            for chunk in download_response.iter_content(chunk_size=1024):
+                if chunk:
+                    size = f.write(chunk)
+                    bar.update(size)
+        
+        logger.info(f"Successfully downloaded IOCE file: {filename}")
+        return file_path
+    
+    except Exception as e:
+        logger.error(f"Error downloading IOCE files: {str(e)}")
+        return None
+
 def extract_jar_files():
     """Extract JAR files from downloaded ZIP files and move them to jars directory."""
     try:
@@ -282,6 +384,13 @@ def extract_jar_files():
         logger.error(f"An error occurred during JAR extraction: {str(e)}")
 
 if __name__ == "__main__":
+    # If jars dir already exists delete it and create a new one
+    if not os.path.exists(JARS_DIR):
+        os.makedirs(JARS_DIR)
+    else:
+        shutil.rmtree(JARS_DIR)
+        os.makedirs(JARS_DIR)
+        
     try:
         logger.info("Starting CMS Software download process")
         # Create directories
@@ -294,6 +403,13 @@ if __name__ == "__main__":
         if msdrg_zip_path:
             logger.info("Processing MSDRG ZIP file")
             process_zip_for_jars(msdrg_zip_path, "msdrg")
+
+        # Download and process IOCE files
+        logger.info("Starting IOCE file download process")
+        ioce_zip_path = download_ioce_files()
+        if ioce_zip_path:
+            logger.info("Processing IOCE ZIP file")
+            process_zip_for_jars(ioce_zip_path, "ioce")
         
         # Process the GFC JAR file
         process_gfc_jar()
