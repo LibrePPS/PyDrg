@@ -89,12 +89,12 @@ def json_claim_example():
         "principal_dx": {
             "code": "A021",
             "poa": "Y",
-            "dx_type": "PRIMARY"
+            "dx_type": 1
         },
         "admit_dx": {
             "code": "A021", 
             "poa": "Y",
-            "dx_type": "PRIMARY"
+            "dx_type": 1
         },
         "secondary_dxs": [
             {
@@ -109,7 +109,7 @@ def json_claim_example():
         }
     }
     
-    return Claim.from_json(claim_json)
+    return Claim.model_validate(claim_json)
 
 if __name__ == "__main__":
     jar_path = os.environ.get("MSDRG_JAR_PATH", "jars/*")
