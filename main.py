@@ -138,9 +138,9 @@ if __name__ == "__main__":
     print("=== OPPS Claim Example ===")
     opps_claim = opps_claim_example()
     opps_output = opps_client.process(opps_claim)
-    print(json.dumps(opps_output.to_json(), indent=2))
+    print(opps_output.model_dump_json(indent=2))
     
     # Get descriptions for OPPS output
     print("=== OPPS Descriptions ===")
     descriptions = opps_client.get_descriptions(opps_claim, opps_output)
-    print(json.dumps(descriptions, indent=2))
+    print(descriptions)
