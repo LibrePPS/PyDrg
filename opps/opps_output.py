@@ -1,17 +1,18 @@
 import jpype
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
-class OppsProcessingInformation:
+class OppsProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
-    def __init__(self):
-        self.claim_id = ""
-        self.return_code = 0
-        self.lines_processed = 0
-        self.internal_version = 0
-        self.version = ""
-        self.time_started = 0
-        self.time_ended = 0
-        self.debug_flag = ""
-        self.comment_data = ""
+    claim_id: str = ""
+    return_code: int = 0
+    lines_processed: int = 0
+    internal_version: int = 0
+    version: str = ""
+    time_started: int = 0
+    time_ended: int = 0
+    debug_flag: str = ""
+    comment_data: str = ""
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -25,26 +26,12 @@ class OppsProcessingInformation:
             self.debug_flag = str(java_obj.getDebugFlag()) if java_obj.getDebugFlag() else ""
             self.comment_data = str(java_obj.getCommentData()) if java_obj.getCommentData() else ""
         return self
-    
-    def to_json(self):
-        return {
-            "claim_id": self.claim_id,
-            "return_code": self.return_code,
-            "lines_processed": self.lines_processed,
-            "internal_version": self.internal_version,
-            "version": self.version,
-            "time_started": self.time_started,
-            "time_ended": self.time_ended,
-            "debug_flag": self.debug_flag,
-            "comment_data": self.comment_data
-        }
 
-class OppsOutputDiagnosisCode:
+class OppsOutputDiagnosisCode(BaseModel):
     """Output for diagnosis codes with associated edits"""
-    def __init__(self):
-        self.diagnosis = ""
-        self.present_on_admission = ""
-        self.edit_list = []
+    diagnosis: str = ""
+    present_on_admission: str = ""
+    edit_list: List[str] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -56,19 +43,11 @@ class OppsOutputDiagnosisCode:
                 for edit in java_obj.getEditList():
                     self.edit_list.append(str(edit))
         return self
-    
-    def to_json(self):
-        return {
-            "diagnosis": self.diagnosis,
-            "present_on_admission": self.present_on_admission,
-            "edit_list": self.edit_list
-        }
 
-class OppsOutputHcpcsModifier:
+class OppsOutputHcpcsModifier(BaseModel):
     """Output for HCPCS modifiers with associated edits"""
-    def __init__(self):
-        self.hcpcs_modifier = ""
-        self.edit_list = []
+    hcpcs_modifier: str = ""
+    edit_list: List[str] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -79,61 +58,47 @@ class OppsOutputHcpcsModifier:
                 for edit in java_obj.getEditList():
                     self.edit_list.append(str(edit))
         return self
-    
-    def to_json(self):
-        return {
-            "hcpcs_modifier": self.hcpcs_modifier,
-            "edit_list": self.edit_list
-        }
 
-class OppsOutputValueCode:
+class OppsOutputValueCode(BaseModel):
     """Output for value codes"""
-    def __init__(self):
-        self.code = ""
-        self.value = ""
+    code: str = ""
+    value: str = ""
     
     def from_java(self, java_obj):
         if java_obj is not None:
             self.code = str(java_obj.getCode()) if java_obj.getCode() else ""
             self.value = str(java_obj.getValue()) if java_obj.getValue() else ""
         return self
-    
-    def to_json(self):
-        return {
-            "code": self.code,
-            "value": self.value
-        }
 
-class OppsOutputLineItem:
+class OppsOutputLineItem(BaseModel):
     """Output for line items with all OPPS processing results"""
-    def __init__(self):
-        self.service_date = ""
-        self.revenue_code = ""
-        self.hcpcs = ""
-        self.units_input = ""
-        self.charge = ""
-        self.action_flag_input = ""
-        
-        self.action_flag_output = ""
-        self.rejection_denial_flag = ""
-        self.payment_method_flag = ""
-        self.hcpcs_apc = ""
-        self.payment_apc = ""
-        self.units_output = ""
-        self.status_indicator = ""
-        self.payment_indicator = ""
-        self.packaging_flag = ""
-        self.payment_adjustment_flag01 = ""
-        self.payment_adjustment_flag02 = ""
-        self.discounting_formula = ""
-        self.composite_adjustment_flag = ""
-        
-        self.hcpcs_modifier_input_list = []
-        self.hcpcs_modifier_output_list = []
-        
-        self.hcpcs_edit_list = []
-        self.revenue_edit_list = []
-        self.service_date_edit_list = []
+    service_date: str = ""
+    revenue_code: str = ""
+    hcpcs: str = ""
+    units_input: str = ""
+    charge: str = ""
+    action_flag_input: str = ""
+    
+    action_flag_output: str = ""
+    rejection_denial_flag: str = ""
+    payment_method_flag: str = ""
+    hcpcs_apc: str = ""
+    payment_apc: str = ""
+    units_output: str = ""
+    status_indicator: str = ""
+    payment_indicator: str = ""
+    packaging_flag: str = ""
+    payment_adjustment_flag01: str = ""
+    payment_adjustment_flag02: str = ""
+    discounting_formula: str = ""
+    composite_adjustment_flag: str = ""
+    
+    hcpcs_modifier_input_list: List[OppsOutputHcpcsModifier] = Field(default_factory=list)
+    hcpcs_modifier_output_list: List[OppsOutputHcpcsModifier] = Field(default_factory=list)
+    
+    hcpcs_edit_list: List[str] = Field(default_factory=list)
+    revenue_edit_list: List[str] = Field(default_factory=list)
+    service_date_edit_list: List[str] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -158,94 +123,65 @@ class OppsOutputLineItem:
             self.discounting_formula = str(java_obj.getDiscountingFormula()) if java_obj.getDiscountingFormula() else ""
             self.composite_adjustment_flag = str(java_obj.getCompositeAdjustmentFlag()) if java_obj.getCompositeAdjustmentFlag() else ""
             
-            self.hcpcs_modifier_input_list = []
+            self.hcpcs_modifier_input_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsModifierInputList') and java_obj.getHcpcsModifierInputList():
                 for modifier in java_obj.getHcpcsModifierInputList():
                     self.hcpcs_modifier_input_list.append(OppsOutputHcpcsModifier().from_java(modifier))
             
-            self.hcpcs_modifier_output_list = []
+            self.hcpcs_modifier_output_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsModifierOutputList') and java_obj.getHcpcsModifierOutputList():
                 for modifier in java_obj.getHcpcsModifierOutputList():
                     self.hcpcs_modifier_output_list.append(OppsOutputHcpcsModifier().from_java(modifier))
             
-            self.hcpcs_edit_list = []
+            self.hcpcs_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsEditList') and java_obj.getHcpcsEditList():
                 for edit in java_obj.getHcpcsEditList():
                     self.hcpcs_edit_list.append(str(edit))
             
-            self.revenue_edit_list = []
+            self.revenue_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getRevenueEditList') and java_obj.getRevenueEditList():
                 for edit in java_obj.getRevenueEditList():
                     self.revenue_edit_list.append(str(edit))
             
-            self.service_date_edit_list = []
+            self.service_date_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getServiceDateEditList') and java_obj.getServiceDateEditList():
                 for edit in java_obj.getServiceDateEditList():
                     self.service_date_edit_list.append(str(edit))
         
         return self
-    
-    def to_json(self):
-        return {
-            "service_date": self.service_date,
-            "revenue_code": self.revenue_code,
-            "hcpcs": self.hcpcs,
-            "units_input": self.units_input,
-            "charge": self.charge,
-            "action_flag_input": self.action_flag_input,
-            "action_flag_output": self.action_flag_output,
-            "rejection_denial_flag": self.rejection_denial_flag,
-            "payment_method_flag": self.payment_method_flag,
-            "hcpcs_apc": self.hcpcs_apc,
-            "payment_apc": self.payment_apc,
-            "units_output": self.units_output,
-            "status_indicator": self.status_indicator,
-            "payment_indicator": self.payment_indicator,
-            "packaging_flag": self.packaging_flag,
-            "payment_adjustment_flag01": self.payment_adjustment_flag01,
-            "payment_adjustment_flag02": self.payment_adjustment_flag02,
-            "discounting_formula": self.discounting_formula,
-            "composite_adjustment_flag": self.composite_adjustment_flag,
-            "hcpcs_modifier_input_list": [mod.to_json() for mod in self.hcpcs_modifier_input_list],
-            "hcpcs_modifier_output_list": [mod.to_json() for mod in self.hcpcs_modifier_output_list],
-            "hcpcs_edit_list": self.hcpcs_edit_list,
-            "revenue_edit_list": self.revenue_edit_list,
-            "service_date_edit_list": self.service_date_edit_list
-        }
 
-class OppsOutput:
+class OppsOutput(BaseModel):
     """Main OPPS output class containing all processing results"""
-    def __init__(self):
-        self.processing_information = OppsProcessingInformation()
-        
-        self.version = ""
-        self.claim_processed_flag = ""
-        self.apc_return_buffer_flag = ""
-        self.nopps_bill_flag = ""
-        
-        self.claim_disposition = ""
-        self.claim_rejection_disposition = ""
-        self.claim_denial_disposition = ""
-        self.claim_return_to_provider_disposition = ""
-        self.claim_suspension_disposition = ""
-        self.line_rejection_disposition = ""
-        self.line_denial_disposition = ""
+    processing_information: OppsProcessingInformation = Field(default_factory=OppsProcessingInformation)
+    
+    version: str = ""
+    claim_processed_flag: str = ""
+    apc_return_buffer_flag: str = ""
+    nopps_bill_flag: str = ""
+    
+    claim_disposition: str = ""
+    claim_rejection_disposition: str = ""
+    claim_denial_disposition: str = ""
+    claim_return_to_provider_disposition: str = ""
+    claim_suspension_disposition: str = ""
+    line_rejection_disposition: str = ""
+    line_denial_disposition: str = ""
 
-        self.claim_rejection_edit_list = []
-        self.claim_denial_edit_list = []
-        self.claim_return_to_provider_edit_list = []
-        self.claim_suspension_edit_list = []
-        self.line_rejection_edit_list = []
-        self.line_denial_edit_list = []
-        
-        self.condition_code_output_list = []
-        self.value_code_output_list = []
-        
-        self.principal_diagnosis_code = OppsOutputDiagnosisCode()
-        self.reason_for_visit_diagnosis_code_list = []
-        self.secondary_diagnosis_code_list = []
-        
-        self.line_item_list = []
+    claim_rejection_edit_list: List[str] = Field(default_factory=list)
+    claim_denial_edit_list: List[str] = Field(default_factory=list)
+    claim_return_to_provider_edit_list: List[str] = Field(default_factory=list)
+    claim_suspension_edit_list: List[str] = Field(default_factory=list)
+    line_rejection_edit_list: List[str] = Field(default_factory=list)
+    line_denial_edit_list: List[str] = Field(default_factory=list)
+    
+    condition_code_output_list: List[str] = Field(default_factory=list)
+    value_code_output_list: List[OppsOutputValueCode] = Field(default_factory=list)
+    
+    principal_diagnosis_code: OppsOutputDiagnosisCode = Field(default_factory=OppsOutputDiagnosisCode)
+    reason_for_visit_diagnosis_code_list: List[OppsOutputDiagnosisCode] = Field(default_factory=list)
+    secondary_diagnosis_code_list: List[OppsOutputDiagnosisCode] = Field(default_factory=list)
+    
+    line_item_list: List[OppsOutputLineItem] = Field(default_factory=list)
     
     def from_java(self, java_claim):
         """Extract all output data from the processed Java OceClaim object"""
@@ -269,42 +205,42 @@ class OppsOutput:
             self.line_rejection_disposition = str(java_claim.getLineRejectionDisposition()) if java_claim.getLineRejectionDisposition() else ""
             self.line_denial_disposition = str(java_claim.getLineDenialDisposition()) if java_claim.getLineDenialDisposition() else ""
             
-            self.claim_rejection_edit_list = []
+            self.claim_rejection_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimRejectionEditList') and java_claim.getClaimRejectionEditList():
                 for edit in java_claim.getClaimRejectionEditList():
                     self.claim_rejection_edit_list.append(str(edit))
             
-            self.claim_denial_edit_list = []
+            self.claim_denial_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimDenialEditList') and java_claim.getClaimDenialEditList():
                 for edit in java_claim.getClaimDenialEditList():
                     self.claim_denial_edit_list.append(str(edit))
             
-            self.claim_return_to_provider_edit_list = []
+            self.claim_return_to_provider_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimReturnToProviderEditList') and java_claim.getClaimReturnToProviderEditList():
                 for edit in java_claim.getClaimReturnToProviderEditList():
                     self.claim_return_to_provider_edit_list.append(str(edit))
             
-            self.claim_suspension_edit_list = []
+            self.claim_suspension_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimSuspensionEditList') and java_claim.getClaimSuspensionEditList():
                 for edit in java_claim.getClaimSuspensionEditList():
                     self.claim_suspension_edit_list.append(str(edit))
             
-            self.line_rejection_edit_list = []
+            self.line_rejection_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineRejectionEditList') and java_claim.getLineRejectionEditList():
                 for edit in java_claim.getLineRejectionEditList():
                     self.line_rejection_edit_list.append(str(edit))
             
-            self.line_denial_edit_list = []
+            self.line_denial_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineDenialEditList') and java_claim.getLineDenialEditList():
                 for edit in java_claim.getLineDenialEditList():
                     self.line_denial_edit_list.append(str(edit))
             
-            self.condition_code_output_list = []
+            self.condition_code_output_list = []  # Clear before populating
             if hasattr(java_claim, 'getConditionCodeOutputList') and java_claim.getConditionCodeOutputList():
                 for code in java_claim.getConditionCodeOutputList():
                     self.condition_code_output_list.append(str(code))
             
-            self.value_code_output_list = []
+            self.value_code_output_list = []  # Clear before populating
             if hasattr(java_claim, 'getValueCodeOutputList') and java_claim.getValueCodeOutputList():
                 for value_code in java_claim.getValueCodeOutputList():
                     self.value_code_output_list.append(OppsOutputValueCode().from_java(value_code))
@@ -312,17 +248,17 @@ class OppsOutput:
             if hasattr(java_claim, 'getPrincipalDiagnosisCode') and java_claim.getPrincipalDiagnosisCode():
                 self.principal_diagnosis_code.from_java(java_claim.getPrincipalDiagnosisCode())
             
-            self.reason_for_visit_diagnosis_code_list = []
+            self.reason_for_visit_diagnosis_code_list = []  # Clear before populating
             if hasattr(java_claim, 'getReasonForVisitDiagnosisCodeList') and java_claim.getReasonForVisitDiagnosisCodeList():
                 for dx in java_claim.getReasonForVisitDiagnosisCodeList():
                     self.reason_for_visit_diagnosis_code_list.append(OppsOutputDiagnosisCode().from_java(dx))
             
-            self.secondary_diagnosis_code_list = []
+            self.secondary_diagnosis_code_list = []  # Clear before populating
             if hasattr(java_claim, 'getSecondaryDiagnosisCodeList') and java_claim.getSecondaryDiagnosisCodeList():
                 for dx in java_claim.getSecondaryDiagnosisCodeList():
                     self.secondary_diagnosis_code_list.append(OppsOutputDiagnosisCode().from_java(dx))
             
-            self.line_item_list = []
+            self.line_item_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineItemList') and java_claim.getLineItemList():
                 for line in java_claim.getLineItemList():
                     self.line_item_list.append(OppsOutputLineItem().from_java(line))
@@ -331,34 +267,6 @@ class OppsOutput:
             print(f"Warning: Could not extract some OPPS output fields: {e}")
         
         return self
-    
-    def to_json(self):
-        return {
-            "processing_information": self.processing_information.to_json(),
-            "version": self.version,
-            "claim_processed_flag": self.claim_processed_flag,
-            "apc_return_buffer_flag": self.apc_return_buffer_flag,
-            "nopps_bill_flag": self.nopps_bill_flag,
-            "claim_disposition": self.claim_disposition,
-            "claim_rejection_disposition": self.claim_rejection_disposition,
-            "claim_denial_disposition": self.claim_denial_disposition,
-            "claim_return_to_provider_disposition": self.claim_return_to_provider_disposition,
-            "claim_suspension_disposition": self.claim_suspension_disposition,
-            "line_rejection_disposition": self.line_rejection_disposition,
-            "line_denial_disposition": self.line_denial_disposition,
-            "claim_rejection_edit_list": self.claim_rejection_edit_list,
-            "claim_denial_edit_list": self.claim_denial_edit_list,
-            "claim_return_to_provider_edit_list": self.claim_return_to_provider_edit_list,
-            "claim_suspension_edit_list": self.claim_suspension_edit_list,
-            "line_rejection_edit_list": self.line_rejection_edit_list,
-            "line_denial_edit_list": self.line_denial_edit_list,
-            "condition_code_output_list": self.condition_code_output_list,
-            "value_code_output_list": [vc.to_json() for vc in self.value_code_output_list],
-            "principal_diagnosis_code": self.principal_diagnosis_code.to_json(),
-            "reason_for_visit_diagnosis_code_list": [dx.to_json() for dx in self.reason_for_visit_diagnosis_code_list],
-            "secondary_diagnosis_code_list": [dx.to_json() for dx in self.secondary_diagnosis_code_list],
-            "line_item_list": [line.to_json() for line in self.line_item_list]
-        }
     
     def __str__(self):
         return f"OppsOutput(return_code={self.processing_information.return_code}, lines_processed={self.processing_information.lines_processed})"
