@@ -243,8 +243,10 @@ class OppsOutput(BaseModel):
             self.value_code_output_list = []  # Clear before populating
             if hasattr(java_claim, 'getValueCodeOutputList') and java_claim.getValueCodeOutputList():
                 for value_code in java_claim.getValueCodeOutputList():
-                    self.value_code_output_list.append(OppsOutputValueCode().from_java(value_code))
-            
+                    val_code = OppsOutputValueCode().from_java(value_code)
+                    if val_code.code != "" or val_code.value != "":
+                        self.value_code_output_list.append(val_code)
+
             if hasattr(java_claim, 'getPrincipalDiagnosisCode') and java_claim.getPrincipalDiagnosisCode():
                 self.principal_diagnosis_code.from_java(java_claim.getPrincipalDiagnosisCode())
             
