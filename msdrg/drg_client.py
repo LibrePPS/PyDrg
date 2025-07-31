@@ -1,11 +1,10 @@
 import jpype, json
 from datetime import datetime
-from claim import Claim, DiagnosisCode, ProcedureCode, PoaType
-from claim_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgGrouperFlags, MsdrgOutputPrCode
+from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType
+from msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 from datetime import datetime
 from enum import Enum
 from typing import List
-from tqdm import tqdm
 
 MSDRG_VSTART = "400"
 

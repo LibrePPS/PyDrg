@@ -1,7 +1,8 @@
-from drg_client import DrgClient
+from msdrg.drg_client import DrgClient
+from mce.mce_client import MceClient
 import jpype
 import os
-from claim import Claim, DiagnosisCode, PoaType
+from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType
 import json
 
 def claim_example():
@@ -54,12 +55,20 @@ if __name__ == "__main__":
     jar_path = os.environ.get("MSDRG_JAR_PATH", "jars/*")
     jpype.startJVM(classpath=jar_path)
     drg_client = DrgClient()
+    mce_client = MceClient()
 
     print("=== Claim Example ===")
     claim1 = claim_example()
     output1 = drg_client.process(claim1)
+    #This will trip a duplicate of Dx Edit in the MCE
+    claim1.secondary_dxs[0].code = "A021"
+    #This will trigger a Age Conflict in the MCE
+    claim1.secondary_dxs.append(DiagnosisCode(code="Z059", poa=PoaType.Y))
+    output1_mce = mce_client.process(claim1)
     print(json.dumps(output1.to_json(), indent=2))
-    print()
+    print("=== MCE Output Example ===")
+    print(json.dumps(output1_mce.to_json(), indent=2))
+
 
     print("=== JSON Claim Example ===")
     claim2 = json_claim_example()
