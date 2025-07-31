@@ -126,14 +126,14 @@ if __name__ == "__main__":
     #This will trigger a Age Conflict in the MCE
     claim1.secondary_dxs.append(DiagnosisCode(code="Z059", poa=PoaType.Y))
     output1_mce = mce_client.process(claim1)
-    print(json.dumps(output1.to_json(), indent=2))
+    print(output1.model_dump_json(indent=2))
     print("=== MCE Output Example ===")
-    print(json.dumps(output1_mce.to_json(), indent=2))
+    print(output1_mce.model_dump_json(indent=2))
 
     print("=== JSON Claim Example ===")
     claim2 = json_claim_example()
     output2 = drg_client.process(claim2)
-    print(json.dumps(output2.to_json(), indent=2))
+    print(output2.model_dump_json(indent=2))
 
     print("=== OPPS Claim Example ===")
     opps_claim = opps_claim_example()
