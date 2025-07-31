@@ -101,11 +101,12 @@ class MceOutput:
             #iterate over edit_string characters, the index is the flag number
             edit_flags = []
             for i, char in enumerate(edit_string):
-                edit = DX_EDIT_FLAGS.get(i, "Unknown")
+                edit = DX_EDIT_FLAGS.get(int(i), "Unknown")
                 if char == '1' and isinstance(edit, str):
                     edit_flags.append(edit)
                 elif char != '0' and isinstance(edit, dict):
-                    sub_edit = edit.get(int(char), "Unknown")
+                    #char is a ascii character, convert to int by subtracting 48
+                    sub_edit = edit.get(int(char) - 48, "Unknown")
                     edit_flags.append(sub_edit)
             age_conflict_type = dx.getAgeConflictType()
             if age_conflict_type is not None:
@@ -118,7 +119,7 @@ class MceOutput:
             #iterate over edit_string characters, the index is the flag number
             edit_flags = []
             for i, char in enumerate(edit_string):
-                edit = PX_EDIT_FLAGS.get(i, "Unknown")
+                edit = PX_EDIT_FLAGS.get(int(i), "Unknown")
                 if char == '1' and isinstance(edit, str):
                     edit_flags.append(edit)
                 elif char != '0' and isinstance(edit, dict):
