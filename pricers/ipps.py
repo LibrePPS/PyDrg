@@ -6,7 +6,299 @@ from input.claim import Claim
 from msdrg.msdrg_output import MsdrgOutput
 from pricers.ipsf import IPSFProvider
 import sqlite3
+from pydantic import BaseModel, Field
+from typing import Optional
 
+def float_or_none(value):
+    """
+    Convert a value to float or return None if conversion fails.
+    """
+    if value is None:
+        return None
+    try:
+        return float(value.floatValue())
+    except (ValueError, TypeError) as e:
+        return None
+
+class AdditionalCapitalVariableData(BaseModel):
+    capital_cost_outlier: Optional[float] = 0.0
+    capital_disproportionate_share_hospital_adjustment: Optional[float] = 0.0
+    capital_disproportionate_share_hospital_amount: Optional[float] = 0.0
+    capital_exception_amount: Optional[float] = None
+    capital_federal_rate: Optional[float] = 0.0
+    capital_federal_specific_portion: Optional[float] = 0.0
+    capital_federal_specific_portion_2b: Optional[float] = 0.0
+    capital_federal_specific_portion_percent: Optional[float] = 0.0
+    capital_geographic_adjustment_factor: Optional[float] = 1.0
+    capital_hospital_specific_portion: Optional[float] = None
+    capital_hospital_specific_portion_part: Optional[float] = None
+    capital_hospital_specific_portion_percent: Optional[float] = None
+    capital_indirect_medical_education_adjustment: Optional[float] = 0.0
+    capital_indirect_medical_education_amount: Optional[float] = 0.0
+    capital_large_urban_factor: Optional[float] = 1
+    capital_old_hold_harmless_amount: Optional[float] = None
+    capital_old_hold_harmless_rate: Optional[float] = None
+    capital_outlier: Optional[float] = None
+    capital_outlier_2b: Optional[float] = None
+    capital_payment_code: Optional[str] = None
+    capital_total_payment: Optional[float] = 0.0
+
+    def from_java(self, java_obj):
+        self.capital_cost_outlier = float_or_none(java_obj.getCapitalCostOutlier())
+        self.capital_disproportionate_share_hospital_adjustment = float_or_none(java_obj.getCapitalDisproportionateShareHospitalAdjustment())
+        self.capital_disproportionate_share_hospital_amount = float_or_none(java_obj.getCapitalDisproportionateShareHospitalAmount())
+        self.capital_exception_amount = float_or_none(java_obj.getCapitalExceptionAmount())
+        self.capital_federal_rate = float_or_none(java_obj.getCapitalFederalRate())
+        self.capital_federal_specific_portion = float_or_none(java_obj.getCapitalFederalSpecificPortion())
+        self.capital_federal_specific_portion_2b = float_or_none(java_obj.getCapitalFederalSpecificPortion2B())
+        self.capital_federal_specific_portion_percent = float_or_none(java_obj.getCapitalFederalSpecificPortionPercent())
+        self.capital_geographic_adjustment_factor = float_or_none(java_obj.getCapitalGeographicAdjustmentFactor())
+        self.capital_hospital_specific_portion = float_or_none(java_obj.getCapitalHospitalSpecificPortion())
+        self.capital_hospital_specific_portion_part = float_or_none(java_obj.getCapitalHospitalSpecificPortionPart())
+        self.capital_hospital_specific_portion_percent = float_or_none(java_obj.getCapitalHospitalSpecificPortionPercent())
+        self.capital_indirect_medical_education_adjustment = float_or_none(java_obj.getCapitalIndirectMedicalEducationAdjustment())
+        self.capital_indirect_medical_education_amount = float_or_none(java_obj.getCapitalIndirectMedicalEducationAmount())
+        self.capital_large_urban_factor = float_or_none(java_obj.getCapitalLargeUrbanFactor())
+        self.capital_old_hold_harmless_amount = float_or_none(java_obj.getCapitalOldHoldHarmlessAmount())
+        self.capital_old_hold_harmless_rate = float_or_none(java_obj.getCapitalOldHoldHarmlessRate())
+        self.capital_outlier = float_or_none(java_obj.getCapitalOutlier())
+        self.capital_outlier_2b = float_or_none(java_obj.getCapitalOutlier2B())
+        self.capital_payment_code = str(java_obj.getCapitalPaymentCode())
+        self.capital_total_payment = float_or_none(java_obj.getCapitalTotalPayment())
+
+    def to_json(self):
+        return {
+            "capital_cost_outlier": self.capital_cost_outlier,
+            "capital_disproportionate_share_hospital_adjustment": self.capital_disproportionate_share_hospital_adjustment,
+            "capital_disproportionate_share_hospital_amount": self.capital_disproportionate_share_hospital_amount,
+            "capital_exception_amount": self.capital_exception_amount,
+            "capital_federal_rate": self.capital_federal_rate,
+            "capital_federal_specific_portion": self.capital_federal_specific_portion,
+            "capital_federal_specific_portion_2b": self.capital_federal_specific_portion_2b,
+            "capital_federal_specific_portion_percent": self.capital_federal_specific_portion_percent,
+            "capital_geographic_adjustment_factor": self.capital_geographic_adjustment_factor,
+            "capital_hospital_specific_portion": self.capital_hospital_specific_portion,
+            "capital_hospital_specific_portion_part": self.capital_hospital_specific_portion_part,
+            "capital_hospital_specific_portion_percent": self.capital_hospital_specific_portion_percent,
+            "capital_indirect_medical_education_adjustment": self.capital_indirect_medical_education_adjustment,
+            "capital_indirect_medical_education_amount": self.capital_indirect_medical_education_amount,
+            "capital_large_urban_factor": self.capital_large_urban_factor,
+            "capital_old_hold_harmless_amount": self.capital_old_hold_harmless_amount,
+            "capital_old_hold_harmless_rate": self.capital_old_hold_harmless_rate,
+            "capital_outlier": self.capital_outlier,
+            "capital_outlier_2b": self.capital_outlier_2b,
+            "capital_payment_code": self.capital_payment_code,
+            "capital_total_payment": self.capital_total_payment
+        }
+
+class AdditionalOperatingVariableData(BaseModel):
+    operating_base_drg_payment: Optional[float] = 0.0
+    operating_disproportionate_share_hospital_amount: Optional[float] = 0.0
+    operating_disproportionate_share_hospital_ratio: Optional[float] = 0.0
+    operating_dollar_threshold: Optional[float] = 0.0
+    operating_federal_specific_portion_part: Optional[float] = 0.0
+    operating_hospital_specific_portion_part: Optional[float] = 0.0
+    operating_indirect_medical_education_amount: Optional[float] = 0.0
+
+    def from_java(self, java_obj):
+        self.operating_base_drg_payment = float_or_none(java_obj.getOperatingBaseDrgPayment())
+        self.operating_disproportionate_share_hospital_amount = float_or_none(java_obj.getOperatingDisproportionateShareHospitalAmount())
+        self.operating_disproportionate_share_hospital_ratio = float_or_none(java_obj.getOperatingDisproportionateShareHospitalRatio())
+        self.operating_dollar_threshold = float_or_none(java_obj.getOperatingDollarThreshold())
+        self.operating_federal_specific_portion_part = float_or_none(java_obj.getOperatingFederalSpecificPortionPart())
+        self.operating_hospital_specific_portion_part = float_or_none(java_obj.getOperatingHospitalSpecificPortionPart())
+        self.operating_indirect_medical_education_amount = float_or_none(java_obj.getOperatingIndirectMedicalEducationAmount())
+
+    def to_json(self):
+        return {
+            "operating_base_drg_payment": self.operating_base_drg_payment,
+            "operating_disproportionate_share_hospital_amount": self.operating_disproportionate_share_hospital_amount,
+            "operating_disproportionate_share_hospital_ratio": self.operating_disproportionate_share_hospital_ratio,
+            "operating_dollar_threshold": self.operating_dollar_threshold,
+            "operating_federal_specific_portion_part": self.operating_federal_specific_portion_part,
+            "operating_hospital_specific_portion_part": self.operating_hospital_specific_portion_part,
+            "operating_indirect_medical_education_amount": self.operating_indirect_medical_education_amount
+        }
+
+class AdditionalPaymentInformationData(BaseModel):
+    bundled_adjustment_payment: Optional[float] = None
+    electronic_health_record_adjustment_payment: Optional[float] = None
+    hospital_acquired_condition_payment: Optional[float] = None
+    hospital_readmission_reduction_adjustment_payment: Optional[float] = 0.0
+    standard_value: Optional[float] = 0.0
+    uncompensated_care_payment: Optional[float] = 0.0
+    value_based_purchasing_adjustment_payment: Optional[float] = 0.0
+
+    def from_java(self, java_obj):
+        self.bundled_adjustment_payment = float_or_none(java_obj.getBundledAdjustmentPayment())
+        self.electronic_health_record_adjustment_payment = float_or_none(java_obj.getElectronicHealthRecordAdjustmentPayment())
+        self.hospital_acquired_condition_payment = float_or_none(java_obj.getHospitalAcquiredConditionPayment())
+        self.hospital_readmission_reduction_adjustment_payment = float_or_none(java_obj.getHospitalReadmissionReductionAdjustmentPayment())
+        self.standard_value = float_or_none(java_obj.getStandardValue())
+        self.uncompensated_care_payment = float_or_none(java_obj.getUncompensatedCarePayment())
+        self.value_based_purchasing_adjustment_payment = float_or_none(java_obj.getValueBasedPurchasingAdjustmentPayment())
+
+    def to_json(self):
+        return {
+            "bundled_adjustment_payment": self.bundled_adjustment_payment,
+            "electronic_health_record_adjustment_payment": self.electronic_health_record_adjustment_payment,
+            "hospital_acquired_condition_payment": self.hospital_acquired_condition_payment,
+            "hospital_readmission_reduction_adjustment_payment": self.hospital_readmission_reduction_adjustment_payment,
+            "standard_value": self.standard_value,
+            "uncompensated_care_payment": self.uncompensated_care_payment,
+            "value_based_purchasing_adjustment_payment": self.value_based_purchasing_adjustment_payment
+        }
+
+class AdditionalCalculationVariableData(BaseModel):
+    additional_capital_variables: AdditionalCapitalVariableData = AdditionalCapitalVariableData()
+    additional_operating_variables: AdditionalOperatingVariableData = AdditionalOperatingVariableData()
+    additional_payment_information: AdditionalPaymentInformationData = AdditionalPaymentInformationData()
+    cost_threshold: Optional[float] = 0.0
+    discharge_fraction: Optional[float] = 1.0
+    drg_relative_weight: Optional[float] = 0.0
+    drg_relative_weight_fraction: Optional[float] = 0.0
+    federal_specific_portion_percent: Optional[float] = 1.0
+    flx7_payment: Optional[float] = 0.0
+    hospital_readmission_reduction_adjustment: Optional[float] = 1.0
+    hospital_readmission_reduction_indicator: Optional[str] = ""
+    hospital_specific_portion_percent: Optional[float] = None
+    hospital_specific_portion_rate: Optional[float] = 0.0
+    islet_isolation_add_on_payment: Optional[float] = None
+    low_volume_payment: Optional[float] = None
+    national_labor_cost: Optional[float] = 0.0
+    national_labor_percent: Optional[float] = 0.62
+    national_non_labor_cost: Optional[float] = 0.0
+    national_non_labor_percent: Optional[float] = 0.38
+    national_percent: Optional[float] = 1.0
+    new_technology_add_on_payment: Optional[float] = None
+    passthrough_total_plus_misc: Optional[float] = None
+    regular_labor_cost: Optional[float] = 0.0
+    regular_non_labor_cost: Optional[float] = 0.0
+    regular_percent: Optional[float] = None
+    value_based_purchasing_adjustment_amount: Optional[float] = 1.0
+    value_based_purchasing_participant_indicator: Optional[str] = "Y"
+    wage_index: Optional[float] = 1.0
+
+    def from_java(self, java_obj):
+        self.additional_payment_information = AdditionalPaymentInformationData()
+        self.additional_payment_information.from_java(java_obj.getAdditionalPaymentInformation())
+        self.additional_capital_variables = AdditionalCapitalVariableData()
+        self.additional_capital_variables.from_java(java_obj.getAdditionalCapitalVariables())
+        self.additional_operating_variables = AdditionalOperatingVariableData()
+        self.additional_operating_variables.from_java(java_obj.getAdditionalOperatingVariables())
+        self.cost_threshold = float_or_none(java_obj.getCostThreshold())
+        self.discharge_fraction = float_or_none(java_obj.getDischargeFraction())
+        self.drg_relative_weight = float_or_none(java_obj.getDrgRelativeWeight())
+        self.drg_relative_weight_fraction = float_or_none(java_obj.getDrgRelativeWeightFraction())
+        self.federal_specific_portion_percent = float_or_none(java_obj.getFederalSpecificPortionPercent())
+        self.flx7_payment = float_or_none(java_obj.getFlx7Payment())
+        self.hospital_readmission_reduction_adjustment = float_or_none(java_obj.getHospitalReadmissionReductionAdjustment())
+        self.hospital_readmission_reduction_indicator = str(java_obj.getHospitalReadmissionReductionIndicator())
+        self.hospital_specific_portion_percent = float_or_none(java_obj.getHospitalSpecificPortionPercent())
+        self.hospital_specific_portion_rate = float_or_none(java_obj.getHospitalSpecificPortionRate())
+        self.islet_isolation_add_on_payment = float_or_none(java_obj.getIsletIsolationAddOnPayment())
+        self.low_volume_payment = float_or_none(java_obj.getLowVolumePayment())
+        self.national_labor_cost = float_or_none(java_obj.getNationalLaborCost())
+        self.national_labor_percent = float_or_none(java_obj.getNationalLaborPercent())
+        self.national_non_labor_cost = float_or_none(java_obj.getNationalNonLaborCost())
+        self.national_non_labor_percent = float_or_none(java_obj.getNationalNonLaborPercent())
+        self.national_percent = float_or_none(java_obj.getNationalPercent())
+        self.new_technology_add_on_payment = float_or_none(java_obj.getNewTechnologyAddOnPayment())
+        self.passthrough_total_plus_misc = float_or_none(java_obj.getPassthroughTotalPlusMisc())
+        self.regular_labor_cost = float_or_none(java_obj.getRegularLaborCost())
+        self.regular_non_labor_cost = float_or_none(java_obj.getRegularNonLaborCost())
+        self.regular_percent = float_or_none(java_obj.getRegularPercent())
+        self.value_based_purchasing_adjustment_amount = float_or_none(java_obj.getValueBasedPurchasingAdjustmentAmount())
+        self.value_based_purchasing_participant_indicator = str(java_obj.getValueBasedPurchasingParticipantIndicator())
+        self.wage_index = float_or_none(java_obj.getWageIndex())
+
+    def to_json(self):
+        return {
+            "cost_threshold": self.cost_threshold,
+            "discharge_fraction": self.discharge_fraction,
+            "drg_relative_weight": self.drg_relative_weight,
+            "drg_relative_weight_fraction": self.drg_relative_weight_fraction,
+            "federal_specific_portion_percent": self.federal_specific_portion_percent,
+            "flx7_payment": self.flx7_payment,
+            "hospital_readmission_reduction_adjustment": self.hospital_readmission_reduction_adjustment,
+            "hospital_readmission_reduction_indicator": self.hospital_readmission_reduction_indicator,
+            "hospital_specific_portion_percent": self.hospital_specific_portion_percent,
+            "hospital_specific_portion_rate": self.hospital_specific_portion_rate,
+            "islet_isolation_add_on_payment": self.islet_isolation_add_on_payment,
+            "low_volume_payment": self.low_volume_payment,
+            "national_labor_cost": self.national_labor_cost,
+            "national_labor_percent": self.national_labor_percent,
+            "national_non_labor_cost": self.national_non_labor_cost,
+            "national_non_labor_percent": self.national_non_labor_percent,
+            "national_percent": self.national_percent,
+            "new_technology_add_on_payment": self.new_technology_add_on_payment,
+            "passthrough_total_plus_misc": self.passthrough_total_plus_misc,
+            "regular_labor_cost": self.regular_labor_cost,
+            "regular_non_labor_cost": self.regular_non_labor_cost,
+            "regular_percent": self.regular_percent,
+            "value_based_purchasing_adjustment_amount": self.value_based_purchasing_adjustment_amount,
+            "value_based_purchasing_participant_indicator": self.value_based_purchasing_participant_indicator,
+            "wage_index": self.wage_index,
+            "additional_capital_variables": self.additional_capital_variables.to_json(),
+            "additional_operating_variables": self.additional_operating_variables.to_json(),
+            "additional_payment_information": self.additional_payment_information.to_json()
+        }
+
+class IppsOutput(BaseModel):
+    """
+    Represents the output of the IPPS pricer.
+
+            self.ipps_output.?.average_los = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getAverageLengthOfStay").?.method, f64);
+        self.ipps_output.?.days_cutoff = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getDaysCutoff").?.method, f64);
+        self.ipps_output.?.lifetime_reserve_days_used = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getLifetimeReserveDaysUsed").?.method, false);
+        self.ipps_output.?.operating_dsh_adjustment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingDisproportionateShareHospitalAdjustment").?.method, f64);
+        self.ipps_output.?.operating_fsp_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingFederalSpecificPortionPart").?.method, f64);
+        self.ipps_output.?.operating_hsp_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingHospitalSpecificPortionPart").?.method, f64);
+        self.ipps_output.?.operating_ime_adjustment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingIndirectMedicalEducationAdjustment").?.method, f64);
+        self.ipps_output.?.operating_outlier_payment_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingOutlierPaymentPart").?.method, f64);
+        self.ipps_output.?.outlier_days = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getOutlierDays").?.method, false);
+        self.ipps_output.?.regular_days_used = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getRegularDaysUsed").?.method, false);
+        self.ipps_output.?.final_cbsa = libre_env.getJavaString(payment_data, payment_data_methods.getPtr("getFinalCbsa").?.method, &self.allocator, null);
+        self.ipps_output.?.final_wage_index = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getFinalWageIndex").?.method, f64);
+        self.ipps_output.?.total_payment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getTotalPayment").?.method, f64);
+
+    """
+    average_length_of_stay: Optional[float] = None
+    days_cutoff: Optional[float] = None
+    lifetime_reserved_days_used: Optional[int] = 0
+    operating_dsh_adjustment: Optional[float] = 0.0
+    operating_fsp_part: Optional[float] = 0.0
+    operating_hsp_part: Optional[float] = 0.0
+    operating_ime_adjustment: Optional[float] = 0.0
+    operating_outlier_payment_part: Optional[float] = 0.0
+    outlier_days: Optional[int] = 0
+    regular_days_used: Optional[int] = 0
+    final_cbsa: Optional[str] = None
+    final_wage_index: Optional[float] = 1.0
+    total_payment: Optional[float] = 0.0
+    additional_calculation_variables: AdditionalCalculationVariableData = AdditionalCalculationVariableData()
+
+    def from_java(self, java_obj):
+        payment_data = java_obj.getPaymentData()
+        self.average_length_of_stay = float_or_none(payment_data.getAverageLengthOfStay())
+        self.days_cutoff = float_or_none(payment_data.getDaysCutoff())
+        self.lifetime_reserved_days_used = payment_data.getLifetimeReserveDaysUsed() if payment_data.getLifetimeReserveDaysUsed() is not None else 0
+        self.operating_dsh_adjustment = float_or_none(payment_data.getOperatingDisproportionateShareHospitalAdjustment())
+        self.operating_fsp_part = float_or_none(payment_data.getOperatingFederalSpecificPortionPart())
+        self.operating_hsp_part = float_or_none(payment_data.getOperatingHospitalSpecificPortionPart())
+        self.operating_ime_adjustment = float_or_none(payment_data.getOperatingIndirectMedicalEducationAdjustment())
+        self.operating_outlier_payment_part = float_or_none(payment_data.getOperatingOutlierPaymentPart())
+        self.outlier_days = payment_data.getOutlierDays() if payment_data.getOutlierDays() is not None else 0
+        self.regular_days_used = payment_data.getRegularDaysUsed() if payment_data.getRegularDaysUsed() is not None else 0
+        self.final_cbsa = str(payment_data.getFinalCbsa()) if payment_data.getFinalCbsa() is not None else None
+        self.final_wage_index = float_or_none(payment_data.getFinalWageIndex())
+        self.total_payment = float_or_none(payment_data.getTotalPayment())
+        self.additional_calculation_variables.from_java(java_obj.getAdditionalCalculationVariables())
+
+    def to_json(self):
+        return {
+            "additional_calculation_variables": self.additional_calculation_variables.to_json(),
+        }
 
 class IppsClient:
     def __init__(self, jar_path=None, db:sqlite3.Connection=None):
@@ -224,6 +516,6 @@ class IppsClient:
         
         self.create_input_claim(claim, drg_output)
         self.pricing_response = self.dispatch_obj.process(self.pricing_request)
-        print(self.pricing_response.toString())
-
-        return
+        ipps_output = IppsOutput()
+        ipps_output.from_java(self.pricing_response)
+        return ipps_output
