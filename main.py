@@ -3,8 +3,9 @@ from mce.mce_client import MceClient
 from opps.opps_client import OppsClient
 import jpype
 import os
-from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, LineItem, ValueCode
-import json
+from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, LineItem, ValueCode,Provider
+from pricers.ipps import IppsClient
+from pricers.ipsf import IPSFDatabase
 
 def claim_example():
     claim = Claim()
@@ -18,6 +19,8 @@ def claim_example():
     claim.thru_date = "2025-07-10"
     claim.los = 9
     claim.secondary_dxs.append(DiagnosisCode(code="I82411", poa=PoaType.N))
+    claim.billing_provider = Provider()
+    claim.billing_provider.other_id = "010001"
     return claim
 
 def opps_claim_example():
@@ -144,3 +147,13 @@ if __name__ == "__main__":
     print("=== OPPS Descriptions ===")
     descriptions = opps_client.get_descriptions(opps_claim, opps_output)
     print(descriptions)
+
+    # IPPS Pricer Example
+    db_path = "./ipsf_data.db"
+    ipsf_db = IPSFDatabase(db_path)
+    #ipsf_db.to_sqlite() #<-- This only needs to be run once to create the database
+    print("=== IPPS Pricer Example ===")
+    ipps_client = IppsClient("/home/jjw07006/Deveolpment/pydrg/pricer_jars/ipps-pricer-application-2.10.0.jar", ipsf_db.connection)
+    ipps_claim = claim_example()
+    drg_output = drg_client.process(ipps_claim)
+    ipps_client.process(ipps_claim, drg_output)
