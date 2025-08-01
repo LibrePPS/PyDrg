@@ -153,7 +153,7 @@ if __name__ == "__main__":
     ipsf_db = IPSFDatabase(db_path)
     #ipsf_db.to_sqlite() #<-- This only needs to be run once to create the database
     print("=== IPPS Pricer Example ===")
-    ipps_client = IppsClient("/home/jjw07006/Deveolpment/pydrg/pricer_jars/ipps-pricer-application-2.10.0.jar", ipsf_db.connection)
+    ipps_client = IppsClient("/home/jjw07006/Deveolpment/pydrg/jars/ipps-pricer-application-2.10.0.jar", ipsf_db.connection)
     ipps_claim = claim_example()
     drg_output = drg_client.process(ipps_claim)
     ipps_client.process(ipps_claim, drg_output)

@@ -44,6 +44,7 @@ class IppsClient:
         self.java_date_class = jpype.JClass("java.time.LocalDate", loader=self.url_loader.class_loader)
         self.java_data_formatter = jpype.JClass("java.time.format.DateTimeFormatter", loader=self.url_loader.class_loader)
         self.java_big_decimal_class = jpype.JClass("java.math.BigDecimal", loader=self.url_loader.class_loader)
+        self.java_string_class = jpype.JClass("java.lang.String", loader=self.url_loader.class_loader)
 
     def py_date_to_java_date(self, py_date):
         """
@@ -62,6 +63,15 @@ class IppsClient:
                 return self.py_date_to_java_date(date)
             except ValueError:
                 raise ValueError(f"Invalid date format: {py_date}. Expected format is YYYY-MM-DD.")
+        elif isinstance(py_date, int):
+            #Assuming the int is in YYYYMMDD format
+            date_str = str(py_date)
+            if len(date_str) != 8:
+                raise ValueError(f"Invalid date integer: {py_date}. Expected format is YYYYMMDD.")
+            formatter = self.java_data_formatter.ofPattern("yyyyMMdd")
+            return self.java_date_class.parse(date_str, formatter)
+        else:
+            raise TypeError(f"Unsupported date type: {type(py_date)}. Expected datetime, str, or int in YYYYMMDD format.")
 
     def pricer_setup(self):
         self.ipps_config_obj = self.ipps_price_config()
@@ -72,8 +82,8 @@ class IppsClient:
         today = datetime.now()
         year = today.year
         supported_years = self.array_list_class()
-        while year >= today.year - 4:
-            supported_years.add(jpype.JInt(year))
+        while year >= today.year - 3:
+            supported_years.add(self.java_integer_class(year))
             year -= 1
         self.ipps_config_obj.setSupportedYears(supported_years)
         self.ipps_data_tables_class.loadDataTables(self.ipps_config_obj)
@@ -86,6 +96,13 @@ class IppsClient:
         provider_data = self.inpatient_prov_data()
         self.pricing_request = self.ipps_price_request()
 
+        #@TODO All these fields need to be added to Claim object
+        claim_object.setReviewCode("00")
+        demo_codes = self.array_list_class()
+        claim_object.setDemoCodes(demo_codes)
+        claim_object.setLifetimeReserveDays(self.java_integer_class(60))
+        claim_object.setMidnightAdjustmentGeolocation("")
+        #--------------------------------------------------
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
         if claim.los < claim.non_covered_days:
             raise ValueError("LOS cannot be less than non-covered days")
@@ -97,6 +114,8 @@ class IppsClient:
         claim_object.setLengthOfStay(self.java_integer_class(claim.los))
         if claim.billing_provider is not None:
             claim_object.setProviderCcn(claim.billing_provider.other_id)
+        print(f"\n\nCovered Days: {claim_object.getCoveredDays()}")
+        print(f"\n\nLOS: {claim_object.getLengthOfStay()}")
         
         java_dxs = self.array_list_class()
         if claim.principal_dx is not None:
@@ -153,12 +172,12 @@ class IppsClient:
         provider_data.setCapitalExceptionPaymentRate(self.java_big_decimal_class(ipsf_provider.capital_exception_payment_rate))
         provider_data.setCapitalIndirectMedicalEducationRatio(self.java_big_decimal_class(ipsf_provider.capital_indirect_medical_education_ratio))
         provider_data.setCapitalPpsPaymentCode(ipsf_provider.capital_pps_payment_code)
-        provider_data.setCbsaActualGeographicLocation(ipsf_provider.cbsa_actual_geographic_location)
-        provider_data.setCbsaWageIndexLocation(ipsf_provider.cbsa_wi_location)
-        provider_data.setCbsaStandardizedAmountLocation(ipsf_provider.cbsa_standardized_amount_location)
-        provider_data.setEhrReductionIndicator(ipsf_provider.ehr_reduction_indicator)
-        provider_data.setFederalPpsBlend(ipsf_provider.federal_pps_blend)
-        provider_data.setHacReductionParticipantIndicator(ipsf_provider.hac_reduction_participant_indicator)
+        provider_data.setCbsaActualGeographicLocation(str(ipsf_provider.cbsa_actual_geographic_location))
+        provider_data.setCbsaWageIndexLocation(str(ipsf_provider.cbsa_wi_location))
+        provider_data.setCbsaStandardizedAmountLocation(str(ipsf_provider.cbsa_standardized_amount_location))
+        provider_data.setEhrReductionIndicator(str(ipsf_provider.ehr_reduction_indicator))
+        provider_data.setFederalPpsBlend(str(ipsf_provider.federal_pps_blend))
+        provider_data.setHacReductionParticipantIndicator(str(ipsf_provider.hac_reduction_participant_indicator))
         provider_data.setHrrAdjustment(self.java_big_decimal_class(ipsf_provider.hrr_adjustment))
         provider_data.setHrrParticipantIndicator(str(ipsf_provider.hrr_participant_indicator))
         provider_data.setInternsToBedsRatio(self.java_big_decimal_class(ipsf_provider.interns_to_beds_ratio))
@@ -191,7 +210,6 @@ class IppsClient:
         provider_data.setEffectiveDate(self.py_date_to_java_date(ipsf_provider.effective_date))
         provider_data.setTerminationDate(self.py_date_to_java_date(ipsf_provider.termination_date))
         provider_data.setFiscalYearBeginDate(self.py_date_to_java_date(ipsf_provider.fiscal_year_begin_date))
-
         self.pricing_request.setProviderData(provider_data)
         return
     
@@ -208,6 +226,6 @@ class IppsClient:
         
         self.create_input_claim(claim, drg_output)
         self.pricing_response = self.dispatch_obj.process(self.pricing_request)
-        print(self.pricing_response.toString())
-            
+        print(self.pricing_response.toString())        
+
         return

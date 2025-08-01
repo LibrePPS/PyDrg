@@ -237,6 +237,8 @@ class IPSFProvider(BaseModel):
                     setattr(self, key, val)
                 else:
                     setattr(self, key, row[value['position']])
+            if self.termination_date == 19000101 or self.termination_date == 0:
+                self.termination_date = 20991231
             return
         else:
             raise ValueError(f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}.")
