@@ -157,3 +157,5 @@ if __name__ == "__main__":
     ipps_claim = claim_example()
     drg_output = drg_client.process(ipps_claim)
     ipps_client.process(ipps_claim, drg_output)
+
+    

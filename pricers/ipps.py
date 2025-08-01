@@ -100,7 +100,7 @@ class IppsClient:
         claim_object.setReviewCode("00")
         demo_codes = self.array_list_class()
         claim_object.setDemoCodes(demo_codes)
-        claim_object.setLifetimeReserveDays(self.java_integer_class(60))
+        claim_object.setLifetimeReserveDays(self.java_integer_class(0))
         claim_object.setMidnightAdjustmentGeolocation("")
         #--------------------------------------------------
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
@@ -114,8 +114,6 @@ class IppsClient:
         claim_object.setLengthOfStay(self.java_integer_class(claim.los))
         if claim.billing_provider is not None:
             claim_object.setProviderCcn(claim.billing_provider.other_id)
-        print(f"\n\nCovered Days: {claim_object.getCoveredDays()}")
-        print(f"\n\nLOS: {claim_object.getLengthOfStay()}")
         
         java_dxs = self.array_list_class()
         if claim.principal_dx is not None:
@@ -226,6 +224,6 @@ class IppsClient:
         
         self.create_input_claim(claim, drg_output)
         self.pricing_response = self.dispatch_obj.process(self.pricing_request)
-        print(self.pricing_response.toString())        
+        print(self.pricing_response.toString())
 
         return
