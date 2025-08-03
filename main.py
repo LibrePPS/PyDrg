@@ -1,6 +1,6 @@
 from msdrg.drg_client import DrgClient
 from mce.mce_client import MceClient
-from opps.opps_client import OppsClient
+from ioce.ioce_client import IoceClient
 import jpype
 import os
 from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, LineItem, ValueCode,Provider
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     jpype.startJVM(classpath="jars/*")
     drg_client = DrgClient()
     mce_client = MceClient()
-    opps_client = OppsClient()
+    ioce_client = IoceClient()
 
     print("=== Claim Example ===")
     claim1 = claim_example()
@@ -140,12 +140,12 @@ if __name__ == "__main__":
 
     print("=== OPPS Claim Example ===")
     opps_claim = opps_claim_example()
-    opps_output = opps_client.process(opps_claim)
+    opps_output = ioce_client.process(opps_claim)
     print(opps_output.model_dump_json(indent=2))
     
     # Get descriptions for OPPS output
     print("=== OPPS Descriptions ===")
-    descriptions = opps_client.get_descriptions(opps_claim, opps_output)
+    descriptions = ioce_client.get_descriptions(opps_claim, opps_output)
     print(descriptions)
 
     # IPPS Pricer Example

@@ -2,7 +2,7 @@ import jpype
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-class OppsProcessingInformation(BaseModel):
+class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
     claim_id: str = ""
     return_code: int = 0
@@ -27,7 +27,7 @@ class OppsProcessingInformation(BaseModel):
             self.comment_data = str(java_obj.getCommentData()) if java_obj.getCommentData() else ""
         return self
 
-class OppsOutputDiagnosisCode(BaseModel):
+class IoceOutputDiagnosisCode(BaseModel):
     """Output for diagnosis codes with associated edits"""
     diagnosis: str = ""
     present_on_admission: str = ""
@@ -44,7 +44,7 @@ class OppsOutputDiagnosisCode(BaseModel):
                     self.edit_list.append(str(edit))
         return self
 
-class OppsOutputHcpcsModifier(BaseModel):
+class IoceOutputHcpcsModifier(BaseModel):
     """Output for HCPCS modifiers with associated edits"""
     hcpcs_modifier: str = ""
     edit_list: List[str] = Field(default_factory=list)
@@ -59,7 +59,7 @@ class OppsOutputHcpcsModifier(BaseModel):
                     self.edit_list.append(str(edit))
         return self
 
-class OppsOutputValueCode(BaseModel):
+class IoceOutputValueCode(BaseModel):
     """Output for value codes"""
     code: str = ""
     value: str = ""
@@ -70,7 +70,7 @@ class OppsOutputValueCode(BaseModel):
             self.value = str(java_obj.getValue()) if java_obj.getValue() else ""
         return self
 
-class OppsOutputLineItem(BaseModel):
+class IoceOutputLineItem(BaseModel):
     """Output for line items with all OPPS processing results"""
     service_date: str = ""
     revenue_code: str = ""
@@ -93,8 +93,8 @@ class OppsOutputLineItem(BaseModel):
     discounting_formula: str = ""
     composite_adjustment_flag: str = ""
     
-    hcpcs_modifier_input_list: List[OppsOutputHcpcsModifier] = Field(default_factory=list)
-    hcpcs_modifier_output_list: List[OppsOutputHcpcsModifier] = Field(default_factory=list)
+    hcpcs_modifier_input_list: List[IoceOutputHcpcsModifier] = Field(default_factory=list)
+    hcpcs_modifier_output_list: List[IoceOutputHcpcsModifier] = Field(default_factory=list)
     
     hcpcs_edit_list: List[str] = Field(default_factory=list)
     revenue_edit_list: List[str] = Field(default_factory=list)
@@ -126,12 +126,12 @@ class OppsOutputLineItem(BaseModel):
             self.hcpcs_modifier_input_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsModifierInputList') and java_obj.getHcpcsModifierInputList():
                 for modifier in java_obj.getHcpcsModifierInputList():
-                    self.hcpcs_modifier_input_list.append(OppsOutputHcpcsModifier().from_java(modifier))
+                    self.hcpcs_modifier_input_list.append(IoceOutputHcpcsModifier().from_java(modifier))
             
             self.hcpcs_modifier_output_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsModifierOutputList') and java_obj.getHcpcsModifierOutputList():
                 for modifier in java_obj.getHcpcsModifierOutputList():
-                    self.hcpcs_modifier_output_list.append(OppsOutputHcpcsModifier().from_java(modifier))
+                    self.hcpcs_modifier_output_list.append(IoceOutputHcpcsModifier().from_java(modifier))
             
             self.hcpcs_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsEditList') and java_obj.getHcpcsEditList():
@@ -150,9 +150,9 @@ class OppsOutputLineItem(BaseModel):
         
         return self
 
-class OppsOutput(BaseModel):
+class IoceOutput(BaseModel):
     """Main OPPS output class containing all processing results"""
-    processing_information: OppsProcessingInformation = Field(default_factory=OppsProcessingInformation)
+    processing_information: IoceProcessingInformation = Field(default_factory=IoceProcessingInformation)
     
     version: str = ""
     claim_processed_flag: str = ""
@@ -175,13 +175,13 @@ class OppsOutput(BaseModel):
     line_denial_edit_list: List[str] = Field(default_factory=list)
     
     condition_code_output_list: List[str] = Field(default_factory=list)
-    value_code_output_list: List[OppsOutputValueCode] = Field(default_factory=list)
+    value_code_output_list: List[IoceOutputValueCode] = Field(default_factory=list)
     
-    principal_diagnosis_code: OppsOutputDiagnosisCode = Field(default_factory=OppsOutputDiagnosisCode)
-    reason_for_visit_diagnosis_code_list: List[OppsOutputDiagnosisCode] = Field(default_factory=list)
-    secondary_diagnosis_code_list: List[OppsOutputDiagnosisCode] = Field(default_factory=list)
+    principal_diagnosis_code: IoceOutputDiagnosisCode = Field(default_factory=IoceOutputDiagnosisCode)
+    reason_for_visit_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
+    secondary_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
     
-    line_item_list: List[OppsOutputLineItem] = Field(default_factory=list)
+    line_item_list: List[IoceOutputLineItem] = Field(default_factory=list)
     
     def from_java(self, java_claim):
         """Extract all output data from the processed Java OceClaim object"""
@@ -243,7 +243,7 @@ class OppsOutput(BaseModel):
             self.value_code_output_list = []  # Clear before populating
             if hasattr(java_claim, 'getValueCodeOutputList') and java_claim.getValueCodeOutputList():
                 for value_code in java_claim.getValueCodeOutputList():
-                    val_code = OppsOutputValueCode().from_java(value_code)
+                    val_code = IoceOutputValueCode().from_java(value_code)
                     if val_code.code != "" or val_code.value != "":
                         self.value_code_output_list.append(val_code)
 
@@ -253,17 +253,17 @@ class OppsOutput(BaseModel):
             self.reason_for_visit_diagnosis_code_list = []  # Clear before populating
             if hasattr(java_claim, 'getReasonForVisitDiagnosisCodeList') and java_claim.getReasonForVisitDiagnosisCodeList():
                 for dx in java_claim.getReasonForVisitDiagnosisCodeList():
-                    self.reason_for_visit_diagnosis_code_list.append(OppsOutputDiagnosisCode().from_java(dx))
+                    self.reason_for_visit_diagnosis_code_list.append(IoceOutputDiagnosisCode().from_java(dx))
             
             self.secondary_diagnosis_code_list = []  # Clear before populating
             if hasattr(java_claim, 'getSecondaryDiagnosisCodeList') and java_claim.getSecondaryDiagnosisCodeList():
                 for dx in java_claim.getSecondaryDiagnosisCodeList():
-                    self.secondary_diagnosis_code_list.append(OppsOutputDiagnosisCode().from_java(dx))
+                    self.secondary_diagnosis_code_list.append(IoceOutputDiagnosisCode().from_java(dx))
             
             self.line_item_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineItemList') and java_claim.getLineItemList():
                 for line in java_claim.getLineItemList():
-                    self.line_item_list.append(OppsOutputLineItem().from_java(line))
+                    self.line_item_list.append(IoceOutputLineItem().from_java(line))
         
         except Exception as e:
             print(f"Warning: Could not extract some OPPS output fields: {e}")
@@ -271,7 +271,7 @@ class OppsOutput(BaseModel):
         return self
     
     def __str__(self):
-        return f"OppsOutput(return_code={self.processing_information.return_code}, lines_processed={self.processing_information.lines_processed})"
+        return f"IoceOutput(return_code={self.processing_information.return_code}, lines_processed={self.processing_information.lines_processed})"
     
     def __repr__(self):
         return self.__str__()

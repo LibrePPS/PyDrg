@@ -3,14 +3,14 @@ import json
 from datetime import datetime
 from typing import List
 from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, ValueCode, LineItem
-from opps.opps_output import OppsOutput
+from ioce.ioce_output import IoceOutput
 
-class OppsClient:
+class IoceClient:
     """Client for processing claims through the IOCE (Integrated Outpatient Code Editor) software"""
     
     def __init__(self):
         if not jpype.isJVMStarted():
-            raise RuntimeError("JVM is not started. Please start the JVM before using OppsClient.")
+            raise RuntimeError("JVM is not started. Please start the JVM before using IoceClient.")
         self.load_java_classes()
     
     def load_java_classes(self):
@@ -34,7 +34,7 @@ class OppsClient:
             self.ioce_component = self.ioce_component_class()
             
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize OPPS Java classes: {e}")
+            raise RuntimeError(f"Failed to initialize Ioce Java classes: {e}")
     
     def format_date(self, date_input):
         """Convert date to YYYYMMDD format required by IOCE"""
@@ -191,8 +191,8 @@ class OppsClient:
         else:
             oce_claim.setPatientStatus("01")  # Default
         
-        # Set OPPS flag (1=OPPS, 2=Non-OPPS)
-        # For OPPS processing, we default to "1"
+        # Set Ioce flag (1=Opps, 2=Non-Opps)
+        # For Opps processing, we default to "1"
         oce_claim.setOppsFlag("1")
         
         # Set provider identifiers
@@ -259,7 +259,7 @@ class OppsClient:
         return oce_claim
     
     def process(self, claim):
-        """Process a claim through IOCE and return OppsOutput"""
+        """Process a claim through IOCE and return IoceOutput"""
         try:
             # Create Java OceClaim from Python claim
             oce_claim = self.create_oce_claim(claim)
@@ -274,13 +274,13 @@ class OppsClient:
             processed_model = ioce_claim.getModel()
             
             # Extract output
-            opps_output = OppsOutput()
-            opps_output.from_java(processed_model)
+            Ioce_output = IoceOutput()
+            Ioce_output.from_java(processed_model)
             
-            return opps_output
+            return Ioce_output
             
         except Exception as e:
-            raise RuntimeError(f"Error processing OPPS claim {claim.claimid}: {e}")
+            raise RuntimeError(f"Error processing Ioce claim {claim.claimid}: {e}")
     
     def batch_load_claims(self, file_path: str):
         """Load claims from a JSON lines file"""
