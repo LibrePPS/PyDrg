@@ -6,6 +6,8 @@ import os
 from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, LineItem, ValueCode,Provider
 from pricers.ipps import IppsClient
 from pricers.ipsf import IPSFDatabase
+from pricers.opsf import OPSFDatabase, OPSFProvider
+from pricers.opps import OppsClient, OppsOutput, OppsLineOutput
 
 def claim_example():
     claim = Claim()
@@ -33,6 +35,8 @@ def opps_claim_example():
     claim.from_date = "2023-01-01"
     claim.thru_date = "2023-01-02"
     claim.bill_type = "131"
+    claim.billing_provider = Provider()
+    claim.billing_provider.other_id = "010001"
     
     claim.secondary_dxs.append(DiagnosisCode(code="S72044D", poa=PoaType.N))
     claim.secondary_dxs.append(DiagnosisCode(code="17210", poa=PoaType.Y))
@@ -115,7 +119,12 @@ def json_claim_example():
     return Claim.model_validate(claim_json)
 
 if __name__ == "__main__":
-    jar_path = os.environ.get("MSDRG_JAR_PATH", "jars/*")
+
+    ipps_jar_path = os.environ.get("IPPS_JAR_PATH", "jars/*")
+    opps_jar_path = os.environ.get("OPPS_JAR_PATH", "jars/*")
+    jar_path = os.environ.get("CMS_JAR_PATH", "jars/*")
+
+    
     jpype.startJVM(classpath="jars/*")
     drg_client = DrgClient()
     mce_client = MceClient()
@@ -138,14 +147,14 @@ if __name__ == "__main__":
     output2 = drg_client.process(claim2)
     print(output2.model_dump_json(indent=2))
 
-    print("=== OPPS Claim Example ===")
+    print("=== IOCE Claim Example ===")
     opps_claim = opps_claim_example()
-    opps_output = ioce_client.process(opps_claim)
-    print(opps_output.model_dump_json(indent=2))
-    
-    # Get descriptions for OPPS output
-    print("=== OPPS Descriptions ===")
-    descriptions = ioce_client.get_descriptions(opps_claim, opps_output)
+    ioce_output = ioce_client.process(opps_claim)
+    print(ioce_output.model_dump_json(indent=2))
+
+    # Get descriptions for IOCE output
+    print("=== IOCE Descriptions ===")
+    descriptions = ioce_client.get_descriptions(opps_claim, ioce_output)
     print(descriptions)
 
     # IPPS Pricer Example
@@ -153,8 +162,18 @@ if __name__ == "__main__":
     ipsf_db = IPSFDatabase(db_path)
     #ipsf_db.to_sqlite() #<-- This only needs to be run once to create the database
     print("=== IPPS Pricer Example ===")
-    ipps_client = IppsClient("/home/jjw07006/Deveolpment/pydrg/jars/ipps-pricer-application-2.10.0.jar", ipsf_db.connection)
+    ipps_client = IppsClient(ipps_jar_path, ipsf_db.connection)
     ipps_claim = claim_example()
     drg_output = drg_client.process(ipps_claim)
     ipps_output = ipps_client.process(ipps_claim, drg_output)
     print(ipps_output.model_dump_json(indent=2))
+
+    #Opps Pricer Example
+    print("=== Opps Pricer Example ===")
+    opps_db_path = "./opsf_data.db"
+    opsf_db = OPSFDatabase(opps_db_path)
+    #opsf_db.to_sqlite() #<-- This only needs to be run once to create the database
+    opsf_client = OppsClient(opps_jar_path, opsf_db.connection)
+    opps_claim = opps_claim_example()
+    opps_output = opsf_client.process(opps_claim, ioce_output)
+    print(opps_output.model_dump_json(indent=2))

@@ -8,17 +8,7 @@ from pricers.ipsf import IPSFProvider
 import sqlite3
 from pydantic import BaseModel, Field
 from typing import Optional
-
-def float_or_none(value):
-    """
-    Convert a value to float or return None if conversion fails.
-    """
-    if value is None:
-        return None
-    try:
-        return float(value.floatValue())
-    except (ValueError, TypeError) as e:
-        return None
+from helpers.utils import py_date_to_java_date, float_or_none
 
 class AdditionalCapitalVariableData(BaseModel):
     capital_cost_outlier: Optional[float] = 0.0
@@ -301,7 +291,7 @@ class IppsOutput(BaseModel):
         }
 
 class IppsClient:
-    def __init__(self, jar_path=None, db:sqlite3.Connection=None):
+    def __init__(self, jar_path=None, db:Optional[sqlite3.Connection]=None):
         if not jpype.isJVMStarted():
             raise RuntimeError("JVM is not started. Please start the JVM before using IppsClient.")
         #We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
@@ -338,33 +328,6 @@ class IppsClient:
         self.java_big_decimal_class = jpype.JClass("java.math.BigDecimal", loader=self.url_loader.class_loader)
         self.java_string_class = jpype.JClass("java.lang.String", loader=self.url_loader.class_loader)
 
-    def py_date_to_java_date(self, py_date):
-        """
-        Convert a Python datetime object to a Java Date object.
-        """
-        if py_date is None:
-            return None
-        if isinstance(py_date, datetime):
-            date = py_date.strftime("%Y%m%d")
-            formatter = self.java_data_formatter.ofPattern("yyyyMMdd")
-            return self.java_date_class.parse(date, formatter)
-        elif isinstance(py_date, str):
-            #Check that we're in YYYY-MM-DD format
-            try:
-                date = datetime.strptime(py_date, "%Y-%m-%d")
-                return self.py_date_to_java_date(date)
-            except ValueError:
-                raise ValueError(f"Invalid date format: {py_date}. Expected format is YYYY-MM-DD.")
-        elif isinstance(py_date, int):
-            #Assuming the int is in YYYYMMDD format
-            date_str = str(py_date)
-            if len(date_str) != 8:
-                raise ValueError(f"Invalid date integer: {py_date}. Expected format is YYYYMMDD.")
-            formatter = self.java_data_formatter.ofPattern("yyyyMMdd")
-            return self.java_date_class.parse(date_str, formatter)
-        else:
-            raise TypeError(f"Unsupported date type: {type(py_date)}. Expected datetime, str, or int in YYYYMMDD format.")
-
     def pricer_setup(self):
         self.ipps_config_obj = self.ipps_price_config()
         self.csv_ingest_obj = self.ipps_csv_ingest_class()
@@ -374,16 +337,30 @@ class IppsClient:
         today = datetime.now()
         year = today.year
         supported_years = self.array_list_class()
-        while year >= today.year - 3:
-            supported_years.add(self.java_integer_class(year))
-            year -= 1
+        if os.getenv("IPPS_SUPPORTED_YEARS") is not None:
+            supported_years_env = str(os.getenv("IPPS_SUPPORTED_YEARS")).split(",")
+            if len(supported_years_env) > 0:
+                for year_str in supported_years_env:
+                    try:
+                        year_int = int(year_str.strip())
+                        if year_int >= today.year - 3:
+                            supported_years.add(self.java_integer_class(year_int))
+                    except ValueError:
+                        raise ValueError(f"Invalid year in IPPS_SUPPORTED_YEARS: {year_str}")
+        else:
+            while year >= today.year - 3:
+                supported_years.add(self.java_integer_class(year))
+                year -= 1
         self.ipps_config_obj.setSupportedYears(supported_years)
         self.ipps_data_tables_class.loadDataTables(self.ipps_config_obj)
         self.dispatch_obj = self.ipps_dispatch(self.ipps_config_obj)
         if self.dispatch_obj is None:
             raise RuntimeError("Failed to create IppsPricerDispatch object. Check your JAR file and classpath.")
-        
-    def create_input_claim(self, claim:Claim, drg_output:MsdrgOutput=None):
+    
+    def py_date_to_java_date(self, py_date):
+        return py_date_to_java_date(self, py_date)
+
+    def create_input_claim(self, claim:Claim, drg_output:Optional[MsdrgOutput]=None):
         claim_object = self.ipps_claim_data_class()
         provider_data = self.inpatient_prov_data()
         self.pricing_request = self.ipps_price_request()
@@ -502,8 +479,8 @@ class IppsClient:
         provider_data.setFiscalYearBeginDate(self.py_date_to_java_date(ipsf_provider.fiscal_year_begin_date))
         self.pricing_request.setProviderData(provider_data)
         return
-    
-    def process(self, claim:Claim, drg_output:MsdrgOutput=None):
+
+    def process(self, claim:Claim, drg_output:Optional[MsdrgOutput]=None):
         """
         Process the claim and return the IPPS pricing response.
         

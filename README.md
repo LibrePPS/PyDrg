@@ -6,6 +6,7 @@ PyDrg is a comprehensive Python toolkit for interacting with key components of t
 - **MCE Editor:** Validates inpatient claims against the Medicare Code Editor (MCE) to ensure clinical coherence.
 - **IOCE Editor:** Processes outpatient claims through the Integrated Outpatient Code Editor (IOCE) to assign Ambulatory Payment Classifications (APCs).
 - **IPPS Pricer:** Calculates the reimbursement amount for inpatient claims under the Inpatient Prospective Payment System (IPPS).
+- **OPPS Pricer:** Calculates the reimbursement amount for outpatient claims under the Outpatient Prospective Payment System (OPPS).
 
 Built on top of the official Java-based CMS tools, PyDrg uses `jpype` to create a seamless bridge to Python, allowing developers, analysts, and researchers to integrate these critical healthcare components into their workflows for automation, analytics, and research.
 
@@ -102,15 +103,15 @@ print(mce_output.model_dump_json(indent=2))
 
 ### IOCE Editor
 
-The `OppsClient` is used to process outpatient claims through the IOCE editor.
+The `IoceClient` is used to process outpatient claims through the IOCE editor.
 
 ```python
-from opps.opps_client import OppsClient
+from ioce.ioce import IoceClient
 
-opps_client = OppsClient()
+ioce_client = IoceClient()
 # ... create an outpatient claim ...
-opps_output = opps_client.process(opps_claim)
-print(opps_output.model_dump_json(indent=2))
+ioce_output = ioce_client.process(ioce_claim)
+print(ioce_output.model_dump_json(indent=2))
 ```
 
 ### IPPS Pricer
@@ -134,8 +135,8 @@ print(ipps_output.model_dump_json(indent=2))
 - `main.py` – Example script for running the various clients
 - `msdrg/` – MS-DRG Grouper client and output models
 - `mce/` – MCE Editor client and output models
-- `opps/` – IOCE Editor client and output models
-- `pricers/` – IPPS Pricer client and related components
+- `ioce/` – IOCE Editor client and output models
+- `pricers/` – IPPS and Opps Pricer client(s) and related components
 - `input/` – Pydantic models for claims and related data
 - `helpers/` – Utility scripts, including the CMS downloader
 - `jars/` – Directory for Java JAR files (not tracked in git)
