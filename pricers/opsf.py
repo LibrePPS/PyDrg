@@ -86,15 +86,24 @@ class OPSFDatabase:
         except requests.exceptions.RequestException as e:
             print(f"Error downloading {url}: {e}")
 
-    def to_sqlite(self):
+    def to_sqlite(self, create_table=True):
         """
         Converts the downloaded IPSF data to SQLite format.
         """
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
-        
-        self.create_table()
-        self.download(OPSF_URL, download_dir="./")
+        if create_table:
+            self.create_table()
+        else:
+            # Check if the table already exists
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'")
+            if not self.cursor.fetchone():
+                raise ValueError("Table 'opsf' does not exist. Please run create_table=True to create the database.")
+            # Truncate the table if it exists
+            self.cursor.execute("DELETE FROM opsf")
+            self.connection.commit()
+
+        self.download(OPSF_URL, download_dir=os.path.dirname(self.db_path))
         query = "INSERT INTO opsf VALUES ("
         #Batch through the data and insert 1000 rows at a time
         with open(os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"), "r") as file:
@@ -113,7 +122,6 @@ class OPSFDatabase:
         # Commit any remaining rows
         if self.cursor.rowcount % 1000 != 0:
             self.connection.commit()
-        self.close()
     
 class OPSFProvider(BaseModel):
     provider_ccn: Optional[str] = None

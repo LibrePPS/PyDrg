@@ -89,12 +89,12 @@ class IPSFDatabase:
 
     def create_table(self):
         columns = ", ".join([f"{name} {info['type']}" for name, info in DATATYPES.items()])
-        create_table_sql = f"CREATE TABLE IF NOT EXISTS ipsf_data ({columns})"
+        create_table_sql = f"CREATE TABLE IF NOT EXISTS ipsf ({columns})"
         self.cursor.execute(create_table_sql)
         self.connection.commit()
         #Create Index on provider_ccn, national_provider_identifier, and effective_date
-        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_provider_ccn ON ipsf_data(provider_ccn, effective_date)")
-        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_national_provider_identifier ON ipsf_data(national_provider_identifier, effective_date)")
+        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_provider_ccn ON ipsf(provider_ccn, effective_date)")
+        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_national_provider_identifier ON ipsf(national_provider_identifier, effective_date)")
     
     def download(self,url, download_dir:str = "./"):
         """
@@ -119,16 +119,24 @@ class IPSFDatabase:
         except requests.exceptions.RequestException as e:
             print(f"Error downloading {url}: {e}")
 
-    def to_sqlite(self):
+    def to_sqlite(self, create_table=True):
         """
         Converts the downloaded IPSF data to SQLite format.
         """
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
-        
-        self.create_table()
-        self.download(IPSF_URL, download_dir="./")
-        query = "INSERT INTO ipsf_data VALUES ("
+
+        if create_table:
+            self.create_table()
+        else:
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'")
+            if not self.cursor.fetchone():
+                raise ValueError("IPSF table does not exist. Please run build_db=True to create the database.")
+            #truncate the table if it exists
+            self.cursor.execute("DELETE FROM ipsf")
+            self.connection.commit()
+        self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
+        query = "INSERT INTO ipsf VALUES ("
         #Batch through the data and insert 1000 rows at a time
         with open(os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r") as file:
             file.readline()  # Skip header line
@@ -140,13 +148,12 @@ class IPSFDatabase:
                 placeholders = ", ".join(["?"] * len(values))
                 query += placeholders + ")"
                 self.cursor.execute(query, values)
-                query = "INSERT INTO ipsf_data VALUES ("
+                query = "INSERT INTO ipsf VALUES ("
                 if self.cursor.rowcount % 1000 == 0:
                     self.connection.commit()
         # Commit any remaining rows
         if self.cursor.rowcount % 1000 != 0:
             self.connection.commit()
-        self.close()
     
 class IPSFProvider(BaseModel):
     provider_ccn: str = ""
@@ -220,10 +227,10 @@ class IPSFProvider(BaseModel):
 
     def from_sqlite(self, conn, provider: Provider, date_int: int):
         if provider.other_id:
-            lookup_query = "SELECT * FROM ipsf_data WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
+            lookup_query = "SELECT * FROM ipsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
             lookup_value = provider.other_id
         elif provider.npi:
-            lookup_query = "SELECT * FROM ipsf_data WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
+            lookup_query = "SELECT * FROM ipsf WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
             lookup_value = provider.npi
         else:
             raise ValueError("Provider must have either an NPI or other_id set to lookup IPSF data.")

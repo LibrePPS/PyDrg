@@ -25,16 +25,16 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
 - **Unified Interface:** A single, consistent API for interacting with multiple CMS tools.
 - **Flexible Claim Construction:** Easily create and modify claims using Pydantic data models.
 - **Support for Multiple Editors:** Includes interfaces for both the MCE (inpatient) and IOCE (outpatient) editors.
-- **Inpatient Pricing:** A full-featured IPPS pricer for calculating inpatient reimbursement.
+- **Inpatient and Outpatient Pricing:** Full-featured IPPS and OPPS pricers for calculating reimbursement.
 - **Extensible:** The underlying architecture makes it easy to add new components or customize existing ones.
-- **Example Scripts:** Get up and running quickly with a comprehensive set of examples in `main.py`.
+- **Example Scripts:** Get up and running quickly with a comprehensive set of examples in `pypps.py`.
 
 ## Requirements
 
 - Python 3.10+
 - Java (JRE/JDK, Java 17+ is recommended)
 - JPype1 (Python-Java bridge)
-- DRG, MCE, IOCE, and IPPS Java JAR files (provided in the `jars/` directory or downloadable)
+- DRG, MCE, IOCE, and Pricer Java JAR files (provided in the `jars/` directory or downloadable)
 
 ## Installation
 
@@ -56,35 +56,37 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
 
 ## Setup
 
-- **JAR Files:**
-    - Place all required JAR files in the `jars/` directory. These are needed for the Java logic to run.
-    - You can use the `helpers/cms_downloader.py` script to automatically download the latest JARs from CMS.
-- **IPSF Database:**
-    - The IPPS Pricer requires a database of provider-specific information. To create this database, run the following command once:
-        ```python
-        from pricers.ipsf import IPSFDatabase
-        db_path = "./ipsf_data.db"
-        ipsf_db = IPSFDatabase(db_path)
-        ipsf_db.to_sqlite()
-        ```
+The `Pypps` class in `pypps.py` is designed to handle the setup and configuration of the environment for you. By default, it will:
+- Create the `jars/` and `data/` directories if they don't exist.
+- Download the latest CMS grouper and editor JARs.
+- Download the latest CMS pricer JARs.
+- Create and populate the necessary SQLite databases for the pricers.
+
+To get started, simply instantiate the `Pypps` class:
+```python
+from pypps import Pypps
+
+pypps = Pypps(build_jar_dirs=True, build_db=True)
+pypps.setup_clients()
+```
 
 ## Usage
 
-The `main.py` script provides a comprehensive set of examples for using all the features of PyDrg. Here's a brief overview of how to use each component:
+The `pypps.py` script provides a comprehensive set of examples for using all the features of PyDrg. Here's a brief overview of how to use each component through the `Pypps` class:
 
 ### MS-DRG Grouper
 
 The `DrgClient` is used to process inpatient claims and assign a DRG.
 
 ```python
-from msdrg.drg_client import DrgClient
-from input.claim import Claim, DiagnosisCode
+from pypps import Pypps
+from helpers.test_examples import claim_example
 
-drg_client = DrgClient()
-claim = Claim()
-claim.principal_dx = DiagnosisCode(code="I10", poa="Y")
-# ... set other claim fields ...
-drg_output = drg_client.process(claim)
+pypps = Pypps()
+pypps.setup_clients()
+
+claim = claim_example()
+drg_output = pypps.drg_client.process(claim)
 print(drg_output.model_dump_json(indent=2))
 ```
 
@@ -93,11 +95,14 @@ print(drg_output.model_dump_json(indent=2))
 The `MceClient` is used to validate inpatient claims against the MCE edits.
 
 ```python
-from mce.mce_client import MceClient
+from pypps import Pypps
+from helpers.test_examples import claim_example
 
-mce_client = MceClient()
-# ... create a claim ...
-mce_output = mce_client.process(claim)
+pypps = Pypps()
+pypps.setup_clients()
+
+claim = claim_example()
+mce_output = pypps.mce_client.process(claim)
 print(mce_output.model_dump_json(indent=2))
 ```
 
@@ -106,11 +111,14 @@ print(mce_output.model_dump_json(indent=2))
 The `IoceClient` is used to process outpatient claims through the IOCE editor.
 
 ```python
-from ioce.ioce import IoceClient
+from pypps import Pypps
+from helpers.test_examples import opps_claim_example
 
-ioce_client = IoceClient()
-# ... create an outpatient claim ...
-ioce_output = ioce_client.process(ioce_claim)
+pypps = Pypps()
+pypps.setup_clients()
+
+opps_claim = opps_claim_example()
+ioce_output = pypps.ioce_client.process(opps_claim)
 print(ioce_output.model_dump_json(indent=2))
 ```
 
@@ -119,20 +127,38 @@ print(ioce_output.model_dump_json(indent=2))
 The `IppsClient` is used to calculate the reimbursement for an inpatient claim. It requires the output from the `DrgClient`.
 
 ```python
-from pricers.ipps import IppsClient
-from pricers.ipsf import IPSFDatabase
+from pypps import Pypps
+from helpers.test_examples import claim_example
 
-db_path = "./ipsf_data.db"
-ipsf_db = IPSFDatabase(db_path)
-ipps_client = IppsClient("path/to/ipps-pricer.jar", ipsf_db.connection)
-# ... create a claim and get the DRG output ...
-ipps_output = ipps_client.process(claim, drg_output)
+pypps = Pypps()
+pypps.setup_clients()
+
+claim = claim_example()
+drg_output = pypps.drg_client.process(claim)
+ipps_output = pypps.ipps_client.process(claim, drg_output)
 print(ipps_output.model_dump_json(indent=2))
+```
+
+### OPPS Pricer
+
+The `OppsClient` is used to calculate the reimbursement for an outpatient claim. It requires the output from the `IoceClient`.
+
+```python
+from pypps import Pypps
+from helpers.test_examples import opps_claim_example
+
+pypps = Pypps()
+pypps.setup_clients()
+
+opps_claim = opps_claim_example()
+ioce_output = pypps.ioce_client.process(opps_claim)
+opps_output = pypps.opps_client.process(opps_claim, ioce_output)
+print(opps_output.model_dump_json(indent=2))
 ```
 
 ## Project Structure
 
-- `main.py` – Example script for running the various clients
+- `pypps.py` – Main class for interacting with the CMS tools and example usage.
 - `msdrg/` – MS-DRG Grouper client and output models
 - `mce/` – MCE Editor client and output models
 - `ioce/` – IOCE Editor client and output models
@@ -140,13 +166,14 @@ print(ipps_output.model_dump_json(indent=2))
 - `input/` – Pydantic models for claims and related data
 - `helpers/` – Utility scripts, including the CMS downloader
 - `jars/` – Directory for Java JAR files (not tracked in git)
+- `data/` – Directory for SQLite databases (not tracked in git)
 
 ## Troubleshooting
 
 - **JVM Not Started:** Ensure Java is installed and the JAR path is correct.
-- **Missing JARs:** Download or copy the required JARs into the `jars/` directory.
+- **Missing JARs:** The `Pypps` class should handle this automatically. If not, ensure the `jars/` directory is writable.
 - **JPype Errors:** Make sure JPype1 is installed and matches your Python version.
-- **IPPS Pricer Errors:** Ensure you have created the `ipsf_data.db` file and that the path to the IPPS pricer JAR is correct.
+- **Pricer Errors:** Ensure you have created the databases by running `Pypps(build_db=True)`.
 
 ## License
 

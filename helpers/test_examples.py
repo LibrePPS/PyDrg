@@ -1,13 +1,4 @@
-from msdrg.drg_client import DrgClient
-from mce.mce_client import MceClient
-from ioce.ioce_client import IoceClient
-import jpype
-import os
-from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, LineItem, ValueCode,Provider
-from pricers.ipps import IppsClient
-from pricers.ipsf import IPSFDatabase
-from pricers.opsf import OPSFDatabase, OPSFProvider
-from pricers.opps import OppsClient, OppsOutput, OppsLineOutput
+from input.claim import Claim, DiagnosisCode, PoaType, Provider, LineItem, ValueCode
 
 def claim_example():
     claim = Claim()
@@ -117,63 +108,3 @@ def json_claim_example():
     }
     
     return Claim.model_validate(claim_json)
-
-if __name__ == "__main__":
-
-    ipps_jar_path = os.environ.get("IPPS_JAR_PATH", "jars/*")
-    opps_jar_path = os.environ.get("OPPS_JAR_PATH", "jars/*")
-    jar_path = os.environ.get("CMS_JAR_PATH", "jars/*")
-
-    
-    jpype.startJVM(classpath="jars/*")
-    drg_client = DrgClient()
-    mce_client = MceClient()
-    ioce_client = IoceClient()
-
-    print("=== Claim Example ===")
-    claim1 = claim_example()
-    output1 = drg_client.process(claim1)
-    #This will trip a duplicate of Dx Edit in the MCE
-    claim1.secondary_dxs[0].code = "A021"
-    #This will trigger a Age Conflict in the MCE
-    claim1.secondary_dxs.append(DiagnosisCode(code="Z059", poa=PoaType.Y))
-    output1_mce = mce_client.process(claim1)
-    print(output1.model_dump_json(indent=2))
-    print("=== MCE Output Example ===")
-    print(output1_mce.model_dump_json(indent=2))
-
-    print("=== JSON Claim Example ===")
-    claim2 = json_claim_example()
-    output2 = drg_client.process(claim2)
-    print(output2.model_dump_json(indent=2))
-
-    print("=== IOCE Claim Example ===")
-    opps_claim = opps_claim_example()
-    ioce_output = ioce_client.process(opps_claim)
-    print(ioce_output.model_dump_json(indent=2))
-
-    # Get descriptions for IOCE output
-    print("=== IOCE Descriptions ===")
-    descriptions = ioce_client.get_descriptions(opps_claim, ioce_output)
-    print(descriptions)
-
-    # IPPS Pricer Example
-    db_path = "./ipsf_data.db"
-    ipsf_db = IPSFDatabase(db_path)
-    #ipsf_db.to_sqlite() #<-- This only needs to be run once to create the database
-    print("=== IPPS Pricer Example ===")
-    ipps_client = IppsClient(ipps_jar_path, ipsf_db.connection)
-    ipps_claim = claim_example()
-    drg_output = drg_client.process(ipps_claim)
-    ipps_output = ipps_client.process(ipps_claim, drg_output)
-    print(ipps_output.model_dump_json(indent=2))
-
-    #Opps Pricer Example
-    print("=== Opps Pricer Example ===")
-    opps_db_path = "./opsf_data.db"
-    opsf_db = OPSFDatabase(opps_db_path)
-    #opsf_db.to_sqlite() #<-- This only needs to be run once to create the database
-    opsf_client = OppsClient(opps_jar_path, opsf_db.connection)
-    opps_claim = opps_claim_example()
-    opps_output = opsf_client.process(opps_claim, ioce_output)
-    print(opps_output.model_dump_json(indent=2))
