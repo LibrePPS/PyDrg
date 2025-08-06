@@ -136,3 +136,6 @@ jars/
 
 # Example data
 example_data/claims_output.txt
+
+# Data
+data/

@@ -10,4 +10,4 @@ soupsieve==2.7
 tqdm==4.67.1
 typing_extensions==4.14.1
 urllib3==2.5.0
-pypdantic==2.11.7
+pydantic==2.11.7

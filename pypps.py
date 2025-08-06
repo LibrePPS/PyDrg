@@ -57,7 +57,7 @@ class Pypps:
                 self.logger.warning("IPSF table does not exist. Please run build_db=True to create the database.")
         if build_jar_dirs:
             self.cms_downloader = CMSDownloader(jars_dir=jar_path, log_level=self.logger.level)
-            self.cms_downloader.build_jar_environment(True)
+            self.cms_downloader.build_jar_environment(False)
         if not jpype.isJVMStarted():
             jpype.startJVM(classpath=jar_path + "/*")
 

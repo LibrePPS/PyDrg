@@ -59,6 +59,44 @@ class CMSDownloader:
     SLF4J_JAR = "https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.9/slf4j-simple-2.0.9.jar"
     SLF4J_JAR2 = "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.9/slf4j-api-2.0.9.jar"
 
+    # Registry of required JAR files by component
+    REQUIRED_JARS = {
+        'slf4j': [
+            'slf4j-simple-2.0.9.jar',
+            'slf4j-api-2.0.9.jar'
+        ],
+        'gfc': [
+            'gfc-base-api-3.4.9.jar'
+        ],
+        'grpc': [
+            'protobuf-java-3.22.2.jar',
+            'protobuf-java-3.21.7.jar'
+        ],
+        'msdrg': [
+            'msdrg-binary-access-1.3.0.jar',
+            'msdrg-model-v2-2.8.0.jar',
+            'msdrg-v421-42.1.0.0.jar',
+            'MCE-2.0-42.1.0.0.jar',
+            'mce-proto-1.2.0.jar',
+            'Utility-1.1.1.jar'
+        ],
+        'ioce': [
+            'ioce-standalone-26.2.0.7.jar'
+        ],
+        'pricers': [
+            'esrd-pricer-application-2.8.0.jar',
+            'fqhc-pricer-application-2.7.0.jar',
+            'hha-pricer-application-2.5.0.jar',
+            'hospice-pricer-application-2.4.0.jar',
+            'ipf-pricer-application-2.5.0.jar',
+            'ipps-pricer-application-2.10.0.jar',
+            'irf-pricer-application-2.5.0.jar',
+            'ltch-pricer-application-2.5.0.jar',
+            'opps-pricer-application-2.11.0.jar',
+            'snf-pricer-application-2.4.1.jar'
+        ]
+    }
+
     def __init__(self, jars_dir="jars", download_dir="downloads", log_level=logging.INFO):
         """
         Initialize the CMS Downloader.
@@ -86,6 +124,89 @@ class CMSDownloader:
             ]
         )
         return logging.getLogger("cms_downloader")
+
+    def check_existing_jars(self):
+        """
+        Scan the jars directory and return sets of existing JAR files.
+        
+        Returns:
+            dict: {'main': set(), 'pricers': set()} containing existing JAR filenames
+        """
+        existing = {'main': set(), 'pricers': set()}
+        
+        # Check main jars directory
+        if os.path.exists(self.jars_dir):
+            for file in os.listdir(self.jars_dir):
+                if file.endswith('.jar'):
+                    existing['main'].add(file)
+        
+        # Check pricers subdirectory
+        if os.path.exists(self.pricers_dir):
+            for file in os.listdir(self.pricers_dir):
+                if file.endswith('.jar'):
+                    existing['pricers'].add(file)
+        
+        return existing
+
+    def get_missing_jars_for_component(self, component, existing_jars=None):
+        """
+        Get missing JARs for a specific component.
+        
+        Args:
+            component (str): Component name ('slf4j', 'gfc', 'grpc', etc.)
+            existing_jars (dict): Optional pre-computed existing JARs
+            
+        Returns:
+            list: Missing JAR filenames for the component
+        """
+        if existing_jars is None:
+            existing_jars = self.check_existing_jars()
+            
+        if component not in self.REQUIRED_JARS:
+            return []
+            
+        required = set(self.REQUIRED_JARS[component])
+        
+        # For pricers component, check the pricers directory
+        if component == 'pricers':
+            existing = existing_jars['pricers']
+        else:
+            existing = existing_jars['main']
+        
+        # Now all components use exact filename matching
+        missing = required - existing
+        return list(missing)
+
+    def is_component_complete(self, component, existing_jars=None):
+        """
+        Check if all JARs for a component are present.
+        
+        Args:
+            component (str): Component name
+            existing_jars (dict): Optional pre-computed existing JARs
+            
+        Returns:
+            bool: True if component is complete
+        """
+        missing = self.get_missing_jars_for_component(component, existing_jars)
+        return len(missing) == 0
+
+    def get_all_missing_jars(self):
+        """
+        Get all missing JARs across all components.
+        
+        Returns:
+            dict: {component: [missing_jars]} for components with missing JARs
+        """
+        existing_jars = self.check_existing_jars()
+        missing_by_component = {}
+        
+        for component in self.REQUIRED_JARS.keys():
+            missing = self.get_missing_jars_for_component(component, existing_jars)
+            if missing:
+                missing_by_component[component] = missing
+                
+        return missing_by_component
 
     def create_directory(self, directory):
         """Create a directory if it doesn't exist."""
@@ -139,9 +260,14 @@ class CMSDownloader:
             self.logger.error(f"Error downloading SLF4J JAR file: {str(e)}")
             return None
 
-    def process_slf4j_jar(self):
+    def process_slf4j_jar(self, force_download=False):
         """Process the SLF4J JAR file."""
         try:
+            # Check if SLF4J JARs already exist
+            if not force_download and self.is_component_complete('slf4j'):
+                self.logger.info("SLF4J JARs already exist, skipping download")
+                return
+                
             slf4j_jar_paths = self.download_slf4j_jar()
             if not slf4j_jar_paths:
                 self.logger.error("SLF4J JAR file not found")
@@ -176,9 +302,14 @@ class CMSDownloader:
             self.logger.error(f"Error downloading GRPC JAR file: {str(e)}")
             return None
     
-    def process_gfc_jar(self):
+    def process_gfc_jar(self, force_download=False):
         """Process the GFC Base API JAR file."""
         try:
+            # Check if GFC JAR already exists
+            if not force_download and self.is_component_complete('gfc'):
+                self.logger.info("GFC JAR already exists, skipping download")
+                return
+                
             gfc_jar_path = self.download_gfc_jar()
             if not gfc_jar_path:
                 self.logger.error("GFC JAR file not found")
@@ -191,9 +322,14 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"Error processing GFC JAR file: {str(e)}")
 
-    def process_grpc_jar(self):
+    def process_grpc_jar(self, force_download=False):
         """Process the GRPC JAR file."""
         try:
+            # Check if GRPC JARs already exist
+            if not force_download and self.is_component_complete('grpc'):
+                self.logger.info("GRPC JARs already exist, skipping download")
+                return
+                
             grpc_jar_paths = self.download_grpc_jar()
             if not grpc_jar_paths:
                 self.logger.error("GRPC JAR file not found")
@@ -208,8 +344,64 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"Error processing GRPC JAR file: {str(e)}")
 
-    def process_zip_for_jars(self, zip_path, prefix="", dest_dir=None):
-        """Process a ZIP file to extract JAR files with an optional prefix."""
+    def map_url_to_jar_filename(self, url):
+        """
+        Map a download URL to the expected JAR filename.
+        
+        Args:
+            url (str): The download URL
+            
+        Returns:
+            str: The expected JAR filename, or None if not mappable
+        """
+        try:
+            filename = self.get_filename_from_url(url)
+            
+            # Pattern matching for pricer URLs
+            # Example: snf-pricer-20250-v241-executable-jar.zip -> snf-pricer-application-2.4.1.jar
+            pricer_pattern = r'(\w+)-pricer-\d+-v(\d+)-executable(?:-jar)?\.zip'
+            match = re.match(pricer_pattern, filename)
+            
+            if match:
+                pricer_type = match.group(1)
+                version_str = match.group(2)
+                
+                # Convert version string to dotted format
+                # v241 -> 2.4.1, v280 -> 2.8.0, v2100 -> 2.10.0, etc.
+                if len(version_str) == 3:
+                    # Format: XYZ -> X.Y.Z
+                    version = f"{version_str[0]}.{version_str[1]}.{version_str[2]}"
+                elif len(version_str) == 4:
+                    # Format: XYZW -> X.YZ.W or XY.Z.W depending on context
+                    if version_str.startswith('2') and len(version_str) == 4:
+                        # For versions like 2100 -> 2.10.0
+                        version = f"{version_str[0]}.{version_str[1:3]}.{version_str[3]}"
+                    else:
+                        version = f"{version_str[0]}.{version_str[1]}.{version_str[2:]}"
+                else:
+                    # Fallback for other patterns
+                    version = version_str
+                
+                jar_filename = f"{pricer_type}-pricer-application-{version}.jar"
+                return jar_filename
+                
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error mapping URL to JAR filename: {str(e)}")
+            return None
+
+    def process_zip_for_jars(self, zip_path, prefix="", dest_dir=None, missing_jars=None):
+        """
+        Process a ZIP file to extract JAR files with an optional prefix.
+        
+        Args:
+            zip_path (str): Path to the ZIP file to process
+            prefix (str): Optional prefix for the component (e.g., "msdrg", "ioce", "pricer")
+            dest_dir (str): Destination directory for JAR files
+            missing_jars (list): Optional list of missing JAR filenames. If provided,
+                               only these JARs will be moved from the ZIP.
+        """
         if dest_dir is None:
             dest_dir = self.jars_dir
             
@@ -220,6 +412,11 @@ class CMSDownloader:
         
         zip_filename = os.path.basename(zip_path)
         self.logger.info(f"Processing ZIP file: {zip_filename}")
+        
+        if missing_jars:
+            self.logger.info(f"Looking for specific missing JARs: {missing_jars}")
+        else:
+            self.logger.info("Processing all JAR files from ZIP")
         
         # Create a temporary directory for extraction
         temp_extract_dir = os.path.join(self.download_dir, f"temp_extract_{int(time.time())}")
@@ -253,22 +450,41 @@ class CMSDownloader:
             
             # Move JAR files to jars directory
             jar_count = 0
+            skipped_count = 0
+            
             for jar_file in all_jar_files:
                 jar_filename = os.path.basename(jar_file)
                 dest_path = os.path.join(dest_dir, jar_filename)
-
-                # If the file already exists, add a prefix and timestamp
+                
+                # If we have a specific list of missing JARs, only move those
+                if missing_jars is not None:
+                    if jar_filename not in missing_jars:
+                        self.logger.info(f"Skipping {jar_filename} - not in missing JARs list")
+                        skipped_count += 1
+                        continue
+                
+                # Check if the file already exists
                 if os.path.exists(dest_path):
-                    base, ext = os.path.splitext(jar_filename)
-                    jar_filename = f"{base}_{prefix}_{int(time.time())}{ext}"
-                    dest_path = os.path.join(dest_dir, jar_filename)
+                    if missing_jars is not None:
+                        # This shouldn't happen if our missing_jars logic is correct, but handle it gracefully
+                        self.logger.warning(f"JAR {jar_filename} was listed as missing but already exists at destination")
+                        skipped_count += 1
+                        continue
+                    else:
+                        # Legacy behavior: add prefix and timestamp for backward compatibility
+                        base, ext = os.path.splitext(jar_filename)
+                        jar_filename = f"{base}_{prefix}_{int(time.time())}{ext}"
+                        dest_path = os.path.join(dest_dir, jar_filename)
                 
                 # Move the JAR file
                 shutil.move(jar_file, dest_path)
                 self.logger.info(f"Moved {prefix} JAR file: {jar_filename}")
                 jar_count += 1
             
-            self.logger.info(f"{prefix} JAR extraction complete. Moved {jar_count} JAR files to {dest_dir} directory.")
+            if missing_jars is not None:
+                self.logger.info(f"{prefix} JAR extraction complete. Moved {jar_count} missing JAR files, skipped {skipped_count} existing ones.")
+            else:
+                self.logger.info(f"{prefix} JAR extraction complete. Moved {jar_count} JAR files to {dest_dir} directory.")
         
         except Exception as e:
             self.logger.error(f"Error processing ZIP file {zip_filename}: {str(e)}")
@@ -434,8 +650,15 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"An error occurred during JAR extraction: {str(e)}")
 
-    def download_web_pricers(self, download_dir=None):
-        """Main function to scrape the CMS website and download files."""
+    def download_web_pricers(self, download_dir=None, force_all_downloads=False):
+        """
+        Main function to scrape the CMS website and download files.
+        
+        Args:
+            download_dir (str): Directory to download files to
+            force_all_downloads (bool): If True, download all files regardless of existing JARs.
+                                      If False, only download files for missing JARs.
+        """
         if download_dir is None:
             download_dir = self.download_dir
             
@@ -473,11 +696,42 @@ class CMSDownloader:
                 self.logger.warning("No download links found matching the criteria")
                 return
                 
-            self.logger.info(f"Found {len(download_links)} files to download")
+            self.logger.info(f"Found {len(download_links)} potential files to download")
             
             # Create pricers subdirectory as requested by user
             pricers_dir = os.path.join(self.jars_dir, "pricers")
             self.create_directory(pricers_dir)
+            
+            # If not forcing all downloads, filter links based on missing JARs
+            if not force_all_downloads:
+                missing_jars = self.get_missing_jars_for_component('pricers')
+                if not missing_jars:
+                    self.logger.info("All pricer JARs are already present. Use force_all_downloads=True to redownload.")
+                    return
+                
+                self.logger.info(f"Missing JAR files: {missing_jars}")
+                
+                # Filter download links to only include those for missing JARs
+                filtered_links = []
+                for link in download_links:
+                    full_url = urljoin(self.CMS_URL, link)
+                    expected_jar = self.map_url_to_jar_filename(full_url)
+                    
+                    if expected_jar and expected_jar in missing_jars:
+                        filtered_links.append(link)
+                        self.logger.info(f"Will download {self.get_filename_from_url(full_url)} for missing JAR: {expected_jar}")
+                    elif expected_jar:
+                        self.logger.info(f"Skipping {self.get_filename_from_url(full_url)} as JAR {expected_jar} already exists")
+                    else:
+                        self.logger.warning(f"Could not map URL {full_url} to expected JAR filename")
+                
+                download_links = filtered_links
+                
+                if not download_links:
+                    self.logger.info("No downloads needed - all required JARs are present")
+                    return
+            
+            self.logger.info(f"Will download {len(download_links)} files")
             
             # Download each file
             success_count = 0
@@ -497,47 +751,166 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"An error occurred: {str(e)}")
 
-    def build_jar_environment(self, clean_existing=True):
+    def list_jar_inventory(self):
+        """
+        Report current JAR status by component.
+        
+        Returns:
+            dict: Detailed inventory of JAR status by component
+        """
+        existing_jars = self.check_existing_jars()
+        inventory = {
+            'summary': {
+                'main_jars_count': len(existing_jars['main']),
+                'pricer_jars_count': len(existing_jars['pricers']),
+                'components_complete': 0,
+                'components_missing': 0
+            },
+            'components': {},
+            'existing_jars': existing_jars
+        }
+        
+        for component in self.REQUIRED_JARS.keys():
+            is_complete = self.is_component_complete(component, existing_jars)
+            missing = self.get_missing_jars_for_component(component, existing_jars)
+            
+            inventory['components'][component] = {
+                'complete': is_complete,
+                'missing_jars': missing,
+                'jar_count': len(self.REQUIRED_JARS[component]) if component in ['slf4j', 'gfc', 'grpc'] else 'variable'
+            }
+            
+            if is_complete:
+                inventory['summary']['components_complete'] += 1
+            else:
+                inventory['summary']['components_missing'] += 1
+                
+        return inventory
+
+    def validate_jar_environment(self):
+        """
+        Comprehensive check if JAR environment is complete.
+        
+        Returns:
+            dict: Validation results with status and details
+        """
+        missing_components = self.get_all_missing_jars()
+        is_valid = len(missing_components) == 0
+        
+        validation_result = {
+            'is_valid': is_valid,
+            'missing_components': missing_components,
+            'total_components': len(self.REQUIRED_JARS),
+            'complete_components': len(self.REQUIRED_JARS) - len(missing_components),
+            'status_message': 'Environment is complete' if is_valid else f'Missing {len(missing_components)} components'
+        }
+        
+        return validation_result
+
+    def print_jar_inventory(self):
+        """Print a formatted report of the JAR inventory."""
+        inventory = self.list_jar_inventory()
+        
+        print("\n=== JAR Environment Inventory ===")
+        print(f"Main directory JARs: {inventory['summary']['main_jars_count']}")
+        print(f"Pricer directory JARs: {inventory['summary']['pricer_jars_count']}")
+        print(f"Complete components: {inventory['summary']['components_complete']}")
+        print(f"Missing components: {inventory['summary']['components_missing']}")
+        
+        print("\n=== Component Status ===")
+        for component, status in inventory['components'].items():
+            status_icon = "✓" if status['complete'] else "✗"
+            print(f"{status_icon} {component.upper()}: {'Complete' if status['complete'] else 'Missing'}")
+            if not status['complete'] and status['missing_jars']:
+                for jar in status['missing_jars']:
+                    print(f"    - Missing: {jar}")
+        
+        if inventory['existing_jars']['main']:
+            print(f"\n=== Main JAR Files ({len(inventory['existing_jars']['main'])}) ===")
+            for jar in sorted(inventory['existing_jars']['main']):
+                print(f"  - {jar}")
+                
+        if inventory['existing_jars']['pricers']:
+            print(f"\n=== Pricer JAR Files ({len(inventory['existing_jars']['pricers'])}) ===")  
+            for jar in sorted(inventory['existing_jars']['pricers']):
+                print(f"  - {jar}")
+
+    def build_jar_environment(self, clean_existing=True, force_download=False):
         """Main method to build the complete JAR environment needed for processing."""
         try:
-            # If jars dir already exists delete it and create a new one
+            # If clean_existing=True, delete everything and start fresh
             if clean_existing:
                 if os.path.exists(self.jars_dir):
                     shutil.rmtree(self.jars_dir)
                 os.makedirs(self.jars_dir, exist_ok=True)
+                force_all_downloads = True  # Force all downloads when cleaning
             else:
                 self.create_directory(self.jars_dir)
+                force_all_downloads = force_download
                 
             self.logger.info("Starting CMS Software download process")
+            
+            # Log current environment status
+            if not clean_existing:
+                missing_jars = self.get_all_missing_jars()
+                if not missing_jars:
+                    self.logger.info("All JAR components are already present")
+                else:
+                    self.logger.info(f"Missing components: {list(missing_jars.keys())}")
+            
             # Create directories
             self.create_directory(self.download_dir)
             self.create_directory(self.jars_dir)
             
             # Download and process MSDRG files
-            self.logger.info("Starting MSDRG file download process")
-            msdrg_zip_path = self.download_msdrg_files()
-            if msdrg_zip_path:
-                self.logger.info("Processing MSDRG ZIP file")
-                self.process_zip_for_jars(msdrg_zip_path, "msdrg")
+            if force_all_downloads or not self.is_component_complete('msdrg'):
+                self.logger.info("Starting MSDRG file download process")
+                msdrg_zip_path = self.download_msdrg_files()
+                if msdrg_zip_path:
+                    self.logger.info("Processing MSDRG ZIP file")
+                    if force_all_downloads:
+                        # Process all JARs from the ZIP
+                        self.process_zip_for_jars(msdrg_zip_path, "msdrg")
+                    else:
+                        # Only process missing JARs
+                        missing_msdrg_jars = self.get_missing_jars_for_component('msdrg')
+                        self.process_zip_for_jars(msdrg_zip_path, "msdrg", missing_jars=missing_msdrg_jars)
+            else:
+                self.logger.info("MSDRG components already exist, skipping download")
 
             # Download and process IOCE files
-            self.logger.info("Starting IOCE file download process")
-            ioce_zip_path = self.download_ioce_files()
-            if ioce_zip_path:
-                self.logger.info("Processing IOCE ZIP file")
-                self.process_zip_for_jars(ioce_zip_path, "ioce")
+            if force_all_downloads or not self.is_component_complete('ioce'):
+                self.logger.info("Starting IOCE file download process")
+                ioce_zip_path = self.download_ioce_files()
+                if ioce_zip_path:
+                    self.logger.info("Processing IOCE ZIP file")
+                    if force_all_downloads:
+                        # Process all JARs from the ZIP
+                        self.process_zip_for_jars(ioce_zip_path, "ioce")
+                    else:
+                        # Only process missing JARs
+                        missing_ioce_jars = self.get_missing_jars_for_component('ioce')
+                        self.process_zip_for_jars(ioce_zip_path, "ioce", missing_jars=missing_ioce_jars)
+            else:
+                self.logger.info("IOCE components already exist, skipping download")
             
-            # Process the GFC JAR file
-            self.process_gfc_jar()
-            # Process the GRPC JAR file
-            self.process_grpc_jar()
-
-            # Process slf4j jar file
-            self.process_slf4j_jar()
+            # Process individual JAR components
+            self.process_gfc_jar(force_download=force_all_downloads)
+            self.process_grpc_jar(force_download=force_all_downloads)
+            self.process_slf4j_jar(force_download=force_all_downloads)
 
             # Get CMS Web Pricers - these go in their own subdirectory
-            self.logger.info("Starting CMS Web Pricers download process")
-            self.download_web_pricers()
+            if force_all_downloads:
+                self.logger.info("Starting CMS Web Pricers download process")
+                self.logger.info("Force all downloads is True")
+                self.download_web_pricers(force_all_downloads=force_all_downloads)
+            
+            if not self.is_component_complete('pricers'):
+                self.logger.info("Starting CMS Web Pricers download process")
+                self.logger.info("Skipping download of CMS Web Pricers as they are already present")
+                self.download_web_pricers()
+            else:
+                self.logger.info("Pricer components already exist, skipping download")
 
             # Clean up download directory
             if os.path.exists(self.download_dir):
@@ -561,9 +934,24 @@ class CMSDownloader:
 if __name__ == "__main__":
     # Create downloader instance and build the JAR environment
     downloader = CMSDownloader()
-    success = downloader.build_jar_environment(clean_existing=True)
+    
+    # Show current inventory before building
+    print("Checking current JAR environment...")
+    downloader.print_jar_inventory()
+    
+    # Build with selective downloading (default behavior)
+    success = downloader.build_jar_environment(clean_existing=False)
     
     if success:
-        print("JAR environment build completed successfully!")
+        print("\nJAR environment build completed successfully!")
+        # Show final inventory
+        downloader.print_jar_inventory()
+        
+        # Validate the environment
+        validation = downloader.validate_jar_environment()
+        print(f"\nEnvironment Validation: {validation['status_message']}")
     else:
         print("JAR environment build failed. Check logs for details.")
+        
+    # Uncomment to force clean rebuild:
+    # success = downloader.build_jar_environment(clean_existing=True)
