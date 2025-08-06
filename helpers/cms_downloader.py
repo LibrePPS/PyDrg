@@ -59,44 +59,6 @@ class CMSDownloader:
     SLF4J_JAR = "https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/2.0.9/slf4j-simple-2.0.9.jar"
     SLF4J_JAR2 = "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.9/slf4j-api-2.0.9.jar"
 
-    # Registry of required JAR files by component
-    REQUIRED_JARS = {
-        'slf4j': [
-            'slf4j-simple-2.0.9.jar',
-            'slf4j-api-2.0.9.jar'
-        ],
-        'gfc': [
-            'gfc-base-api-3.4.9.jar'
-        ],
-        'grpc': [
-            'protobuf-java-3.22.2.jar',
-            'protobuf-java-3.21.7.jar'
-        ],
-        'msdrg': [
-            'msdrg-binary-access-1.3.0.jar',
-            'msdrg-model-v2-2.8.0.jar',
-            'msdrg-v421-42.1.0.0.jar',
-            'MCE-2.0-42.1.0.0.jar',
-            'mce-proto-1.2.0.jar',
-            'Utility-1.1.1.jar'
-        ],
-        'ioce': [
-            'ioce-standalone-26.2.0.7.jar'
-        ],
-        'pricers': [
-            'esrd-pricer-application-2.8.0.jar',
-            'fqhc-pricer-application-2.7.0.jar',
-            'hha-pricer-application-2.5.0.jar',
-            'hospice-pricer-application-2.4.0.jar',
-            'ipf-pricer-application-2.5.0.jar',
-            'ipps-pricer-application-2.10.0.jar',
-            'irf-pricer-application-2.5.0.jar',
-            'ltch-pricer-application-2.5.0.jar',
-            'opps-pricer-application-2.11.0.jar',
-            'snf-pricer-application-2.4.1.jar'
-        ]
-    }
-
     def __init__(self, jars_dir="jars", download_dir="downloads", log_level=logging.INFO):
         """
         Initialize the CMS Downloader.
@@ -108,10 +70,18 @@ class CMSDownloader:
         """
         self.jars_dir = jars_dir
         self.download_dir = download_dir
+        self.REQUIRED_JARS = self._load_required_jars()
         self.pricers_dir = os.path.join(jars_dir, "pricers")
         
         # Setup logging
         self.logger = self._setup_logging(log_level)
+
+    def _load_required_jars(self):
+        """Load the required JARs from the required_jars.json file."""
+        with open("helpers/required_jars.json", "r") as f:
+            jars = json.load(f)
+
+        return jars
         
     def _setup_logging(self, log_level):
         """Setup logging configuration."""
