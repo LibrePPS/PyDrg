@@ -51,8 +51,17 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
     ```bash
     uv sync
     ```
+    dev dependencies:
+    ```bash
+    uv sync --extra dev
+    ```
 3.  **Ensure Java is installed and available in your PATH.**
     - Check with: `java -version`
+
+## Testing
+```bash
+pytest tests/
+```
 
 ## Setup
 
