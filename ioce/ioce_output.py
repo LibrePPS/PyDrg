@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
     claim_id: str = ""
-    return_code: int = 0
+    return_code: dict = Field(default_factory=dict)
     lines_processed: int = 0
     internal_version: int = 0
     version: str = ""
@@ -17,7 +17,7 @@ class IoceProcessingInformation(BaseModel):
     def from_java(self, java_obj):
         if java_obj is not None:
             self.claim_id = str(java_obj.getClaimId()) if java_obj.getClaimId() else ""
-            self.return_code = java_obj.getReturnCode() if java_obj.getReturnCode() else 0
+            self.return_code["code"] = java_obj.getReturnCode() if java_obj.getReturnCode() else 0
             self.lines_processed = java_obj.getLinesProcessed() if java_obj.getLinesProcessed() else 0
             self.internal_version = java_obj.getInternalVersion() if hasattr(java_obj, 'getInternalVersion') else 0
             self.version = str(java_obj.getVersion()) if java_obj.getVersion() else ""
@@ -191,6 +191,7 @@ class IoceOutput(BaseModel):
         try:
             if hasattr(java_claim, 'getProcessingInformation') and java_claim.getProcessingInformation():
                 self.processing_information.from_java(java_claim.getProcessingInformation())
+                self.processing_information.return_code["description"] = get_return_code_description(self.processing_information.return_code["code"])
             
             self.version = str(java_claim.getVersion()) if java_claim.getVersion() else ""
             self.claim_processed_flag = str(java_claim.getClaimProcessedFlag()) if java_claim.getClaimProcessedFlag() else ""
@@ -275,3 +276,42 @@ class IoceOutput(BaseModel):
     
     def __repr__(self):
         return self.__str__()
+
+def get_return_code_description(return_code: int):
+    """Get the description for a return code"""
+
+    return_code_descriptions = {
+        -1: "Unspecified",
+        0: "Claim processed successfully",
+        1: "Memory allocation error",
+        2: "Reserved",
+        3: "Reserved",
+        4: "Reserved",
+        5: "Reserved",
+        6: "Reserved",
+        7: "Read error loading Read-Only Table file",
+        8: "Reserved",
+        9: "Reserved",
+        10: "Reserved",
+        11: "Reserved",
+        12: "Zero line items",
+        13: "Invalid From date",
+        14: "Invalid Through date",
+        15: "Invalid date sequence",
+        16: "Invalid line date",
+        17: "From date outside of OCE version range",
+        18: "Invalid bill type",
+        19: "All line item dates are blank or invalid",
+        20: "A resource on the claim references itself as a dependency",
+        21: "Reserved",
+        22: "Claim processing terminated due to bill type 012x or 014x present with CC 41",
+        23: "Reserved",
+        24: "Reserved",
+        25: "Reserved",
+        26: "Contractor bypass edit is not able to be bypassed",
+        27: "Invalid format used for contractor bypass input values",
+        28: "Input format is incorrect for value code amount field",
+        29: "Invalid claims processing receipt date",
+        97: "JVM failure occurred - this claim is rejected. Check SVSOUT for JVM stack"
+    }
+    return return_code_descriptions.get(return_code, "Unknown return code")
