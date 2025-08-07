@@ -401,7 +401,7 @@ class IoceClient:
             edit_list = getattr(result, edit_list_attr, [])
             for edit in edit_list:
                 edit_desc = self.ioce_component.getEditDescription(
-                    str(edit.edit), internal_version
+                    str(int(edit.edit)), internal_version
                 )
                 edit.description = str(edit_desc) if edit_desc else ""
 
