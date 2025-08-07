@@ -2,10 +2,15 @@ import jpype
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+class ReturnCode(BaseModel):
+    """Return code information"""
+    code: int = 0
+    description: str = ""
+
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
     claim_id: str = ""
-    return_code: dict = Field(default_factory=dict)
+    return_code: ReturnCode = Field(default_factory=ReturnCode)
     lines_processed: int = 0
     internal_version: int = 0
     version: str = ""
@@ -17,7 +22,7 @@ class IoceProcessingInformation(BaseModel):
     def from_java(self, java_obj):
         if java_obj is not None:
             self.claim_id = str(java_obj.getClaimId()) if java_obj.getClaimId() else ""
-            self.return_code["code"] = java_obj.getReturnCode() if java_obj.getReturnCode() else 0
+            self.return_code.code = java_obj.getReturnCode() if java_obj.getReturnCode() else 0
             self.lines_processed = java_obj.getLinesProcessed() if java_obj.getLinesProcessed() else 0
             self.internal_version = java_obj.getInternalVersion() if hasattr(java_obj, 'getInternalVersion') else 0
             self.version = str(java_obj.getVersion()) if java_obj.getVersion() else ""
@@ -75,6 +80,7 @@ class IoceOutputLineItem(BaseModel):
     service_date: str = ""
     revenue_code: str = ""
     hcpcs: str = ""
+    hcpcs_description: str = ""
     units_input: str = ""
     charge: str = ""
     action_flag_input: str = ""
@@ -83,9 +89,12 @@ class IoceOutputLineItem(BaseModel):
     rejection_denial_flag: str = ""
     payment_method_flag: str = ""
     hcpcs_apc: str = ""
+    hcpcs_apc_description: str = ""
     payment_apc: str = ""
+    payment_apc_description: str = ""
     units_output: str = ""
     status_indicator: str = ""
+    status_indicator_description: str = ""
     payment_indicator: str = ""
     packaging_flag: str = ""
     payment_adjustment_flag01: str = ""
@@ -150,34 +159,59 @@ class IoceOutputLineItem(BaseModel):
         
         return self
 
+class IoceOutputEdit(BaseModel):
+    """Output for edits"""
+    edit: str = ""
+    description: str = ""
+
 class IoceOutput(BaseModel):
     """Main OPPS output class containing all processing results"""
     processing_information: IoceProcessingInformation = Field(default_factory=IoceProcessingInformation)
     
     version: str = ""
     claim_processed_flag: str = ""
+    claim_processed_flag_description: str = ""
     apc_return_buffer_flag: str = ""
     nopps_bill_flag: str = ""
     
     claim_disposition: str = ""
+    claim_disposition_description: str = ""
+    claim_disposition_value_description: str = ""
     claim_rejection_disposition: str = ""
-    claim_denial_disposition: str = ""
-    claim_return_to_provider_disposition: str = ""
-    claim_suspension_disposition: str = ""
-    line_rejection_disposition: str = ""
-    line_denial_disposition: str = ""
+    claim_rejection_disposition_description: str = ""
+    claim_rejection_disposition_value_description: str = ""
+    claim_rejection_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
 
-    claim_rejection_edit_list: List[str] = Field(default_factory=list)
-    claim_denial_edit_list: List[str] = Field(default_factory=list)
-    claim_return_to_provider_edit_list: List[str] = Field(default_factory=list)
-    claim_suspension_edit_list: List[str] = Field(default_factory=list)
-    line_rejection_edit_list: List[str] = Field(default_factory=list)
-    line_denial_edit_list: List[str] = Field(default_factory=list)
+    claim_denial_disposition: str = ""
+    claim_denial_disposition_description: str = ""
+    claim_denial_disposition_value_description: str = ""
+    claim_denial_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
+    
+    claim_return_to_provider_disposition: str = ""
+    claim_return_to_provider_disposition_description: str = ""
+    claim_return_to_provider_disposition_value_description: str = ""
+    claim_return_to_provider_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
+    
+    claim_suspension_disposition: str = ""
+    claim_suspension_disposition_description: str = ""
+    claim_suspension_disposition_value_description: str = ""
+    claim_suspension_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
+
+    line_rejection_disposition: str = ""
+    line_rejection_disposition_description: str = ""
+    line_rejection_disposition_value_description: str = ""
+    line_rejection_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
+    
+    line_denial_disposition: str = ""
+    line_denial_disposition_description: str = ""
+    line_denial_disposition_value_description: str = ""
+    line_denial_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     
     condition_code_output_list: List[str] = Field(default_factory=list)
     value_code_output_list: List[IoceOutputValueCode] = Field(default_factory=list)
     
     principal_diagnosis_code: IoceOutputDiagnosisCode = Field(default_factory=IoceOutputDiagnosisCode)
+    principal_diagnosis_code_description: str = ""
     reason_for_visit_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
     secondary_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
     
@@ -191,7 +225,6 @@ class IoceOutput(BaseModel):
         try:
             if hasattr(java_claim, 'getProcessingInformation') and java_claim.getProcessingInformation():
                 self.processing_information.from_java(java_claim.getProcessingInformation())
-                self.processing_information.return_code["description"] = get_return_code_description(self.processing_information.return_code["code"])
             
             self.version = str(java_claim.getVersion()) if java_claim.getVersion() else ""
             self.claim_processed_flag = str(java_claim.getClaimProcessedFlag()) if java_claim.getClaimProcessedFlag() else ""
@@ -209,32 +242,32 @@ class IoceOutput(BaseModel):
             self.claim_rejection_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimRejectionEditList') and java_claim.getClaimRejectionEditList():
                 for edit in java_claim.getClaimRejectionEditList():
-                    self.claim_rejection_edit_list.append(str(edit))
+                    self.claim_rejection_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.claim_denial_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimDenialEditList') and java_claim.getClaimDenialEditList():
                 for edit in java_claim.getClaimDenialEditList():
-                    self.claim_denial_edit_list.append(str(edit))
+                    self.claim_denial_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.claim_return_to_provider_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimReturnToProviderEditList') and java_claim.getClaimReturnToProviderEditList():
                 for edit in java_claim.getClaimReturnToProviderEditList():
-                    self.claim_return_to_provider_edit_list.append(str(edit))
+                    self.claim_return_to_provider_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.claim_suspension_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getClaimSuspensionEditList') and java_claim.getClaimSuspensionEditList():
                 for edit in java_claim.getClaimSuspensionEditList():
-                    self.claim_suspension_edit_list.append(str(edit))
+                    self.claim_suspension_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.line_rejection_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineRejectionEditList') and java_claim.getLineRejectionEditList():
                 for edit in java_claim.getLineRejectionEditList():
-                    self.line_rejection_edit_list.append(str(edit))
+                    self.line_rejection_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.line_denial_edit_list = []  # Clear before populating
             if hasattr(java_claim, 'getLineDenialEditList') and java_claim.getLineDenialEditList():
                 for edit in java_claim.getLineDenialEditList():
-                    self.line_denial_edit_list.append(str(edit))
+                    self.line_denial_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.condition_code_output_list = []  # Clear before populating
             if hasattr(java_claim, 'getConditionCodeOutputList') and java_claim.getConditionCodeOutputList():
@@ -276,42 +309,3 @@ class IoceOutput(BaseModel):
     
     def __repr__(self):
         return self.__str__()
-
-def get_return_code_description(return_code: int):
-    """Get the description for a return code"""
-
-    return_code_descriptions = {
-        -1: "Unspecified",
-        0: "Claim processed successfully",
-        1: "Memory allocation error",
-        2: "Reserved",
-        3: "Reserved",
-        4: "Reserved",
-        5: "Reserved",
-        6: "Reserved",
-        7: "Read error loading Read-Only Table file",
-        8: "Reserved",
-        9: "Reserved",
-        10: "Reserved",
-        11: "Reserved",
-        12: "Zero line items",
-        13: "Invalid From date",
-        14: "Invalid Through date",
-        15: "Invalid date sequence",
-        16: "Invalid line date",
-        17: "From date outside of OCE version range",
-        18: "Invalid bill type",
-        19: "All line item dates are blank or invalid",
-        20: "A resource on the claim references itself as a dependency",
-        21: "Reserved",
-        22: "Claim processing terminated due to bill type 012x or 014x present with CC 41",
-        23: "Reserved",
-        24: "Reserved",
-        25: "Reserved",
-        26: "Contractor bypass edit is not able to be bypassed",
-        27: "Invalid format used for contractor bypass input values",
-        28: "Input format is incorrect for value code amount field",
-        29: "Invalid claims processing receipt date",
-        97: "JVM failure occurred - this claim is rejected. Check SVSOUT for JVM stack"
-    }
-    return return_code_descriptions.get(return_code, "Unknown return code")

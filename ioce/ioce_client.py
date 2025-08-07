@@ -276,6 +276,9 @@ class IoceClient:
             # Extract output
             Ioce_output = IoceOutput()
             Ioce_output.from_java(processed_model)
+
+            # Append descriptions
+            Ioce_output = self.append_descriptions(Ioce_output)
             
             return Ioce_output
             
@@ -368,75 +371,114 @@ class IoceClient:
 
         return stats
     
-    def get_descriptions(self, claim, result):
+    def _enrich_disposition_and_edits(self, result, disposition_type_id: str, disposition_attr: str, 
+                                     edit_list_attr: str, internal_version: int):
+        """
+        Generic function to enrich disposition and edit descriptions.
+        
+        Args:
+            result: The result object to enrich
+            disposition_type_id: The disposition type ID (e.g., "1", "2", "3", etc.)
+            disposition_attr: The disposition attribute name (e.g., "claim_disposition")
+            edit_list_attr: The edit list attribute name (e.g., "claim_rejection_edit_list")
+            internal_version: The internal version for lookups
+        """
+        disposition_value = getattr(result, disposition_attr, None)
+        if disposition_value:
+            # Get disposition description
+            disp_desc = self.ioce_component.getClaimDispositionDescription(
+                disposition_type_id, internal_version
+            )
+            setattr(result, f"{disposition_attr}_description", str(disp_desc) if disp_desc else "")
+            
+            # Get disposition value description
+            disp_value_desc = self.ioce_component.getClaimDispositionValueDescription(
+                disposition_type_id, disposition_value, internal_version
+            )
+            setattr(result, f"{disposition_attr}_value_description", str(disp_value_desc) if disp_value_desc else "")
+            
+            # Enrich edit descriptions
+            edit_list = getattr(result, edit_list_attr, [])
+            for edit in edit_list:
+                edit_desc = self.ioce_component.getEditDescription(
+                    str(edit.edit), internal_version
+                )
+                edit.description = str(edit_desc) if edit_desc else ""
+
+    # TODO: More descriptions available in the IOCE component
+    def append_descriptions(self, result: IoceOutput) -> IoceOutput: 
         """
         Get human-readable descriptions for codes and values in the result.
         This uses the IOCE component's description methods.
         """
-        descriptions = {}
         
         try:
             internal_version = result.processing_information.internal_version
             
             # Get return code description
-            if result.processing_information.return_code:
+            if result.processing_information.return_code.code is not None:
                 return_code_desc = self.ioce_component.getLatestErrorDescription(
-                    str(result.processing_information.return_code)
+                    str(result.processing_information.return_code.code)
                 )
-                descriptions['return_code'] = str(return_code_desc) if return_code_desc else ""
+                result.processing_information.return_code.description = str(return_code_desc) if return_code_desc else ""
             
             # Get claim processed flag description
             if result.claim_processed_flag:
                 claim_flag_desc = self.ioce_component.getClaimProcessedFlagDescription(
                     result.claim_processed_flag, internal_version
                 )
-                descriptions['claim_processed_flag'] = str(claim_flag_desc) if claim_flag_desc else ""
+                result.claim_processed_flag_description = str(claim_flag_desc) if claim_flag_desc else ""
             
-            # Get disposition descriptions
-            if result.claim_disposition:
-                claim_disp_desc = self.ioce_component.getClaimDispositionDescription(
-                    "1", internal_version
+            # Enrich disposition and edit descriptions
+            disposition_configs = [
+                ("1", "claim_disposition", "claim_rejection_edit_list"),
+                ("2", "claim_rejection_disposition", "claim_rejection_edit_list"),
+                ("3", "claim_denial_disposition", "claim_denial_edit_list"),
+                ("4", "claim_return_to_provider_disposition", "claim_return_to_provider_edit_list"),
+                ("5", "claim_suspension_disposition", "claim_suspension_edit_list"),
+                ("6", "line_rejection_disposition", "line_rejection_edit_list"),
+                ("7", "line_denial_disposition", "line_denial_edit_list"),
+            ]
+            
+            for disposition_type_id, disposition_attr, edit_list_attr in disposition_configs:
+                self._enrich_disposition_and_edits(
+                    result, disposition_type_id, disposition_attr, edit_list_attr, internal_version
                 )
-                descriptions['claim_disposition'] = str(claim_disp_desc) if claim_disp_desc else ""
-            
+
             # Get line item descriptions
             for i, line in enumerate(result.line_item_list):
-                line_desc = {}
-                
                 if line.hcpcs:
                     hcpcs_desc = self.ioce_component.getHcpcsDescription(
                         line.hcpcs, internal_version
                     )
-                    line_desc['hcpcs'] = str(hcpcs_desc) if hcpcs_desc else ""
+                    line.hcpcs_description = str(hcpcs_desc) if hcpcs_desc else ""
                 
                 if line.hcpcs_apc:
                     apc_desc = self.ioce_component.getApcDescription(
                         line.hcpcs_apc, internal_version
                     )
-                    line_desc['hcpcs_apc'] = str(apc_desc) if apc_desc else ""
+                    line.hcpcs_apc_description = str(apc_desc) if apc_desc else ""
                 
                 if line.payment_apc:
                     payment_apc_desc = self.ioce_component.getApcDescription(
                         line.payment_apc, internal_version
                     )
-                    line_desc['payment_apc'] = str(payment_apc_desc) if payment_apc_desc else ""
+                    line.payment_apc_description = str(payment_apc_desc) if payment_apc_desc else ""
                 
                 if line.status_indicator:
                     status_desc = self.ioce_component.getStatusIndicatorDescription(
                         line.status_indicator, internal_version
                     )
-                    line_desc['status_indicator'] = str(status_desc) if status_desc else ""
+                    line.status_indicator_description = str(status_desc) if status_desc else ""
                 
-                descriptions[f'line_{i}'] = line_desc
-            
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
                 principal_desc = self.ioce_component.getDiagnosisDescription(
                     result.principal_diagnosis_code.diagnosis, internal_version
                 )
-                descriptions['principal_diagnosis'] = str(principal_desc) if principal_desc else ""
+                result.principal_diagnosis_code_description = str(principal_desc) if principal_desc else ""
             
         except Exception as e:
             print(f"Warning: Could not retrieve some descriptions: {e}")
         
-        return descriptions
+        return result
