@@ -237,21 +237,6 @@ class AdditionalCalculationVariableData(BaseModel):
 class IppsOutput(BaseModel):
     """
     Represents the output of the IPPS pricer.
-
-            self.ipps_output.?.average_los = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getAverageLengthOfStay").?.method, f64);
-        self.ipps_output.?.days_cutoff = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getDaysCutoff").?.method, f64);
-        self.ipps_output.?.lifetime_reserve_days_used = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getLifetimeReserveDaysUsed").?.method, false);
-        self.ipps_output.?.operating_dsh_adjustment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingDisproportionateShareHospitalAdjustment").?.method, f64);
-        self.ipps_output.?.operating_fsp_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingFederalSpecificPortionPart").?.method, f64);
-        self.ipps_output.?.operating_hsp_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingHospitalSpecificPortionPart").?.method, f64);
-        self.ipps_output.?.operating_ime_adjustment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingIndirectMedicalEducationAdjustment").?.method, f64);
-        self.ipps_output.?.operating_outlier_payment_part = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getOperatingOutlierPaymentPart").?.method, f64);
-        self.ipps_output.?.outlier_days = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getOutlierDays").?.method, false);
-        self.ipps_output.?.regular_days_used = libre_env.getInt(usize, payment_data, payment_data_methods.getPtr("getRegularDaysUsed").?.method, false);
-        self.ipps_output.?.final_cbsa = libre_env.getJavaString(payment_data, payment_data_methods.getPtr("getFinalCbsa").?.method, &self.allocator, null);
-        self.ipps_output.?.final_wage_index = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getFinalWageIndex").?.method, f64);
-        self.ipps_output.?.total_payment = libre_env.getBigDecimal(payment_data, payment_data_methods.getPtr("getTotalPayment").?.method, f64);
-
     """
     average_length_of_stay: Optional[float] = None
     days_cutoff: Optional[float] = None
@@ -365,7 +350,7 @@ class IppsClient:
         provider_data = self.inpatient_prov_data()
         self.pricing_request = self.ipps_price_request()
 
-        #@TODO All these fields need to be added to Claim object
+        #@TODO All these fields need to be added to Claim object or provide some sort of way for user to set them
         claim_object.setReviewCode("00")
         demo_codes = self.array_list_class()
         claim_object.setDemoCodes(demo_codes)
@@ -432,51 +417,7 @@ class IppsClient:
             ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
         else:
             raise ValueError("Either billing or servicing provider must be provided for IPPS pricing.")
-        provider_data.setBedSize(self.java_integer_class(ipsf_provider.bed_size))
-        provider_data.setBundleModel1Discount(self.java_big_decimal_class(ipsf_provider.bundle_model_discount))
-        provider_data.setCapitalCostToChargeRatio(self.java_big_decimal_class(ipsf_provider.capital_cost_to_charge_ratio))
-        provider_data.setOperatingCostToChargeRatio(self.java_big_decimal_class(ipsf_provider.operating_cost_to_charge_ratio))
-        provider_data.setCapitalExceptionPaymentRate(self.java_big_decimal_class(ipsf_provider.capital_exception_payment_rate))
-        provider_data.setCapitalIndirectMedicalEducationRatio(self.java_big_decimal_class(ipsf_provider.capital_indirect_medical_education_ratio))
-        provider_data.setCapitalPpsPaymentCode(ipsf_provider.capital_pps_payment_code)
-        provider_data.setCbsaActualGeographicLocation(str(ipsf_provider.cbsa_actual_geographic_location))
-        provider_data.setCbsaWageIndexLocation(str(ipsf_provider.cbsa_wi_location))
-        provider_data.setCbsaStandardizedAmountLocation(str(ipsf_provider.cbsa_standardized_amount_location))
-        provider_data.setEhrReductionIndicator(str(ipsf_provider.ehr_reduction_indicator))
-        provider_data.setFederalPpsBlend(str(ipsf_provider.federal_pps_blend))
-        provider_data.setHacReductionParticipantIndicator(str(ipsf_provider.hac_reduction_participant_indicator))
-        provider_data.setHrrAdjustment(self.java_big_decimal_class(ipsf_provider.hrr_adjustment))
-        provider_data.setHrrParticipantIndicator(str(ipsf_provider.hrr_participant_indicator))
-        provider_data.setInternsToBedsRatio(self.java_big_decimal_class(ipsf_provider.interns_to_beds_ratio))
-        provider_data.setLowVolumeAdjustmentFactor(self.java_big_decimal_class(ipsf_provider.low_volume_adjustment_factor))
-        provider_data.setLtchDppIndicator(str(ipsf_provider.ltch_dpp_indicator))
-        provider_data.setMedicaidRatio(self.java_big_decimal_class(ipsf_provider.medicaid_ratio))
-        provider_data.setNewHospital(str(ipsf_provider.new_hospital))
-        provider_data.setOldCapitalHoldHarmlessRate(self.java_big_decimal_class(ipsf_provider.old_capital_hold_harmless_rate))
-        provider_data.setPassThroughAmountForAllogenicStemCellAcquisition(self.java_big_decimal_class(ipsf_provider.pass_through_amount_for_allogenic_stem_cell_acquisition))
-        provider_data.setPassThroughAmountForCapital(self.java_big_decimal_class(ipsf_provider.pass_through_amount_for_capital))
-        provider_data.setPassThroughAmountForDirectMedicalEducation(self.java_big_decimal_class(ipsf_provider.pass_through_amount_for_direct_medical_education))
-        provider_data.setPassThroughAmountForSupplyChainCosts(self.java_big_decimal_class(ipsf_provider.pass_through_amount_for_supply_chain))
-        provider_data.setPassThroughAmountForOrganAcquisition(self.java_big_decimal_class(ipsf_provider.pass_through_amount_for_organ_acquisition))
-        provider_data.setPassThroughTotalAmount(self.java_big_decimal_class(ipsf_provider.pass_through_total_amount))
-        provider_data.setPpsFacilitySpecificRate(self.java_big_decimal_class(ipsf_provider.pps_facility_specific_rate))
-        provider_data.setSupplementalSecurityIncomeRatio(self.java_big_decimal_class(ipsf_provider.supplemental_security_income_ratio))
-        provider_data.setTemporaryReliefIndicator(str(ipsf_provider.temporary_relief_indicator))
-        provider_data.setUncompensatedCareAmount(self.java_big_decimal_class(ipsf_provider.uncompensated_care_amount))
-        provider_data.setVbpAdjustment(self.java_big_decimal_class(ipsf_provider.vbp_adjustment))
-        provider_data.setVbpParticipantIndicator(str(ipsf_provider.vpb_participant_indicator))
-        provider_data.setStateCode(ipsf_provider.state_code)
-        provider_data.setCountyCode(ipsf_provider.county_code)
-        provider_data.setSpecialWageIndex(self.java_big_decimal_class(ipsf_provider.special_wage_index))
-        provider_data.setProviderType(ipsf_provider.provider_type)
-        provider_data.setHospitalQualityIndicator(ipsf_provider.hosp_quality_indicator)
-        provider_data.setSpecialPaymentIndicator(ipsf_provider.special_payment_indicator)
-        provider_data.setMedicarePerformanceAdjustment(self.java_big_decimal_class(ipsf_provider.medicare_performance_adjustment))
-        provider_data.setWaiverIndicator(ipsf_provider.waiver_indicator)
-        provider_data.setCostOfLivingAdjustment(self.java_big_decimal_class(ipsf_provider.cost_of_living_adjustment))
-        provider_data.setEffectiveDate(self.py_date_to_java_date(ipsf_provider.effective_date))
-        provider_data.setTerminationDate(self.py_date_to_java_date(ipsf_provider.termination_date))
-        provider_data.setFiscalYearBeginDate(self.py_date_to_java_date(ipsf_provider.fiscal_year_begin_date))
+        ipsf_provider.set_java_values(provider_data, self)
         self.pricing_request.setProviderData(provider_data)
         return
 

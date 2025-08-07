@@ -4,6 +4,7 @@ from mce.mce_client import MceClient
 from msdrg.drg_client import DrgClient
 from pricers.ipps import IppsClient
 from pricers.opps import OppsClient
+from pricers.ipf import IpfClient
 from pricers.ipsf import IPSFDatabase
 from pricers.opsf import OPSFDatabase
 import jpype
@@ -37,6 +38,7 @@ class Pypps:
         #Pricer Clients @TODO: Add more pricer clients as needed
         self.ipps_client = None
         self.opps_client = None
+        self.ipf_client = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
@@ -101,7 +103,7 @@ class Pypps:
 
 if __name__ == "__main__":
     # Example usage
-    pypps = Pypps(build_jar_dirs=True, jar_path="./jars", db_path="./data/pypps.db", build_db=True)
+    pypps = Pypps(build_jar_dirs=True, jar_path="./jars", db_path="./data/pypps.db", build_db=False) #<--- Set build_db=True to create the database if it does not exist
     pypps.setup_clients()
     
     test_claim_1 = claim_example()
@@ -134,4 +136,8 @@ if __name__ == "__main__":
         opps_output = pypps.opps_client.process(opps_claim, ioce_output)
         print(opps_output.model_dump_json(indent=2))
         print("=== End of OPPS Pricer Example ===")
-
+    if pypps.ipf_client is not None:
+        print("=== IPF Pricer Example ===")
+        ipf_output = pypps.ipf_client.process(test_claim_1, drg_output)
+        print(ipf_output.model_dump_json(indent=2))
+        print("=== End of IPF Pricer Example ===")

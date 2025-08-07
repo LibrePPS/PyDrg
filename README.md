@@ -7,6 +7,8 @@ PyDrg is a comprehensive Python toolkit for interacting with key components of t
 - **IOCE Editor:** Processes outpatient claims through the Integrated Outpatient Code Editor (IOCE) to assign Ambulatory Payment Classifications (APCs).
 - **IPPS Pricer:** Calculates the reimbursement amount for inpatient claims under the Inpatient Prospective Payment System (IPPS).
 - **OPPS Pricer:** Calculates the reimbursement amount for outpatient claims under the Outpatient Prospective Payment System (OPPS).
+- **IPF Pricer:** Calculates the reimbursement amount for inpatient claims under the Inpatient Psychiatric Facility Prospective Payment System (IPF PPS).
+
 
 Built on top of the official Java-based CMS tools, PyDrg uses `jpype` to create a seamless bridge to Python, allowing developers, analysts, and researchers to integrate these critical healthcare components into their workflows for automation, analytics, and research.
 
@@ -134,6 +136,7 @@ print(ioce_output.model_dump_json(indent=2))
 ### IPPS Pricer
 
 The `IppsClient` is used to calculate the reimbursement for an inpatient claim. It requires the output from the `DrgClient`.
+The `IpfClient` similarly calculates reimbursement for inpatient psychiatric facility claims, also requiring the `DrgClient` output.
 
 ```python
 from pypps import Pypps
@@ -146,6 +149,9 @@ claim = claim_example()
 drg_output = pypps.drg_client.process(claim)
 ipps_output = pypps.ipps_client.process(claim, drg_output)
 print(ipps_output.model_dump_json(indent=2))
+
+ipf_output = pypps.ipf_client.process(claim, drg_output)
+print(ipf_output.model_dump_json(indent=2))
 ```
 
 ### OPPS Pricer

@@ -3,6 +3,7 @@ import os
 import requests
 from pydantic import BaseModel
 from input.claim import Provider
+import jpype
 
 IPSF_URL = "https://pds.mps.cms.gov/fiss/v2/inpatient/export?fromDate=2023-01-01&toDate=2030-12-31"
 
@@ -249,3 +250,55 @@ class IPSFProvider(BaseModel):
             return
         else:
             raise ValueError(f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}.")
+    
+    def set_java_values(self, java_provider, client):
+
+        if not hasattr(client, 'java_integer_class') or not hasattr(client, 'java_big_decimal_class'):
+            raise AttributeError("Client must have java_integer_class and java_big_decimal_class attributes.")
+
+        java_provider.setBedSize(client.java_integer_class(self.bed_size))
+        java_provider.setBundleModel1Discount(client.java_big_decimal_class(self.bundle_model_discount))
+        java_provider.setCapitalCostToChargeRatio(client.java_big_decimal_class(self.capital_cost_to_charge_ratio))
+        java_provider.setOperatingCostToChargeRatio(client.java_big_decimal_class(self.operating_cost_to_charge_ratio))
+        java_provider.setCapitalExceptionPaymentRate(client.java_big_decimal_class(self.capital_exception_payment_rate))
+        java_provider.setCapitalIndirectMedicalEducationRatio(client.java_big_decimal_class(self.capital_indirect_medical_education_ratio))
+        java_provider.setCapitalPpsPaymentCode(self.capital_pps_payment_code)
+        java_provider.setCbsaActualGeographicLocation(str(self.cbsa_actual_geographic_location))
+        java_provider.setCbsaWageIndexLocation(str(self.cbsa_wi_location))
+        java_provider.setCbsaStandardizedAmountLocation(str(self.cbsa_standardized_amount_location))
+        java_provider.setEhrReductionIndicator(str(self.ehr_reduction_indicator))
+        java_provider.setFederalPpsBlend(str(self.federal_pps_blend))
+        java_provider.setHacReductionParticipantIndicator(str(self.hac_reduction_participant_indicator))
+        java_provider.setHrrAdjustment(client.java_big_decimal_class(self.hrr_adjustment))
+        java_provider.setHrrParticipantIndicator(str(self.hrr_participant_indicator))
+        java_provider.setInternsToBedsRatio(client.java_big_decimal_class(self.interns_to_beds_ratio))
+        java_provider.setLowVolumeAdjustmentFactor(client.java_big_decimal_class(self.low_volume_adjustment_factor))
+        java_provider.setLtchDppIndicator(str(self.ltch_dpp_indicator))
+        java_provider.setMedicaidRatio(client.java_big_decimal_class(self.medicaid_ratio))
+        java_provider.setNewHospital(str(self.new_hospital))
+        java_provider.setOldCapitalHoldHarmlessRate(client.java_big_decimal_class(self.old_capital_hold_harmless_rate))
+        java_provider.setPassThroughAmountForAllogenicStemCellAcquisition(client.java_big_decimal_class(self.pass_through_amount_for_allogenic_stem_cell_acquisition))
+        java_provider.setPassThroughAmountForCapital(client.java_big_decimal_class(self.pass_through_amount_for_capital))
+        java_provider.setPassThroughAmountForDirectMedicalEducation(client.java_big_decimal_class(self.pass_through_amount_for_direct_medical_education))
+        java_provider.setPassThroughAmountForSupplyChainCosts(client.java_big_decimal_class(self.pass_through_amount_for_supply_chain))
+        java_provider.setPassThroughAmountForOrganAcquisition(client.java_big_decimal_class(self.pass_through_amount_for_organ_acquisition))
+        java_provider.setPassThroughTotalAmount(client.java_big_decimal_class(self.pass_through_total_amount))
+        java_provider.setPpsFacilitySpecificRate(client.java_big_decimal_class(self.pps_facility_specific_rate))
+        java_provider.setSupplementalSecurityIncomeRatio(client.java_big_decimal_class(self.supplemental_security_income_ratio))
+        java_provider.setTemporaryReliefIndicator(str(self.temporary_relief_indicator))
+        java_provider.setUncompensatedCareAmount(client.java_big_decimal_class(self.uncompensated_care_amount))
+        java_provider.setVbpAdjustment(client.java_big_decimal_class(self.vbp_adjustment))
+        java_provider.setVbpParticipantIndicator(str(self.vpb_participant_indicator))
+        java_provider.setStateCode(self.state_code)
+        java_provider.setCountyCode(self.county_code)
+        java_provider.setSpecialWageIndex(client.java_big_decimal_class(self.special_wage_index))
+        java_provider.setProviderType(self.provider_type)
+        java_provider.setHospitalQualityIndicator(self.hosp_quality_indicator)
+        java_provider.setSpecialPaymentIndicator(self.special_payment_indicator)
+        java_provider.setMedicarePerformanceAdjustment(client.java_big_decimal_class(self.medicare_performance_adjustment))
+        java_provider.setWaiverIndicator(self.waiver_indicator)
+        java_provider.setCostOfLivingAdjustment(client.java_big_decimal_class(self.cost_of_living_adjustment))
+        java_provider.setEffectiveDate(client.py_date_to_java_date(self.effective_date))
+        java_provider.setTerminationDate(client.py_date_to_java_date(self.termination_date))
+        java_provider.setFiscalYearBeginDate(client.py_date_to_java_date(self.fiscal_year_begin_date))
+        java_provider.setProviderCcn(self.provider_ccn)
