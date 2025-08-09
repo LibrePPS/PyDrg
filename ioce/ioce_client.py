@@ -483,7 +483,7 @@ class IoceClient:
                 principal_desc = self.ioce_component.getDiagnosisDescription(
                     result.principal_diagnosis_code.diagnosis, internal_version
                 )
-                result.principal_diagnosis_code_description = str(principal_desc) if principal_desc else ""
+                result.principal_diagnosis_code.description = str(principal_desc) if principal_desc else ""
             
         except Exception as e:
             print(f"Warning: Could not retrieve some descriptions: {e}")

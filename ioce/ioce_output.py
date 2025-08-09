@@ -212,7 +212,6 @@ class IoceOutput(BaseModel):
     value_code_output_list: List[IoceOutputValueCode] = Field(default_factory=list)
     
     principal_diagnosis_code: IoceOutputDiagnosisCode = Field(default_factory=IoceOutputDiagnosisCode)
-    principal_diagnosis_code_description: str = ""
     reason_for_visit_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
     secondary_diagnosis_code_list: List[IoceOutputDiagnosisCode] = Field(default_factory=list)
     
