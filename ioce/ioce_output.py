@@ -7,6 +7,11 @@ class ReturnCode(BaseModel):
     code: int = 0
     description: str = ""
 
+class IoceOutputEdit(BaseModel):
+    """Output for edits"""
+    edit: str = ""
+    description: str = ""
+
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
     claim_id: str = ""
@@ -37,7 +42,7 @@ class IoceOutputDiagnosisCode(BaseModel):
     diagnosis: str = ""
     description: str = ""
     present_on_admission: str = ""
-    edit_list: List[str] = Field(default_factory=list)
+    edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -47,7 +52,7 @@ class IoceOutputDiagnosisCode(BaseModel):
             self.edit_list = []
             if hasattr(java_obj, 'getEditList') and java_obj.getEditList():
                 for edit in java_obj.getEditList():
-                    self.edit_list.append(str(edit))
+                    self.edit_list.append(IoceOutputEdit(edit = str(edit)))
         return self
 
 class IoceOutputHcpcsModifier(BaseModel):
@@ -106,7 +111,7 @@ class IoceOutputLineItem(BaseModel):
     hcpcs_modifier_input_list: List[IoceOutputHcpcsModifier] = Field(default_factory=list)
     hcpcs_modifier_output_list: List[IoceOutputHcpcsModifier] = Field(default_factory=list)
     
-    hcpcs_edit_list: List[str] = Field(default_factory=list)
+    hcpcs_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     revenue_edit_list: List[str] = Field(default_factory=list)
     service_date_edit_list: List[str] = Field(default_factory=list)
     
@@ -146,7 +151,7 @@ class IoceOutputLineItem(BaseModel):
             self.hcpcs_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getHcpcsEditList') and java_obj.getHcpcsEditList():
                 for edit in java_obj.getHcpcsEditList():
-                    self.hcpcs_edit_list.append(str(edit))
+                    self.hcpcs_edit_list.append(IoceOutputEdit(edit = str(edit)))
             
             self.revenue_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getRevenueEditList') and java_obj.getRevenueEditList():
@@ -159,11 +164,6 @@ class IoceOutputLineItem(BaseModel):
                     self.service_date_edit_list.append(str(edit))
         
         return self
-
-class IoceOutputEdit(BaseModel):
-    """Output for edits"""
-    edit: str = ""
-    description: str = ""
 
 class IoceOutput(BaseModel):
     """Main OPPS output class containing all processing results"""

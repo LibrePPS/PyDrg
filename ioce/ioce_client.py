@@ -452,6 +452,13 @@ class IoceClient:
                     )
                     item.description = str(diagnosis_desc) if diagnosis_desc else ""
 
+                if item.edit_list:
+                    for edit in item.edit_list:
+                        edit_desc = self.ioce_component.getEditDescription(
+                            str(int(edit)), internal_version
+                        )
+                        edit.description = str(edit_desc) if edit_desc else ""
+
             # Get line item descriptions
             for i, line in enumerate(result.line_item_list):
                 if line.hcpcs:
@@ -477,6 +484,13 @@ class IoceClient:
                         line.status_indicator, internal_version
                     )
                     line.status_indicator_description = str(status_desc) if status_desc else ""
+
+                if line.hcpcs_edit_list:
+                    for item in line.hcpcs_edit_list:
+                        edit_desc = self.ioce_component.getEditDescription(
+                            str(int(item.edit)), internal_version
+                        )
+                        item.description = str(edit_desc) if edit_desc else ""
                 
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
@@ -484,6 +498,28 @@ class IoceClient:
                     result.principal_diagnosis_code.diagnosis, internal_version
                 )
                 result.principal_diagnosis_code.description = str(principal_desc) if principal_desc else ""
+
+                for item in result.principal_diagnosis_code.edit_list:
+                    edit_desc = self.ioce_component.getEditDescription(
+                        str(int(item.edit)), internal_version
+                    )
+                    item.description = str(edit_desc) if edit_desc else ""
+
+            if result.secondary_diagnosis_code_list:
+                for item in result.secondary_diagnosis_code_list:
+                    if item.diagnosis:
+                        diagnosis_desc = self.ioce_component.getDiagnosisDescription(
+                            item.diagnosis, internal_version
+                        )
+                        item.description = str(diagnosis_desc) if diagnosis_desc else ""
+
+                    if item.edit_list:
+                        for edit in item.edit_list:
+                            edit_desc = self.ioce_component.getEditDescription(
+                                str(int(edit)), internal_version
+                            )
+                            edit.description = str(edit_desc) if edit_desc else ""
+
             
         except Exception as e:
             print(f"Warning: Could not retrieve some descriptions: {e}")
