@@ -445,6 +445,13 @@ class IoceClient:
                     result, disposition_type_id, disposition_attr, edit_list_attr, internal_version
                 )
 
+            for item in result.reason_for_visit_diagnosis_code_list:
+                if item.diagnosis:
+                    diagnosis_desc = self.ioce_component.getDiagnosisDescription(
+                        item.diagnosis, internal_version
+                    )
+                    item.description = str(diagnosis_desc) if diagnosis_desc else ""
+
             # Get line item descriptions
             for i, line in enumerate(result.line_item_list):
                 if line.hcpcs:

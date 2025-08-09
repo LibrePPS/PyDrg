@@ -35,6 +35,7 @@ class IoceProcessingInformation(BaseModel):
 class IoceOutputDiagnosisCode(BaseModel):
     """Output for diagnosis codes with associated edits"""
     diagnosis: str = ""
+    description: str = ""
     present_on_admission: str = ""
     edit_list: List[str] = Field(default_factory=list)
     
