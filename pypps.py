@@ -5,6 +5,7 @@ from msdrg.drg_client import DrgClient
 from pricers.ipps import IppsClient
 from pricers.opps import OppsClient
 from pricers.ipf import IpfClient
+from pricers.ltch import LtchClient
 from pricers.ipsf import IPSFDatabase
 from pricers.opsf import OPSFDatabase
 import jpype
@@ -39,6 +40,7 @@ class Pypps:
         self.ipps_client = None
         self.opps_client = None
         self.ipf_client = None
+        self.ltch_client = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
@@ -141,3 +143,9 @@ if __name__ == "__main__":
         ipf_output = pypps.ipf_client.process(test_claim_1, drg_output)
         print(ipf_output.model_dump_json(indent=2))
         print("=== End of IPF Pricer Example ===")
+    if pypps.ltch_client is not None:
+        print("=== LTCH Pricer Example ===")
+        test_claim_1.billing_provider.other_id = "012006"
+        ltch_output = pypps.ltch_client.process(test_claim_1, drg_output)
+        print(ltch_output.model_dump_json(indent=2))
+        print("=== End of LTCH Pricer Example ===")
