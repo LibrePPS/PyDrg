@@ -113,7 +113,7 @@ class IoceOutputLineItem(BaseModel):
     
     hcpcs_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     revenue_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
-    service_date_edit_list: List[str] = Field(default_factory=list)
+    service_date_edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -161,7 +161,7 @@ class IoceOutputLineItem(BaseModel):
             self.service_date_edit_list = []  # Clear before populating
             if hasattr(java_obj, 'getServiceDateEditList') and java_obj.getServiceDateEditList():
                 for edit in java_obj.getServiceDateEditList():
-                    self.service_date_edit_list.append(str(edit))
+                    self.service_date_edit_list.append(IoceOutputEdit(edit = str(edit)))
         
         return self
 
