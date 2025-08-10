@@ -492,6 +492,13 @@ class IoceClient:
                         )
                         item.description = str(edit_desc) if edit_desc else ""
                 
+                if line.revenue_edit_list:
+                    for item in line.revenue_edit_list:
+                        edit_desc = self.ioce_component.getEditDescription(
+                            str(int(item.edit)), internal_version
+                        )
+                        item.description = str(edit_desc) if edit_desc else ""
+                
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
                 principal_desc = self.ioce_component.getDiagnosisDescription(
