@@ -107,7 +107,7 @@ class IoceOutputLineItem(BaseModel):
     status_indicator: str = ""
     status_indicator_description: str = ""
     payment_indicator: str = ""
-    packaging_flag: str = ""
+    packaging_flag: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     payment_adjustment_flag01: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     payment_adjustment_flag02: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     discounting_formula: str = ""
@@ -137,7 +137,6 @@ class IoceOutputLineItem(BaseModel):
             self.units_output = str(java_obj.getUnitsOutput()) if java_obj.getUnitsOutput() else ""
             self.status_indicator = str(java_obj.getStatusIndicator()) if java_obj.getStatusIndicator() else ""
             self.payment_indicator = str(java_obj.getPaymentIndicator()) if java_obj.getPaymentIndicator() else ""
-            self.packaging_flag = str(java_obj.getPackagingFlag()) if java_obj.getPackagingFlag() else ""
             self.discounting_formula = str(java_obj.getDiscountingFormula()) if java_obj.getDiscountingFormula() else ""
             self.composite_adjustment_flag = str(java_obj.getCompositeAdjustmentFlag()) if java_obj.getCompositeAdjustmentFlag() else ""
             
@@ -165,6 +164,11 @@ class IoceOutputLineItem(BaseModel):
             if hasattr(java_obj, 'getServiceDateEditList') and java_obj.getServiceDateEditList():
                 for edit in java_obj.getServiceDateEditList():
                     self.service_date_edit_list.append(IoceOutputEdit(edit = str(edit)))
+
+            self.packaging_flag = []  # Clear before populating
+            if hasattr(java_obj, 'getPackagingFlag') and java_obj.getPackagingFlag():
+                for flag in java_obj.getPackagingFlag():
+                    self.packaging_flag.append(IoceOutputFlag(flag = str(flag)))
 
             self.payment_adjustment_flag01 = []  # Clear before populating
             if hasattr(java_obj, 'getPaymentAdjustmentFlag01') and java_obj.getPaymentAdjustmentFlag01():

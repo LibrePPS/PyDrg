@@ -524,6 +524,13 @@ class IoceClient:
                                     str(int(edit.edit)), internal_version
                                 )
                                 edit.description = str(edit_desc) if edit_desc else ""
+
+                if line.packaging_flag:
+                    for item in line.packaging_flag:
+                        flag_desc = self.ioce_component.getPackagingFlagDescription(
+                            item.flag, internal_version
+                        )
+                        item.description = str(flag_desc) if flag_desc else ""
                 
                 if line.payment_adjustment_flag01:
                     for item in line.payment_adjustment_flag01:
