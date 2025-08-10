@@ -516,7 +516,7 @@ class IoceClient:
                     if item.edit_list:
                         for edit in item.edit_list:
                             edit_desc = self.ioce_component.getEditDescription(
-                                str(int(edit)), internal_version
+                                str(int(edit.edit)), internal_version
                             )
                             edit.description = str(edit_desc) if edit_desc else ""
 
