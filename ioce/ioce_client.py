@@ -525,6 +525,20 @@ class IoceClient:
                                 )
                                 edit.description = str(edit_desc) if edit_desc else ""
                 
+                if line.payment_adjustment_flag01:
+                    for item in line.payment_adjustment_flag01:
+                        flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
+                            item.flag, internal_version
+                        )
+                        item.description = str(flag_desc) if flag_desc else ""
+
+                if line.payment_adjustment_flag02:
+                    for item in line.payment_adjustment_flag02:
+                        flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
+                            item.flag, internal_version
+                        )
+                        item.description = str(flag_desc) if flag_desc else ""
+
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
                 principal_desc = self.ioce_component.getDiagnosisDescription(

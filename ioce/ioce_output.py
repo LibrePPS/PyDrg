@@ -12,6 +12,11 @@ class IoceOutputEdit(BaseModel):
     edit: str = ""
     description: str = ""
 
+class IoceOutputFlag(BaseModel):
+    """Output for flags"""
+    flag: str = ""
+    description: str = ""
+
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
     claim_id: str = ""
@@ -103,8 +108,8 @@ class IoceOutputLineItem(BaseModel):
     status_indicator_description: str = ""
     payment_indicator: str = ""
     packaging_flag: str = ""
-    payment_adjustment_flag01: str = ""
-    payment_adjustment_flag02: str = ""
+    payment_adjustment_flag01: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
+    payment_adjustment_flag02: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     discounting_formula: str = ""
     composite_adjustment_flag: str = ""
     
@@ -133,8 +138,6 @@ class IoceOutputLineItem(BaseModel):
             self.status_indicator = str(java_obj.getStatusIndicator()) if java_obj.getStatusIndicator() else ""
             self.payment_indicator = str(java_obj.getPaymentIndicator()) if java_obj.getPaymentIndicator() else ""
             self.packaging_flag = str(java_obj.getPackagingFlag()) if java_obj.getPackagingFlag() else ""
-            self.payment_adjustment_flag01 = str(java_obj.getPaymentAdjustmentFlag01()) if java_obj.getPaymentAdjustmentFlag01() else ""
-            self.payment_adjustment_flag02 = str(java_obj.getPaymentAdjustmentFlag02()) if java_obj.getPaymentAdjustmentFlag02() else ""
             self.discounting_formula = str(java_obj.getDiscountingFormula()) if java_obj.getDiscountingFormula() else ""
             self.composite_adjustment_flag = str(java_obj.getCompositeAdjustmentFlag()) if java_obj.getCompositeAdjustmentFlag() else ""
             
@@ -162,6 +165,16 @@ class IoceOutputLineItem(BaseModel):
             if hasattr(java_obj, 'getServiceDateEditList') and java_obj.getServiceDateEditList():
                 for edit in java_obj.getServiceDateEditList():
                     self.service_date_edit_list.append(IoceOutputEdit(edit = str(edit)))
+
+            self.payment_adjustment_flag01 = []  # Clear before populating
+            if hasattr(java_obj, 'getPaymentAdjustmentFlag01') and java_obj.getPaymentAdjustmentFlag01():
+                for flag in java_obj.getPaymentAdjustmentFlag01():
+                    self.payment_adjustment_flag01.append(IoceOutputFlag(flag = str(flag)))
+
+            self.payment_adjustment_flag02 = []  # Clear before populating
+            if hasattr(java_obj, 'getPaymentAdjustmentFlag02') and java_obj.getPaymentAdjustmentFlag02():
+                for flag in java_obj.getPaymentAdjustmentFlag02():
+                    self.payment_adjustment_flag02.append(IoceOutputFlag(flag = str(flag)))
         
         return self
 
