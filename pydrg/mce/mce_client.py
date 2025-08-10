@@ -1,4 +1,4 @@
-from input.claim import Claim, DiagnosisCode, ProcedureCode
+from pydrg.input.claim import Claim, DiagnosisCode, ProcedureCode
 import jpype
 from datetime import datetime
 from .mce_output import MceOutput

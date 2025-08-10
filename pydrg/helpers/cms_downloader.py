@@ -78,7 +78,8 @@ class CMSDownloader:
 
     def _load_required_jars(self):
         """Load the required JARs from the required_jars.json file."""
-        with open("helpers/required_jars.json", "r") as f:
+        json_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "required_jars.json"))
+        with open(json_path, "r") as f:
             jars = json.load(f)
 
         return jars

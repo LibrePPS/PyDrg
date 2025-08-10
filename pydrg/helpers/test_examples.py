@@ -1,4 +1,4 @@
-from input.claim import Claim, DiagnosisCode, PoaType, Provider, LineItem, ValueCode
+from pydrg.input.claim import Claim, DiagnosisCode, PoaType, Provider, LineItem, ValueCode
 
 def claim_example():
     claim = Claim()

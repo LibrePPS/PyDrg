@@ -15,7 +15,7 @@ import sys
 
 # Add the project root to the path so we can import the downloader
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from helpers.cms_downloader import CMSDownloader
+from pydrg.helpers.cms_downloader import CMSDownloader
 
 
 class TestFileCheckingMethods:

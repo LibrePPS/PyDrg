@@ -2,7 +2,7 @@ import sqlite3
 import os
 import requests
 from pydantic import BaseModel
-from input.claim import Provider
+from pydrg.input.claim import Provider
 import jpype
 
 IPSF_URL = "https://pds.mps.cms.gov/fiss/v2/inpatient/export?fromDate=2023-01-01&toDate=2030-12-31"

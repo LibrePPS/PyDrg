@@ -1,7 +1,7 @@
 import jpype, json
 from datetime import datetime
-from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType
-from msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
+from pydrg.input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType
+from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 from datetime import datetime
 from enum import Enum
 from typing import List

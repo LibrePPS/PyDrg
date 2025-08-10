@@ -2,8 +2,8 @@ import jpype
 import json
 from datetime import datetime
 from typing import List
-from input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, ValueCode, LineItem
-from ioce.ioce_output import IoceOutput
+from pydrg.input.claim import Claim, DiagnosisCode, ProcedureCode, PoaType, ValueCode, LineItem
+from pydrg.ioce.ioce_output import IoceOutput
 
 class IoceClient:
     """Client for processing claims through the IOCE (Integrated Outpatient Code Editor) software"""

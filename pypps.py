@@ -1,17 +1,17 @@
-from input.claim import Claim
-from ioce.ioce_client import IoceClient
-from mce.mce_client import MceClient
-from msdrg.drg_client import DrgClient
-from pricers.ipps import IppsClient
-from pricers.opps import OppsClient
-from pricers.ipf import IpfClient
-from pricers.ltch import LtchClient
-from pricers.ipsf import IPSFDatabase
-from pricers.opsf import OPSFDatabase
+from pydrg.input.claim import Claim
+from pydrg.ioce.ioce_client import IoceClient
+from pydrg.mce.mce_client import MceClient
+from pydrg.msdrg.drg_client import DrgClient
+from pydrg.pricers.ipps import IppsClient
+from pydrg.pricers.opps import OppsClient
+from pydrg.pricers.ipf import IpfClient
+from pydrg.pricers.ltch import LtchClient
+from pydrg.pricers.ipsf import IPSFDatabase
+from pydrg.pricers.opsf import OPSFDatabase
 import jpype
 import os
-from helpers.cms_downloader import CMSDownloader
-from helpers.test_examples import json_claim_example, claim_example, opps_claim_example
+from pydrg.helpers.cms_downloader import CMSDownloader
+from pydrg.helpers.test_examples import json_claim_example, claim_example, opps_claim_example
 import logging
 
 
@@ -105,7 +105,10 @@ class Pypps:
 
 if __name__ == "__main__":
     # Example usage
-    pypps = Pypps(build_jar_dirs=True, jar_path="./jars", db_path="./data/pypps.db", build_db=False) #<--- Set build_db=True to create the database if it does not exist
+    jar_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jars"))
+    print(f"Jar path: {jar_path}")
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", "pypps.db"))
+    pypps = Pypps(build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False) #<--- Set build_db=True to create the database if it does not exist
     pypps.setup_clients()
     
     test_claim_1 = claim_example()
