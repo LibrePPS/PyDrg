@@ -165,20 +165,14 @@ class IoceOutputLineItem(BaseModel):
                 for edit in java_obj.getServiceDateEditList():
                     self.service_date_edit_list.append(IoceOutputEdit(edit = str(edit)))
 
-            self.packaging_flag = []  # Clear before populating
             if hasattr(java_obj, 'getPackagingFlag') and java_obj.getPackagingFlag():
-                for flag in java_obj.getPackagingFlag():
-                    self.packaging_flag.append(IoceOutputFlag(flag = str(flag)))
+                self.packaging_flag.flag = str(java_obj.getPackagingFlag()) if java_obj.getPackagingFlag() else ""
 
-            self.payment_adjustment_flag01 = []  # Clear before populating
             if hasattr(java_obj, 'getPaymentAdjustmentFlag01') and java_obj.getPaymentAdjustmentFlag01():
-                for flag in java_obj.getPaymentAdjustmentFlag01():
-                    self.payment_adjustment_flag01.append(IoceOutputFlag(flag = str(flag)))
+                self.payment_adjustment_flag01.flag = str(java_obj.getPaymentAdjustmentFlag01()) if java_obj.getPaymentAdjustmentFlag01() else ""
 
-            self.payment_adjustment_flag02 = []  # Clear before populating
             if hasattr(java_obj, 'getPaymentAdjustmentFlag02') and java_obj.getPaymentAdjustmentFlag02():
-                for flag in java_obj.getPaymentAdjustmentFlag02():
-                    self.payment_adjustment_flag02.append(IoceOutputFlag(flag = str(flag)))
+                self.payment_adjustment_flag02.flag = str(java_obj.getPaymentAdjustmentFlag02()) if java_obj.getPaymentAdjustmentFlag02() else ""
         
         return self
 

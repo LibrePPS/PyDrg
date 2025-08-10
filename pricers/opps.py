@@ -179,7 +179,7 @@ class OppsClient:
                 ioce_line.setHcpcsCode(line.hcpcs)
                 ioce_line.setStatusIndicator(line.status_indicator)
                 ioce_line.setPaymentIndicator(line.payment_indicator)
-                ioce_line.setPackageFlag(line.packaging_flag)
+                ioce_line.setPackageFlag(line.packaging_flag.flag)
                 ioce_line.setLineNumber(self.java_integer_class(i + 1))
                 ioce_line.setApcServiceUnits(int(line.units_output))
                 if str(line.discounting_formula).isnumeric():
@@ -189,8 +189,8 @@ class OppsClient:
                 ioce_line.setDateOfService(self.py_date_to_java_date(input_line.service_date))
 
                 adjustment_flags = self.array_list_class()
-                adjustment_flags.add(line.payment_adjustment_flag01)
-                adjustment_flags.add(line.payment_adjustment_flag02)
+                adjustment_flags.add(line.payment_adjustment_flag01.flag)
+                adjustment_flags.add(line.payment_adjustment_flag02.flag)
                 ioce_line.setPaymentAdjustmentFlags(adjustment_flags)
 
                 if len(input_line.modifiers) > 0:

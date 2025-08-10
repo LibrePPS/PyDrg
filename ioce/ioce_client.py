@@ -526,25 +526,22 @@ class IoceClient:
                                 edit.description = str(edit_desc) if edit_desc else ""
 
                 if line.packaging_flag:
-                    for item in line.packaging_flag:
-                        flag_desc = self.ioce_component.getPackagingFlagDescription(
-                            item.flag, internal_version
-                        )
-                        item.description = str(flag_desc) if flag_desc else ""
+                    flag_desc = self.ioce_component.getPackagingFlagDescription(
+                        line.packaging_flag.flag, internal_version
+                    )
+                    line.packaging_flag.description = str(flag_desc) if flag_desc else ""
                 
                 if line.payment_adjustment_flag01:
-                    for item in line.payment_adjustment_flag01:
-                        flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
-                            item.flag, internal_version
-                        )
-                        item.description = str(flag_desc) if flag_desc else ""
+                    flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
+                        line.payment_adjustment_flag01.flag, internal_version
+                    )
+                    line.payment_adjustment_flag01.description = str(flag_desc) if flag_desc else ""
 
                 if line.payment_adjustment_flag02:
-                    for item in line.payment_adjustment_flag02:
-                        flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
-                            item.flag, internal_version
-                        )
-                        item.description = str(flag_desc) if flag_desc else ""
+                    flag_desc = self.ioce_component.getPaymentAdjustmentFlagDescription(
+                        line.payment_adjustment_flag02.flag, internal_version
+                    )
+                    line.payment_adjustment_flag02.description = str(flag_desc) if flag_desc else ""
 
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
