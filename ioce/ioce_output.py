@@ -58,7 +58,7 @@ class IoceOutputDiagnosisCode(BaseModel):
 class IoceOutputHcpcsModifier(BaseModel):
     """Output for HCPCS modifiers with associated edits"""
     hcpcs_modifier: str = ""
-    edit_list: List[str] = Field(default_factory=list)
+    edit_list: List[IoceOutputEdit] = Field(default_factory=list)
     
     def from_java(self, java_obj):
         if java_obj is not None:
@@ -67,7 +67,7 @@ class IoceOutputHcpcsModifier(BaseModel):
             self.edit_list = []
             if hasattr(java_obj, 'getEditList') and java_obj.getEditList():
                 for edit in java_obj.getEditList():
-                    self.edit_list.append(str(edit))
+                    self.edit_list.append(IoceOutputEdit(edit = str(edit)))
         return self
 
 class IoceOutputValueCode(BaseModel):

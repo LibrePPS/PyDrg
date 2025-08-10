@@ -505,6 +505,24 @@ class IoceClient:
                             str(int(item.edit)), internal_version
                         )
                         item.description = str(edit_desc) if edit_desc else ""
+
+                if line.hcpcs_modifier_input_list:
+                    for item in line.hcpcs_modifier_input_list:
+                        if item.edit_list:
+                            for edit in item.edit_list:
+                                edit_desc = self.ioce_component.getEditDescription(
+                                    str(int(edit.edit)), internal_version
+                                )
+                                edit.description = str(edit_desc) if edit_desc else ""
+
+                if line.hcpcs_modifier_output_list:
+                    for item in line.hcpcs_modifier_output_list:
+                        if item.edit_list:
+                            for edit in item.edit_list:
+                                edit_desc = self.ioce_component.getEditDescription(
+                                    str(int(edit.edit)), internal_version
+                                )
+                                edit.description = str(edit_desc) if edit_desc else ""
                 
             # Get diagnosis descriptions
             if result.principal_diagnosis_code.diagnosis:
