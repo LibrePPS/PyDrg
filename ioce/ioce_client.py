@@ -258,7 +258,7 @@ class IoceClient:
         
         return oce_claim
     
-    def process(self, claim):
+    def process(self, claim, include_descriptions: bool = True):
         """Process a claim through IOCE and return IoceOutput"""
         try:
             # Create Java OceClaim from Python claim
@@ -278,7 +278,8 @@ class IoceClient:
             Ioce_output.from_java(processed_model)
 
             # Append descriptions
-            Ioce_output = self.append_descriptions(Ioce_output)
+            if include_descriptions:
+                Ioce_output = self.append_descriptions(Ioce_output)
             
             return Ioce_output
             
