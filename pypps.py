@@ -1,4 +1,4 @@
-from pydrg.input.claim import Claim
+from pydrg.input.claim import Claim, ValueCode, LineItem
 from pydrg.ioce.ioce_client import IoceClient
 from pydrg.mce.mce_client import MceClient
 from pydrg.msdrg.drg_client import DrgClient
@@ -6,6 +6,7 @@ from pydrg.pricers.ipps import IppsClient
 from pydrg.pricers.opps import OppsClient
 from pydrg.pricers.ipf import IpfClient
 from pydrg.pricers.ltch import LtchClient
+from pydrg.pricers.hospice import HospiceClient
 from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.opsf import OPSFDatabase
 import jpype
@@ -13,7 +14,7 @@ import os
 from pydrg.helpers.cms_downloader import CMSDownloader
 from pydrg.helpers.test_examples import json_claim_example, claim_example, opps_claim_example
 import logging
-
+from datetime import datetime
 
 
 PRICERS = {
@@ -41,6 +42,7 @@ class Pypps:
         self.opps_client = None
         self.ipf_client = None
         self.ltch_client = None
+        self.hospice_client = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
@@ -152,3 +154,29 @@ if __name__ == "__main__":
         ltch_output = pypps.ltch_client.process(test_claim_1, drg_output)
         print(ltch_output.model_dump_json(indent=2))
         print("=== End of LTCH Pricer Example ===")
+    if pypps.hospice_client is not None:
+        print("=== Hospice Pricer Example ===")
+        hospice_claim = claim_example()
+        hospice_claim.bill_type = "812"
+        hospice_claim.patient_status = "40"
+        hospice_claim.value_codes.append(ValueCode(code="61", amount=35300.00))
+        hospice_claim.value_codes.append(ValueCode(code="G8", amount=35300.00))
+        hospice_claim.thru_date = datetime(2025,7,10)
+        hospice_claim.los = 10
+        hospice_claim.lines.append(LineItem(
+            hcpcs="Q5001",
+            revenue_code="0651",
+            service_date= datetime(2025,7,1),
+            units=9,
+            charges=10_000.00
+        ))
+        hospice_claim.lines.append(LineItem(
+            hcpcs="G0299",
+            revenue_code="0551",
+            service_date = datetime(2025,7,1),
+            units=3,
+            charges=10_000.00
+        ))
+        hospice_output = pypps.hospice_client.process(hospice_claim)
+        print(hospice_output.model_dump_json(indent=2))
+        print("=== End of Hospice Pricer Example ===")

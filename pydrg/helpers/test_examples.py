@@ -1,5 +1,5 @@
 from pydrg.input.claim import Claim, DiagnosisCode, PoaType, Provider, LineItem, ValueCode
-
+from datetime import datetime
 def claim_example():
     claim = Claim()
     claim.principal_dx = DiagnosisCode(code="A021", poa=PoaType.Y)
@@ -7,9 +7,9 @@ def claim_example():
     claim.patient_status = "01"
     claim.patient.age = 65
     claim.patient.sex = "M"
-    claim.admit_date = "2025-07-01"
-    claim.from_date = "2025-07-01"
-    claim.thru_date = "2025-07-10"
+    claim.admit_date = datetime(2025,7,1)
+    claim.from_date = datetime(2025,7,1)
+    claim.thru_date = datetime(2025,7,10)
     claim.los = 9
     claim.secondary_dxs.append(DiagnosisCode(code="I82411", poa=PoaType.N))
     claim.billing_provider = Provider()
@@ -23,8 +23,8 @@ def opps_claim_example():
     claim.patient_status = "01"
     claim.patient.age = 65
     claim.patient.sex = "M"
-    claim.from_date = "2023-01-01"
-    claim.thru_date = "2023-01-02"
+    claim.from_date = datetime(2023,1,1)
+    claim.thru_date = datetime(2023,1,2)
     claim.bill_type = "131"
     claim.billing_provider = Provider()
     claim.billing_provider.other_id = "010001"
@@ -35,7 +35,7 @@ def opps_claim_example():
     claim.value_codes = [ValueCode(code="59", amount=43.02)]
     
     claim.lines.append(LineItem(
-        service_date="2023-01-01",
+        service_date=datetime(2023,1,1),
         revenue_code="9999",
         hcpcs="27279",
         units=1,
@@ -43,7 +43,7 @@ def opps_claim_example():
     ))
     
     claim.lines.append(LineItem(
-        service_date="2023-01-01",
+        service_date=datetime(2023,1,1),
         revenue_code="0360",
         hcpcs="29305",
         modifiers=["22", "ZZ"],
@@ -52,7 +52,7 @@ def opps_claim_example():
     ))
     
     claim.lines.append(LineItem(
-        service_date="2023-01-01",
+        service_date=datetime(2023,1,1),
         revenue_code="0610",
         hcpcs="72196",
         units=1,
@@ -60,7 +60,7 @@ def opps_claim_example():
     ))
     
     claim.lines.append(LineItem(
-        service_date="2023-01-01",
+        service_date=datetime(2023,1,1),
         revenue_code="0610",
         hcpcs="72197",
         units=1,
@@ -68,7 +68,7 @@ def opps_claim_example():
     ))
     
     claim.lines.append(LineItem(
-        service_date="2023-01-02",
+        service_date=datetime(2023,1,1),
         revenue_code="0610",
         hcpcs="2010F",
         units=2,

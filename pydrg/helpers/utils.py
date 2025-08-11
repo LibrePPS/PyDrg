@@ -8,7 +8,7 @@ class ReturnCode(BaseModel):
     description: Optional[str] = None
     explanation: Optional[str] = None
 
-    def from_java(self, java_return_code):
+    def from_java(self, java_return_code: jpype.JClass):
         """
         Convert a Java ReturnCode object to a Python ReturnCode object.
         """
