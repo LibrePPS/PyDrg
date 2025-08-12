@@ -482,7 +482,7 @@ class TestDownloadLogic:
                 with patch.object(downloader, 'download_web_pricers'):
                     with patch.object(downloader, 'process_gfc_jar') as mock_gfc:
                         
-                        result = downloader.build_jar_environment(clean_existing=True)
+                        downloader.build_jar_environment(clean_existing=True)
                         
                         # Should have cleaned existing directory
                         assert not (jars_dir / "existing.jar").exists()
