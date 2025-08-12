@@ -141,8 +141,9 @@ class BillingGroups:
             try:
                 group.verify_units(self.covered_days)
             except ValueError as e:
-                err_msg = f"Invalid billing for revenue code {revenue_code} as units {group.units} exceed covered days {self.covered_days}"
-                raise e from None
+                raise ValueError(
+                    f"Invalid billing for revenue code {revenue_code} as units {group.units} exceed covered days {self.covered_days}"
+                ) from e
 
 class NonCoveredRanges:
     def __init__(self):
