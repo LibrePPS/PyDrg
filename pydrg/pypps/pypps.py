@@ -9,6 +9,12 @@ from pydrg.mce.mce_client import MceClient
 from pydrg.msdrg.drg_client import DrgClient
 from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.opsf import OPSFDatabase
+from pydrg.pricers.hospice import HospiceClient
+from pydrg.pricers.ipf import IpfClient
+from pydrg.pricers.ipps import IppsClient
+from pydrg.pricers.ltch import LtchClient
+from pydrg.pricers.opps import OppsClient
+from typing import Optional
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -37,11 +43,11 @@ class Pypps:
         if not os.path.exists(db_path):
             os.makedirs(os.path.dirname(db_path))
         # Pricer Clients @TODO: Add more pricer clients as needed
-        self.ipps_client = None
-        self.opps_client = None
-        self.ipf_client = None
-        self.ltch_client = None
-        self.hospice_client = None
+        self.ipps_client: Optional[IppsClient] = None
+        self.opps_client: Optional[OppsClient] = None
+        self.ipf_client: Optional[IpfClient] = None
+        self.ltch_client: Optional[LtchClient] = None
+        self.hospice_client: Optional[HospiceClient] = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
