@@ -112,7 +112,6 @@ class IPSFDatabase:
             response = requests.get(url, stream=True)
             response.raise_for_status()
 
-            total_size = int(response.headers.get('content-length', 0))
             filename = os.path.join(download_dir, "ipsf_data.csv")
             with open(filename, 'wb') as file:
                 for chunk in response.iter_content(chunk_size=8192):
