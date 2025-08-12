@@ -80,8 +80,8 @@ class DrgClient:
             self.runtime_options = jpype.JClass("gov.agency.msdrg.model.v2.RuntimeOptions")()
             self.drg_options = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgRuntimeOption")()
             self.msdrg_option_flags = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgOption")
-        except:
-            raise RuntimeError("Failed to initialize RuntimeOptions")
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize RuntimeOptions: {e}")
 
         #Set the 3 enum values on the RuntimeOptions object
         #default to non-exempt hospital status
