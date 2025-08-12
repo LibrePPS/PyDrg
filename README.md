@@ -55,7 +55,7 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
     ```
     dev dependencies:
     ```bash
-    uv sync --extra dev
+    uv sync --group dev
     ```
 3.  **Ensure Java is installed and available in your PATH.**
     - Check with: `java -version`
@@ -64,6 +64,22 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
 ```bash
 pytest tests/
 ```
+
+# Linting & Formatting
+Before commiting run [ruff](https://docs.astral.sh/ruff/) tooling.
+
+Linter:
+```bash
+ruff check .
+```
+Autofix what you can, manually fix the remaining errors.
+
+Import Sorting and Formatter:
+```bash
+ruff check --select I --fix
+ruff format
+```
+
 
 ## Setup
 
