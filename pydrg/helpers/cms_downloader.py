@@ -24,19 +24,18 @@ Usage Example:
     downloader.process_gfc_jar()
 """
 
-import os
-import requests
-from bs4 import BeautifulSoup
-import re
-from urllib.parse import urljoin
+import glob
 import logging
-from tqdm import tqdm
+import os
+import re
+import shutil
 import time
 import zipfile
-import shutil
-import glob
-import json
-from pathlib import Path
+from urllib.parse import urljoin
+
+import requests
+from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 
 class CMSDownloader:

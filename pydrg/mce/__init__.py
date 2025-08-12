@@ -1,5 +1,5 @@
 from .mce_client import MceClient
-from .mce_output import MceOutput, MceOutputDxCode, MceOutput, MceOutputPrCode
+from .mce_output import MceOutput, MceOutputDxCode, MceOutputPrCode
 
 __all__ = [
     "MceClient",

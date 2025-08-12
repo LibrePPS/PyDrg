@@ -5,13 +5,11 @@ These tests focus on the file checking and selective download logic
 without requiring actual network connections.
 """
 
-import os
-import pytest
 import shutil
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-from io import StringIO
 import sys
+from pathlib import Path
+from unittest.mock import patch
+
 
 # Add the project root to the path so we can import the downloader
 sys.path.insert(0, str(Path(__file__).parent.parent))

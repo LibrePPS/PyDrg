@@ -1,5 +1,6 @@
+from typing import Any, Dict, List, Optional
+
 import jpype
-from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 DX_EDIT_FLAGS = {

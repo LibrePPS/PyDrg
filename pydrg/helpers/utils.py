@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+
 import jpype
+from pydantic import BaseModel
+
 
 class ReturnCode(BaseModel):
     code: Optional[str] = None
@@ -27,7 +29,7 @@ def float_or_none(value):
         return None
     try:
         return float(value.floatValue())
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError):
         return None
 
 

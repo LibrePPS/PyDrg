@@ -1,8 +1,13 @@
 import os
 from datetime import datetime
+
+from pydrg.helpers.test_examples import (
+    claim_example,
+    json_claim_example,
+    opps_claim_example,
+)
+from pydrg.input.claim import LineItem, ValueCode
 from pydrg.pypps.pypps import Pypps
-from pydrg.input.claim import ValueCode, LineItem
-from pydrg.helpers.test_examples import json_claim_example, claim_example, opps_claim_example
 
 if __name__ == "__main__":
     jar_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jars"))

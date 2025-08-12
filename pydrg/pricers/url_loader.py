@@ -1,5 +1,6 @@
 import jpype
 
+
 class UrlLoader:
     def __init__(self):
         if not jpype.isJVMStarted():

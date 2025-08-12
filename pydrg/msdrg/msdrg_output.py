@@ -1,6 +1,7 @@
-import jpype
 from typing import List, Optional
+
 from pydantic import BaseModel, Field
+
 
 class MsdrgHac(BaseModel):
     hac_number: Optional[int] = None

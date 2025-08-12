@@ -1,5 +1,15 @@
-from pydrg.input.claim import Claim, DiagnosisCode, PoaType, Provider, LineItem, ValueCode
 from datetime import datetime
+
+from pydrg.input.claim import (
+    Claim,
+    DiagnosisCode,
+    LineItem,
+    PoaType,
+    Provider,
+    ValueCode,
+)
+
+
 def claim_example():
     claim = Claim()
     claim.principal_dx = DiagnosisCode(code="A021", poa=PoaType.Y)

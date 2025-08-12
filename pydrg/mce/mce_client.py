@@ -1,7 +1,11 @@
-from pydrg.input.claim import Claim, DiagnosisCode, ProcedureCode
-import jpype
 from datetime import datetime
+
+import jpype
+
+from pydrg.input.claim import Claim
+
 from .mce_output import MceOutput
+
 
 class MceClient:
     def __init__(self):

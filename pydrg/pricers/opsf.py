@@ -1,9 +1,11 @@
-import sqlite3
 import os
+import sqlite3
+from typing import Optional
+
 import requests
 from pydantic import BaseModel
+
 from pydrg.input.claim import Provider
-from typing import Optional
 
 OPSF_URL = "https://pds.mps.cms.gov/fiss/v2/outpatient/export?fromDate=2023-01-01&toDate=2030-12-31"
 

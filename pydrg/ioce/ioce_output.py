@@ -1,6 +1,7 @@
-import jpype
-from typing import List, Optional
+from typing import List
+
 from pydantic import BaseModel, Field
+
 
 class ReturnCode(BaseModel):
     """Return code information"""
