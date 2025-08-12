@@ -3,9 +3,4 @@
 from .drg_client import DrgClient
 from .msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 
-__all__ = [
-    "DrgClient",
-    "MsdrgOutput",
-    "MsdrgOutputDxCode",
-    "MsdrgOutputPrCode"
-]
+__all__ = ["DrgClient", "MsdrgOutput", "MsdrgOutputDxCode", "MsdrgOutputPrCode"]

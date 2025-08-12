@@ -23,14 +23,20 @@ PRICERS = {
     "Snf": "snf-pricer",
 }
 
+
 class Pypps:
-    def __init__(self, build_jar_dirs: bool = True, jar_path:str = "./jars", db_path: str = "./data/pypps.db", 
-                 build_db: bool = False):
+    def __init__(
+        self,
+        build_jar_dirs: bool = True,
+        jar_path: str = "./jars",
+        db_path: str = "./data/pypps.db",
+        build_db: bool = False,
+    ):
         if not os.path.exists(jar_path):
             os.makedirs(jar_path)
         if not os.path.exists(db_path):
             os.makedirs(os.path.dirname(db_path))
-        #Pricer Clients @TODO: Add more pricer clients as needed
+        # Pricer Clients @TODO: Add more pricer clients as needed
         self.ipps_client = None
         self.opps_client = None
         self.ipf_client = None
@@ -47,15 +53,25 @@ class Pypps:
             self.opsf_db.to_sqlite()
             self.ipsf_db.to_sqlite()
         else:
-            #check if ipsf and opsf tables exist
-            self.opsf_db.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'")
+            # check if ipsf and opsf tables exist
+            self.opsf_db.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
+            )
             if not self.opsf_db.cursor.fetchone():
-                self.logger.warning("OPSF table does not exist. Please run build_db=True to create the database.")
-            self.ipsf_db.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'")
+                self.logger.warning(
+                    "OPSF table does not exist. Please run build_db=True to create the database."
+                )
+            self.ipsf_db.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
+            )
             if not self.ipsf_db.cursor.fetchone():
-                self.logger.warning("IPSF table does not exist. Please run build_db=True to create the database.")
+                self.logger.warning(
+                    "IPSF table does not exist. Please run build_db=True to create the database."
+                )
         if build_jar_dirs:
-            self.cms_downloader = CMSDownloader(jars_dir=jar_path, log_level=self.logger.level)
+            self.cms_downloader = CMSDownloader(
+                jars_dir=jar_path, log_level=self.logger.level
+            )
             self.cms_downloader.build_jar_environment(False)
         if not jpype.isJVMStarted():
             jpype.startJVM(classpath=jar_path + "/*")
@@ -73,24 +89,38 @@ class Pypps:
         self.drg_client = DrgClient()
         self.mce_client = MceClient()
         self.ioce_client = IoceClient()
-        #check for pricer sub directory
+        # check for pricer sub directory
         if os.path.exists(os.path.join(self.jar_path, "pricers")):
             self.pricers_path = os.path.abspath(os.path.join(self.jar_path, "pricers"))
-            self.pricer_jars = [os.path.join(self.pricers_path, f) for f in os.listdir(self.pricers_path) if f.endswith('.jar')]
+            self.pricer_jars = [
+                os.path.join(self.pricers_path, f)
+                for f in os.listdir(self.pricers_path)
+                if f.endswith(".jar")
+            ]
         if self.pricer_jars:
             self.setup_pricers()
 
     def setup_pricers(self):
-        #check if pricer jars exist by looking for value from PRICERS dictionary in file names of pricer_jars
+        # check if pricer jars exist by looking for value from PRICERS dictionary in file names of pricer_jars
         for pricer, jar_name in PRICERS.items():
             if any(jar_name in jar for jar in self.pricer_jars):
                 try:
-                    jar_path = os.path.abspath(next(jar for jar in self.pricer_jars if jar_name in jar))
-                    setattr(self, f"{pricer.lower()}_client", globals()[f"{pricer}Client"](jar_path, self.opsf_db.connection))
+                    jar_path = os.path.abspath(
+                        next(jar for jar in self.pricer_jars if jar_name in jar)
+                    )
+                    setattr(
+                        self,
+                        f"{pricer.lower()}_client",
+                        globals()[f"{pricer}Client"](jar_path, self.opsf_db.connection),
+                    )
                 except KeyError:
-                    self.logger.warning(f"Client for {pricer} not found. This is a warning only, a client for {pricer} may not be implemented yet.")
+                    self.logger.warning(
+                        f"Client for {pricer} not found. This is a warning only, a client for {pricer} may not be implemented yet."
+                    )
             else:
-                self.logger.warning(f"{pricer} pricer JAR not found in {self.pricers_path}. Please ensure it is downloaded.")
+                self.logger.warning(
+                    f"{pricer} pricer JAR not found in {self.pricers_path}. Please ensure it is downloaded."
+                )
 
     def shutdown(self):
         if jpype.isJVMStarted():

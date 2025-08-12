@@ -7,12 +7,13 @@ class MsdrgHac(BaseModel):
     hac_number: Optional[int] = None
     hac_status: Optional[str] = None
     hac_list: Optional[str] = None
-    
+
     def from_java(self, java_obj):
         self.hac_number = java_obj.getHacNumber()
         self.hac_status = str(java_obj.getHacStatus().name())
         self.hac_list = str(java_obj.getHacList())
         return self
+
 
 class MsdrgOutputDxCode(BaseModel):
     grouping_impact: Optional[str] = None
@@ -21,7 +22,7 @@ class MsdrgOutputDxCode(BaseModel):
     hac_list: List[MsdrgHac] = Field(default_factory=list)
     poa_error_code: Optional[str] = None
     recognized_by_grouper: Optional[bool] = None
-    
+
     def from_java(self, java_obj):
         self.grouping_impact = str(java_obj.getDiagnosisAffectsDrg().name())
         self.final_severity_flag = str(java_obj.getFinalSeverityUsage().name())
@@ -35,20 +36,26 @@ class MsdrgOutputDxCode(BaseModel):
         self.recognized_by_grouper = java_obj.isDiagnosisRecognizedByGrouper()
         return self
 
+
 class MsdrgGrouperFlags(BaseModel):
     admit_dx_grouper_flag: Optional[str] = None
     final_secondary_dx_cc_mcc_flag: Optional[str] = None
     initial_secondary_dx_cc_mcc_flag: Optional[str] = None
     num_hac_categories_satisfied: Optional[int] = None
     hac_status_value: Optional[str] = None
-    
+
     def from_java(self, java_obj):
         self.admit_dx_grouper_flag = str(java_obj.getAdmitDxGrouperFlag().name())
-        self.final_secondary_dx_cc_mcc_flag = str(java_obj.getFinalDrgSecondaryDxCcMcc().name())
-        self.initial_secondary_dx_cc_mcc_flag = str(java_obj.getInitialDrgSecondaryDxCcMcc().name())
+        self.final_secondary_dx_cc_mcc_flag = str(
+            java_obj.getFinalDrgSecondaryDxCcMcc().name()
+        )
+        self.initial_secondary_dx_cc_mcc_flag = str(
+            java_obj.getInitialDrgSecondaryDxCcMcc().name()
+        )
         self.num_hac_categories_satisfied = java_obj.getNumHacCategoriesSatisfied()
         self.hac_status_value = str(java_obj.getHacStatusValue().name())
         return self
+
 
 class MsdrgOutputPrCode(BaseModel):
     grouping_impact: Optional[str] = None
@@ -67,6 +74,7 @@ class MsdrgOutputPrCode(BaseModel):
                 hac_obj = MsdrgHac().from_java(hac)
                 self.hac_usage.append(hac_obj)
         return self
+
 
 class MsdrgOutput(BaseModel):
     grouper_flags: MsdrgGrouperFlags = Field(default_factory=MsdrgGrouperFlags)
@@ -95,9 +103,9 @@ class MsdrgOutput(BaseModel):
     principal_dx_output: MsdrgOutputDxCode = Field(default_factory=MsdrgOutputDxCode)
     secondary_dx_outputs: List[MsdrgOutputDxCode] = Field(default_factory=list)
     procedure_outputs: List[MsdrgOutputPrCode] = Field(default_factory=list)
-        
+
     def __str__(self):
         return f"MsdrgOutput(final_drg={self.final_drg_value}, final_mdc={self.final_mdc_value}, final_severity={self.final_severity})"
-    
+
     def __repr__(self):
         return self.__str__()

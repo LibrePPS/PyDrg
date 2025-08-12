@@ -15,6 +15,7 @@ class PoaType(Enum):
     BLANK = ""  # Exempt from POA reporting/Unreported/Not used
     INVALID = "INVALID"  # Invalid
 
+
 class Address(BaseModel):
     address1: str = ""
     address2: str = ""
@@ -25,6 +26,7 @@ class Address(BaseModel):
     phone: str = ""
     fax: str = ""
     additional_data: Dict[str, Any] = Field(default_factory=dict)
+
 
 class Patient(BaseModel):
     patient_id: str = ""
@@ -40,6 +42,7 @@ class Patient(BaseModel):
     age_days_discharge: int = 0
     sex: Optional[str] = None
 
+
 class Provider(BaseModel):
     npi: str = ""
     other_id: str = ""
@@ -49,6 +52,7 @@ class Provider(BaseModel):
     contract_id: int = 0
     address: Address = Field(default_factory=Address)
     additional_data: Dict[str, Any] = Field(default_factory=dict)
+
 
 class Claim(BaseModel):
     claimid: str = ""
@@ -78,9 +82,11 @@ class Claim(BaseModel):
     admit_date: Optional[datetime] = None
     admission_source: str = ""
 
+
 class ValueCode(BaseModel):
     code: str = ""
     amount: float = 0.0
+
 
 class ProcedureCode(BaseModel):
     code: str = ""
@@ -88,26 +94,30 @@ class ProcedureCode(BaseModel):
     date: Optional[datetime] = None
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
+
 class OccurrenceCode(BaseModel):
     code: str = ""
     date: Optional[datetime] = None
+
 
 class SpanCode(BaseModel):
     code: str = ""
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 
+
 class DxType(Enum):
     UNKNOWN = 0
     PRIMARY = 1
     SECONDARY = 2
 
+
 class DiagnosisCode(BaseModel):
     code: str = ""
     poa: PoaType = PoaType.BLANK
     dx_type: DxType = DxType.UNKNOWN
-    
-    @field_validator('poa', mode='before')
+
+    @field_validator("poa", mode="before")
     @classmethod
     def validate_poa(cls, v):
         if isinstance(v, str):
@@ -119,8 +129,8 @@ class DiagnosisCode(BaseModel):
             return v
         else:
             return PoaType.BLANK
-    
-    @field_validator('dx_type', mode='before')
+
+    @field_validator("dx_type", mode="before")
     @classmethod
     def validate_dx_type(cls, v):
         if isinstance(v, str):
@@ -140,6 +150,7 @@ class DiagnosisCode(BaseModel):
             return v
         else:
             return DxType.UNKNOWN
+
 
 class LineItem(BaseModel):
     service_date: Optional[datetime] = None

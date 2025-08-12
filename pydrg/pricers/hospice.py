@@ -15,20 +15,22 @@ CARE_REV_CODES = {
     "0652": 1,  # Continuous Home Care
     "0655": 2,  # Inpatient Respite Care
     "0656": 3,  # General Inpatient Care
-} 
-EXPIRED_DISCHARGE_STATUS_CODES = ["40", "41", "42"]  
+}
+EXPIRED_DISCHARGE_STATUS_CODES = ["40", "41", "42"]
+
 
 class BillingGroupOutput(BaseModel):
     hcpcs_code: Optional[str] = None
     revenue_code: Optional[str] = None
     payment_amount: Optional[float] = None
 
-    def from_java(self, java_obj:jpype.JClass):
+    def from_java(self, java_obj: jpype.JClass):
         self.hcpcs_code = str(java_obj.getHcpcsCode())
         self.revenue_code = str(java_obj.getRevenueCode())
         self.payment_amount = float_or_none(java_obj.getAmount())
         return
-    
+
+
 class EolaOutput(BaseModel):
     index: Optional[int] = None
     payment_amount: Optional[float] = None
@@ -37,6 +39,7 @@ class EolaOutput(BaseModel):
         self.index = java_obj.getIndex()
         self.payment_amount = float_or_none(java_obj.getPayment())
         return
+
 
 class HospiceOutput(BaseModel):
     calculation_version: Optional[str] = None
@@ -77,7 +80,9 @@ class HospiceOutput(BaseModel):
 
 
 class BillingGroup:
-    def __init__(self, service_date: datetime, hcpcs_code: str, revenue_code: str, units: int):
+    def __init__(
+        self, service_date: datetime, hcpcs_code: str, revenue_code: str, units: int
+    ):
         self.service_date = service_date
         self.hcpcs_code = hcpcs_code
         self.revenue_code = revenue_code
@@ -94,6 +99,7 @@ class BillingGroup:
         # All other revenue codes are reported in whole days
         if self.units > covered_days:
             raise ValueError("More units than covered days")
+
 
 class BillingGroups:
     def __init__(self, allocator):
@@ -133,7 +139,7 @@ class BillingGroups:
                     service_date=line.service_date,
                     hcpcs_code=line.hcpcs,
                     revenue_code=line.revenue_code,
-                    units=line.units
+                    units=line.units,
                 )
                 self.groups[line.revenue_code] = group
         # Verify the units for each group
@@ -144,6 +150,7 @@ class BillingGroups:
                 raise ValueError(
                     f"Invalid billing for revenue code {revenue_code} as units {group.units} exceed covered days {self.covered_days}"
                 ) from e
+
 
 class NonCoveredRanges:
     def __init__(self):
@@ -160,6 +167,7 @@ class NonCoveredRanges:
 
     def deinit(self):
         self.ranges.clear()
+
 
 class RoutineCareRanges:
     def __init__(self, allocator):
@@ -179,49 +187,99 @@ class RoutineCareRanges:
     def deinit(self):
         self.ranges.clear()
 
+
 class HospiceClient:
-    def __init__(self, jar_path=None, db:Optional[sqlite3.Connection]=None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
         if not jpype.isJVMStarted():
-            raise RuntimeError("JVM is not started. Please start the JVM before using HospiceClient.")
-        #We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
+            raise RuntimeError(
+                "JVM is not started. Please start the JVM before using HospiceClient."
+            )
+        # We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
         if jar_path is None:
             raise ValueError("jar_path must be provided to HospiceClient")
         if not os.path.exists(jar_path):
-            raise ValueError(f"jar_path does not exist: {jar_path}")    
+            raise ValueError(f"jar_path does not exist: {jar_path}")
         self.url_loader = UrlLoader()
-        #This loads the jar file into our URL class loader
+        # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
         self.load_classes()
         self.pricer_setup()
 
     def load_classes(self):
-        self.hospice_pricer_config_class = jpype.JClass("gov.cms.fiss.pricers.hospice.HospicePricerConfiguration", loader=self.url_loader.class_loader)
-        self.hospice_pricer_dispatch_class = jpype.JClass("gov.cms.fiss.pricers.hospice.core.HospicePricerDispatch", loader=self.url_loader.class_loader)
-        self.hospice_pricer_request_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimPricingRequest", loader=self.url_loader.class_loader)
-        self.hospice_pricer_response_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimPricingResponse", loader=self.url_loader.class_loader)
-        self.hospice_pricer_payment_data_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.HospicePaymentData", loader=self.url_loader.class_loader)
-        self.hospice_pricer_claim_data_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimData", loader=self.url_loader.class_loader)
-        self.hospice_csv_ingest_class = jpype.JClass("gov.cms.fiss.pricers.common.csv.CsvIngestionConfiguration", loader=self.url_loader.class_loader)
-        self.hospice_data_table_class = jpype.JClass("gov.cms.fiss.pricers.hospice.core.tables.DataTables", loader=self.url_loader.class_loader)
-        self.rtn_code_data = jpype.JClass("gov.cms.fiss.pricers.common.api.ReturnCodeData", loader=self.url_loader.class_loader)
-        self.hospice_billing_group_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.BillingGroupData", loader=self.url_loader.class_loader)
-        self.hospice_billing_payment_data_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.BillPaymentData", loader=self.url_loader.class_loader)
-        self.hospice_eol_addon_payment_class = jpype.JClass("gov.cms.fiss.pricers.hospice.api.v2.EndOfLifeAddOnDaysPaymentData", loader=self.url_loader.class_loader)
-        self.java_integer_class = jpype.JClass("java.lang.Integer", loader=self.url_loader.class_loader)
-        self.java_big_decimal_class = jpype.JClass("java.math.BigDecimal", loader=self.url_loader.class_loader)
-        self.java_string_class = jpype.JClass("java.lang.String", loader=self.url_loader.class_loader)
-        self.array_list_class = jpype.JClass("java.util.ArrayList", loader=self.url_loader.class_loader)
-        self.java_date_class = jpype.JClass("java.time.LocalDate", loader=self.url_loader.class_loader)
-        self.java_data_formatter = jpype.JClass("java.time.format.DateTimeFormatter", loader=self.url_loader.class_loader)
-        
-    
+        self.hospice_pricer_config_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.HospicePricerConfiguration",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_pricer_dispatch_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.core.HospicePricerDispatch",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_pricer_request_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimPricingRequest",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_pricer_response_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimPricingResponse",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_pricer_payment_data_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.HospicePaymentData",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_pricer_claim_data_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.HospiceClaimData",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_csv_ingest_class = jpype.JClass(
+            "gov.cms.fiss.pricers.common.csv.CsvIngestionConfiguration",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_data_table_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.core.tables.DataTables",
+            loader=self.url_loader.class_loader,
+        )
+        self.rtn_code_data = jpype.JClass(
+            "gov.cms.fiss.pricers.common.api.ReturnCodeData",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_billing_group_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.BillingGroupData",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_billing_payment_data_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.BillPaymentData",
+            loader=self.url_loader.class_loader,
+        )
+        self.hospice_eol_addon_payment_class = jpype.JClass(
+            "gov.cms.fiss.pricers.hospice.api.v2.EndOfLifeAddOnDaysPaymentData",
+            loader=self.url_loader.class_loader,
+        )
+        self.java_integer_class = jpype.JClass(
+            "java.lang.Integer", loader=self.url_loader.class_loader
+        )
+        self.java_big_decimal_class = jpype.JClass(
+            "java.math.BigDecimal", loader=self.url_loader.class_loader
+        )
+        self.java_string_class = jpype.JClass(
+            "java.lang.String", loader=self.url_loader.class_loader
+        )
+        self.array_list_class = jpype.JClass(
+            "java.util.ArrayList", loader=self.url_loader.class_loader
+        )
+        self.java_date_class = jpype.JClass(
+            "java.time.LocalDate", loader=self.url_loader.class_loader
+        )
+        self.java_data_formatter = jpype.JClass(
+            "java.time.format.DateTimeFormatter", loader=self.url_loader.class_loader
+        )
+
     def pricer_setup(self):
         self.hospice_config_obj = self.hospice_pricer_config_class()
         self.csv_ingest_obj = self.hospice_csv_ingest_class()
         self.hospice_config_obj.setCsvIngestionConfiguration(self.csv_ingest_obj)
 
-        #Get today's year
+        # Get today's year
         today = datetime.now()
         year = today.year
         supported_years = self.array_list_class()
@@ -234,7 +292,9 @@ class HospiceClient:
                         if year_int >= today.year - 3:
                             supported_years.add(self.java_integer_class(year_int))
                     except ValueError:
-                        raise ValueError(f"Invalid year in HOSPICE_SUPPORTED_YEARS: {year_str}")
+                        raise ValueError(
+                            f"Invalid year in HOSPICE_SUPPORTED_YEARS: {year_str}"
+                        )
         else:
             while year >= today.year - 3:
                 supported_years.add(self.java_integer_class(year))
@@ -243,7 +303,9 @@ class HospiceClient:
         self.hospice_data_table_class.loadDataTables(self.hospice_config_obj)
         self.dispatch_obj = self.hospice_pricer_dispatch_class(self.hospice_config_obj)
         if self.dispatch_obj is None:
-            raise RuntimeError("Failed to create HospicePricerDispatch object. Check your JAR file and classpath.")
+            raise RuntimeError(
+                "Failed to create HospicePricerDispatch object. Check your JAR file and classpath."
+            )
 
     def py_date_to_java_date(self, py_date):
         return py_date_to_java_date(self, py_date)
@@ -254,15 +316,17 @@ class HospiceClient:
                 # Convert the float val amount to an integer and return it as a string
                 return str(int(val_code.amount))
         return None
-     
-    def determine_date_of_death(self, claim: Claim) -> datetime  | None:
+
+    def determine_date_of_death(self, claim: Claim) -> datetime | None:
         if claim.patient_status in EXPIRED_DISCHARGE_STATUS_CODES:
             if claim.thru_date is not None:
                 return claim.thru_date
             else:
-                raise ValueError("Claim has expired discharge status but no thru_date is set.")
+                raise ValueError(
+                    "Claim has expired discharge status but no thru_date is set."
+                )
         return None
-    
+
     def siu_units(self, claim: Claim) -> list[int]:
         siu_units = list([0] * 7)  # Initialize a list for 7 days
         date_of_death = self.determine_date_of_death(claim)
@@ -273,7 +337,11 @@ class HospiceClient:
         non_covered_ranges = NonCoveredRanges()
         non_covered_ranges.create_ranges(claim)
         for line in claim.lines:
-            if not (line.revenue_code.startswith("055") and line.hcpcs == "G0299") and not (line.revenue_code.startswith("056") and line.revenue_code != "0569"):
+            if not (
+                line.revenue_code.startswith("055") and line.hcpcs == "G0299"
+            ) and not (
+                line.revenue_code.startswith("056") and line.revenue_code != "0569"
+            ):
                 continue
             if line.service_date is None:
                 continue
@@ -290,32 +358,34 @@ class HospiceClient:
     def get_provider_cbsa(self, claim: Claim) -> None | str:
         for val_code in claim.value_codes:
             if val_code.code == "G8":
-                #Convert the float val amount to an integer and return it as a string
+                # Convert the float val amount to an integer and return it as a string
                 return str(int(val_code.amount))
         return None
-    
+
     def create_input_claim(self, claim: Claim) -> None | str:
         claim_object = self.hospice_pricer_claim_data_class()
         self.pricing_request = self.hospice_pricer_request_class()
         patient_cbsa = self.get_patient_cbsa(claim)
         provider_cbsa = self.get_provider_cbsa(claim)
-        billing_groups = BillingGroups(self)    
+        billing_groups = BillingGroups(self)
         billing_groups.build_billing_groups(claim)
         siu_units = self.siu_units(claim)
         if claim.from_date is not None:
             claim_object.setServiceFromDate(self.py_date_to_java_date(claim.from_date))
         if claim.admit_date is not None:
             claim_object.setAdmissionDate(self.py_date_to_java_date(claim.admit_date))
-        #@TODO: Add a way for the user to provide prior benefit days and reporting quality data flag
+        # @TODO: Add a way for the user to provide prior benefit days and reporting quality data flag
         claim_object.setPriorBenefitDayUnits(0)
         claim_object.setReportingQualityData("0")
         claim_object.setPatientCbsa(patient_cbsa if patient_cbsa is not None else "")
         claim_object.setProviderCbsa(provider_cbsa if provider_cbsa is not None else "")
-        
+
         billing_group_list = self.array_list_class()
         for group in billing_groups.groups.values():
             billing_group = self.hospice_billing_group_class()
-            billing_group.setDateOfService(self.py_date_to_java_date(group.service_date))
+            billing_group.setDateOfService(
+                self.py_date_to_java_date(group.service_date)
+            )
             billing_group.setHcpcsCode(self.java_string_class(group.hcpcs_code))
             billing_group.setRevenueCode(self.java_string_class(group.revenue_code))
             billing_group.setUnits(self.java_integer_class(group.units))

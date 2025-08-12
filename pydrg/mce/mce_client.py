@@ -10,14 +10,16 @@ from .mce_output import MceOutput
 class MceClient:
     def __init__(self):
         if not jpype.isJVMStarted():
-            raise RuntimeError("JVM is not started. Please start the JVM before using MceClient.")
+            raise RuntimeError(
+                "JVM is not started. Please start the JVM before using MceClient."
+            )
         self.load_enums()
-    
+
     def load_enums(self):
         self.icd_vers = jpype.JClass("gov.cms.editor.mce.component.edit.Const")
         self.edit_enum = jpype.JClass("gov.cms.editor.mce.model.enums.Edit")
         self.edit_type_enum = jpype.JClass("gov.cms.editor.mce.model.enums.EditType")
-    
+
     def load_classes(self):
         self.mce_record = jpype.JClass("gov.cms.editor.mce.transfer.MceRecord")
         self.mce_output = jpype.JClass("gov.cms.editor.mce.transfer.MceOutput")
@@ -42,11 +44,11 @@ class MceClient:
         else:
             raise ValueError("thru_date must be a string or datetime object")
         return (thru_date - from_date).days + 1 if thru_date >= from_date else 1
-    
+
     def create_input(self, claim: Claim):
-        if not hasattr(self, 'mce_record'):
+        if not hasattr(self, "mce_record"):
             self.load_classes()
-        
+
         mce_record = self.mce_record.builder()
         mce_record.withIcdVersion(self.icd_vers.ICD_10)
         if str(claim.patient_status).isnumeric():
@@ -63,10 +65,14 @@ class MceClient:
             mce_record.withLengthOfStay(self.java_int(self.calculate_los(claim)))
 
         if claim.admit_dx is not None:
-            mce_record.withAdmitDiagnosis(self.mce_dx_class(claim.admit_dx.code.replace(".", "")))
-        
+            mce_record.withAdmitDiagnosis(
+                self.mce_dx_class(claim.admit_dx.code.replace(".", ""))
+            )
+
         if isinstance(claim.thru_date, str):
-            discharge_date = datetime.strptime(claim.thru_date, "%Y-%m-%d").strftime("%Y%m%d")
+            discharge_date = datetime.strptime(claim.thru_date, "%Y-%m-%d").strftime(
+                "%Y%m%d"
+            )
             mce_record.withDischargeDate(discharge_date)
         elif isinstance(claim.thru_date, datetime):
             discharge_date = claim.thru_date.strftime("%Y%m%d")
@@ -75,7 +81,9 @@ class MceClient:
             raise ValueError("thru_date must be a string or datetime object")
         mce_record = mce_record.build()
         if claim.principal_dx is not None:
-            mce_record.addCode(self.mce_dx_class(claim.principal_dx.code.replace(".", "")))
+            mce_record.addCode(
+                self.mce_dx_class(claim.principal_dx.code.replace(".", ""))
+            )
         for dx in claim.secondary_dxs:
             mce_record.addCode(self.mce_dx_class(dx.code.replace(".", "")))
         for pr in claim.inpatient_pxs:

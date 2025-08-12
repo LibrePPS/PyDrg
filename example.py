@@ -11,10 +11,14 @@ from pydrg.pypps.pypps import Pypps
 
 if __name__ == "__main__":
     jar_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "jars"))
-    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", "pypps.db"))
-    pypps = Pypps(build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False) #<--- Set build_db=True to create the database if it does not exist
+    db_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "data", "pypps.db")
+    )
+    pypps = Pypps(
+        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False
+    )  # <--- Set build_db=True to create the database if it does not exist
     pypps.setup_clients()
-    
+
     test_claim_1 = claim_example()
     test_claim_2 = json_claim_example()
     opps_claim = opps_claim_example()
@@ -63,22 +67,26 @@ if __name__ == "__main__":
         hospice_claim.patient_status = "40"
         hospice_claim.value_codes.append(ValueCode(code="61", amount=35300.00))
         hospice_claim.value_codes.append(ValueCode(code="G8", amount=35300.00))
-        hospice_claim.thru_date = datetime(2025,7,10)
+        hospice_claim.thru_date = datetime(2025, 7, 10)
         hospice_claim.los = 10
-        hospice_claim.lines.append(LineItem(
-            hcpcs="Q5001",
-            revenue_code="0651",
-            service_date= datetime(2025,7,1),
-            units=9,
-            charges=10_000.00
-        ))
-        hospice_claim.lines.append(LineItem(
-            hcpcs="G0299",
-            revenue_code="0551",
-            service_date = datetime(2025,7,1),
-            units=3,
-            charges=10_000.00
-        ))
+        hospice_claim.lines.append(
+            LineItem(
+                hcpcs="Q5001",
+                revenue_code="0651",
+                service_date=datetime(2025, 7, 1),
+                units=9,
+                charges=10_000.00,
+            )
+        )
+        hospice_claim.lines.append(
+            LineItem(
+                hcpcs="G0299",
+                revenue_code="0551",
+                service_date=datetime(2025, 7, 1),
+                units=3,
+                charges=10_000.00,
+            )
+        )
         hospice_output = pypps.hospice_client.process(hospice_claim)
         print(hospice_output.model_dump_json(indent=2))
         print("=== End of Hospice Pricer Example ===")

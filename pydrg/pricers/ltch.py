@@ -55,72 +55,153 @@ class LtchOutput(BaseModel):
             self.total_payment = float_or_none(payment_data.getTotalPayment())
             self.final_cbsa = str(payment_data.getFinalCbsa())
             self.adjusted_payment = float_or_none(payment_data.getAdjustedPayment())
-            self.average_length_of_stay = float_or_none(payment_data.getAverageLengthOfStay())
+            self.average_length_of_stay = float_or_none(
+                payment_data.getAverageLengthOfStay()
+            )
             self.blend_year = payment_data.getBlendYear()
-            self.budget_neutrality_rate = float_or_none(payment_data.getBudgetNeutralityRate())
-            self.change_of_therapy_indicator = str(payment_data.getChangeOfTherapyIndicator())
-            self.charge_threshold_amount = float_or_none(payment_data.getChargeThresholdAmount())
-            self.cost_of_living_adjustment_percent = float_or_none(payment_data.getCostOfLivingAdjustmentPercent())
-            self.discharge_payment_percent_amount = float_or_none(payment_data.getDischargePaymentPercentAmount())
-            self.drg_relative_weight = float_or_none(payment_data.getDrgRelativeWeight())
+            self.budget_neutrality_rate = float_or_none(
+                payment_data.getBudgetNeutralityRate()
+            )
+            self.change_of_therapy_indicator = str(
+                payment_data.getChangeOfTherapyIndicator()
+            )
+            self.charge_threshold_amount = float_or_none(
+                payment_data.getChargeThresholdAmount()
+            )
+            self.cost_of_living_adjustment_percent = float_or_none(
+                payment_data.getCostOfLivingAdjustmentPercent()
+            )
+            self.discharge_payment_percent_amount = float_or_none(
+                payment_data.getDischargePaymentPercentAmount()
+            )
+            self.drg_relative_weight = float_or_none(
+                payment_data.getDrgRelativeWeight()
+            )
             self.facility_costs = float_or_none(payment_data.getFacilityCosts())
-            self.facility_specific_rate = float_or_none(payment_data.getFacilitySpecificRate())
+            self.facility_specific_rate = float_or_none(
+                payment_data.getFacilitySpecificRate()
+            )
             self.federal_payment = float_or_none(payment_data.getFederalPayment())
-            self.federal_rate_percent = float_or_none(payment_data.getFederalRatePercent())
-            self.inpatient_threshold = float_or_none(payment_data.getInpatientThreshold())
+            self.federal_rate_percent = float_or_none(
+                payment_data.getFederalRatePercent()
+            )
+            self.inpatient_threshold = float_or_none(
+                payment_data.getInpatientThreshold()
+            )
             self.length_of_stay = payment_data.getLengthOfStay()
             self.lifetime_reserve_days_used = payment_data.getLifetimeReserveDaysUsed()
-            self.national_labor_percent = float_or_none(payment_data.getNationalLaborPercent())
-            self.national_non_labor_percent = float_or_none(payment_data.getNationalNonLaborPercent())
+            self.national_labor_percent = float_or_none(
+                payment_data.getNationalLaborPercent()
+            )
+            self.national_non_labor_percent = float_or_none(
+                payment_data.getNationalNonLaborPercent()
+            )
             self.outlier_payment = float_or_none(payment_data.getOutlierPayment())
-            self.outlier_threshold_amount = float_or_none(payment_data.getOutlierThresholdAmount())
+            self.outlier_threshold_amount = float_or_none(
+                payment_data.getOutlierThresholdAmount()
+            )
             self.regular_days_used = payment_data.getRegularDaysUsed()
-            self.site_neutral_cost_payment = float_or_none(payment_data.getSiteNeutralCostPayment())
-            self.site_neutral_ipps_payment = float_or_none(payment_data.getSiteNeutralIppsPayment())
-            self.standard_full_payment = float_or_none(payment_data.getStandardFullPayment())
-            self.standard_short_stay_outlier_payment = float_or_none(payment_data.getStandardShortStayOutlierPayment())
-            self.submitted_diagnosis_related_group = str(payment_data.getSubmittedDiagnosisRelatedGroup())
+            self.site_neutral_cost_payment = float_or_none(
+                payment_data.getSiteNeutralCostPayment()
+            )
+            self.site_neutral_ipps_payment = float_or_none(
+                payment_data.getSiteNeutralIppsPayment()
+            )
+            self.standard_full_payment = float_or_none(
+                payment_data.getStandardFullPayment()
+            )
+            self.standard_short_stay_outlier_payment = float_or_none(
+                payment_data.getStandardShortStayOutlierPayment()
+            )
+            self.submitted_diagnosis_related_group = str(
+                payment_data.getSubmittedDiagnosisRelatedGroup()
+            )
+
 
 class LtchClient:
-    def __init__(self, jar_path=None, db:Optional[sqlite3.Connection]=None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
         if not jpype.isJVMStarted():
-            raise RuntimeError("JVM is not started. Please start the JVM before using LtcClient.")
-        #We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
+            raise RuntimeError(
+                "JVM is not started. Please start the JVM before using LtcClient."
+            )
+        # We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
         if jar_path is None:
             raise ValueError("jar_path must be provided to Ltchlient")
         if not os.path.exists(jar_path):
-            raise ValueError(f"jar_path does not exist: {jar_path}")    
+            raise ValueError(f"jar_path does not exist: {jar_path}")
         self.url_loader = UrlLoader()
-        #This loads the jar file into our URL class loader
+        # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
         self.load_classes()
         self.pricer_setup()
 
     def load_classes(self):
-        self.ltc_csv_ingest_class = jpype.JClass("gov.cms.fiss.pricers.common.csv.CsvIngestionConfiguration", loader=self.url_loader.class_loader)
-        self.ltc_claim_data_class = jpype.JClass("gov.cms.fiss.pricers.ltch.api.v2.LtchClaimData", loader=self.url_loader.class_loader)
-        self.ltc_price_request = jpype.JClass("gov.cms.fiss.pricers.ltch.api.v2.LtchClaimPricingRequest", loader=self.url_loader.class_loader)
-        self.ltc_price_response = jpype.JClass("gov.cms.fiss.pricers.ltch.api.v2.LtchClaimPricingResponse", loader=self.url_loader.class_loader)
-        self.ltc_payment_data = jpype.JClass("gov.cms.fiss.pricers.ltch.api.v2.LtchPaymentData", loader=self.url_loader.class_loader)
-        self.ltc_price_config = jpype.JClass("gov.cms.fiss.pricers.ltch.LtchPricerConfiguration", loader=self.url_loader.class_loader)
-        self.ltc_dispatch = jpype.JClass("gov.cms.fiss.pricers.ltch.core.LtchPricerDispatch", loader=self.url_loader.class_loader)
-        self.inpatient_prov_data = jpype.JClass("gov.cms.fiss.pricers.ltch.api.v2.LtchInpatientProviderData", loader=self.url_loader.class_loader)
-        self.rtn_code_data = jpype.JClass("gov.cms.fiss.pricers.common.api.ReturnCodeData", loader=self.url_loader.class_loader)
-        self.ltc_data_tables_class = jpype.JClass("gov.cms.fiss.pricers.ltch.core.tables.DataTables", loader=self.url_loader.class_loader)
-        self.array_list_class = jpype.JClass("java.util.ArrayList", loader=self.url_loader.class_loader)
-        self.java_integer_class = jpype.JClass("java.lang.Integer", loader=self.url_loader.class_loader)
-        self.java_date_class = jpype.JClass("java.time.LocalDate", loader=self.url_loader.class_loader)
-        self.java_data_formatter = jpype.JClass("java.time.format.DateTimeFormatter", loader=self.url_loader.class_loader)
-        self.java_big_decimal_class = jpype.JClass("java.math.BigDecimal", loader=self.url_loader.class_loader)
-        self.java_string_class = jpype.JClass("java.lang.String", loader=self.url_loader.class_loader)
+        self.ltc_csv_ingest_class = jpype.JClass(
+            "gov.cms.fiss.pricers.common.csv.CsvIngestionConfiguration",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_claim_data_class = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.api.v2.LtchClaimData",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_price_request = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.api.v2.LtchClaimPricingRequest",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_price_response = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.api.v2.LtchClaimPricingResponse",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_payment_data = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.api.v2.LtchPaymentData",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_price_config = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.LtchPricerConfiguration",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_dispatch = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.core.LtchPricerDispatch",
+            loader=self.url_loader.class_loader,
+        )
+        self.inpatient_prov_data = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.api.v2.LtchInpatientProviderData",
+            loader=self.url_loader.class_loader,
+        )
+        self.rtn_code_data = jpype.JClass(
+            "gov.cms.fiss.pricers.common.api.ReturnCodeData",
+            loader=self.url_loader.class_loader,
+        )
+        self.ltc_data_tables_class = jpype.JClass(
+            "gov.cms.fiss.pricers.ltch.core.tables.DataTables",
+            loader=self.url_loader.class_loader,
+        )
+        self.array_list_class = jpype.JClass(
+            "java.util.ArrayList", loader=self.url_loader.class_loader
+        )
+        self.java_integer_class = jpype.JClass(
+            "java.lang.Integer", loader=self.url_loader.class_loader
+        )
+        self.java_date_class = jpype.JClass(
+            "java.time.LocalDate", loader=self.url_loader.class_loader
+        )
+        self.java_data_formatter = jpype.JClass(
+            "java.time.format.DateTimeFormatter", loader=self.url_loader.class_loader
+        )
+        self.java_big_decimal_class = jpype.JClass(
+            "java.math.BigDecimal", loader=self.url_loader.class_loader
+        )
+        self.java_string_class = jpype.JClass(
+            "java.lang.String", loader=self.url_loader.class_loader
+        )
 
     def pricer_setup(self):
         self.ltc_config_obj = self.ltc_price_config()
         self.csv_ingest_obj = self.ltc_csv_ingest_class()
         self.ltc_config_obj.setCsvIngestionConfiguration(self.csv_ingest_obj)
 
-        #Get today's year
+        # Get today's year
         today = datetime.now()
         year = today.year
         supported_years = self.array_list_class()
@@ -133,7 +214,9 @@ class LtchClient:
                         if year_int >= today.year - 3:
                             supported_years.add(self.java_integer_class(year_int))
                     except ValueError:
-                        raise ValueError(f"Invalid year in LTC_SUPPORTED_YEARS: {year_str}")
+                        raise ValueError(
+                            f"Invalid year in LTC_SUPPORTED_YEARS: {year_str}"
+                        )
         else:
             while year >= today.year - 3:
                 supported_years.add(self.java_integer_class(year))
@@ -142,12 +225,16 @@ class LtchClient:
         self.ltc_data_tables_class.loadDataTables(self.ltc_config_obj)
         self.dispatch_obj = self.ltc_dispatch(self.ltc_config_obj)
         if self.dispatch_obj is None:
-            raise RuntimeError("Failed to create LtcPricerDispatch object. Check your JAR file and classpath.")
+            raise RuntimeError(
+                "Failed to create LtcPricerDispatch object. Check your JAR file and classpath."
+            )
 
     def py_date_to_java_date(self, py_date):
-            return py_date_to_java_date(self, py_date)
+        return py_date_to_java_date(self, py_date)
 
-    def create_input_claim(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None):
+    def create_input_claim(
+        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
+    ):
         claim_object = self.ltc_claim_data_class()
         self.pricing_request = self.ltc_price_request()
         ipsf_provider = IPSFProvider()
@@ -159,20 +246,24 @@ class LtchClient:
             claim_object.setDischargeDate(self.py_date_to_java_date(claim.thru_date))
         else:
             raise ValueError("Thru date is required.")
-        claim_object.setCoveredDays(self.java_integer_class(claim.los - claim.non_covered_days))
+        claim_object.setCoveredDays(
+            self.java_integer_class(claim.los - claim.non_covered_days)
+        )
         claim_object.setLengthOfStay(self.java_integer_class(claim.los))
         claim_object.setPatientStatus(claim.patient_status)
         claim_object.setOutlierSpecialPaymentIndicator("0")
-        #@TODO provide a way to set the lifetime reserve days
+        # @TODO provide a way to set the lifetime reserve days
         claim_object.setLifetimeReserveDays(self.java_integer_class(0))
         claim_object.setReviewCode("00")
         if drg_output is not None:
             claim_object.setDiagnosisRelatedGroup(str(drg_output.final_drg_value))
-            claim_object.setDiagnosisRelatedGroupSeverity(str(drg_output.final_severity))
+            claim_object.setDiagnosisRelatedGroupSeverity(
+                str(drg_output.final_severity)
+            )
         else:
-            #@TODO need to add the ability to pass a DRG without a MsdrgOutput object
+            # @TODO need to add the ability to pass a DRG without a MsdrgOutput object
             raise ValueError("DRG output is required for LTC pricing.")
-        
+
         java_dxs = self.array_list_class()
         if claim.principal_dx is not None:
             java_dxs.add(self.java_string_class(claim.principal_dx.code))
@@ -205,13 +296,17 @@ class LtchClient:
             ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
             claim_object.setProviderCcn(ipsf_provider.provider_ccn)
         else:
-            raise ValueError("Either billing or servicing provider must be provided for IPPS pricing.")
+            raise ValueError(
+                "Either billing or servicing provider must be provided for IPPS pricing."
+            )
         ipsf_provider.set_java_values(provider_object, self)
         self.pricing_request.setClaimData(claim_object)
         self.pricing_request.setProviderData(provider_object)
         return
-    
-    def process(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None) -> LtchOutput:
+
+    def process(
+        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
+    ) -> LtchOutput:
         self.create_input_claim(claim, drg_output)
         self.pricing_response = self.dispatch_obj.process(self.pricing_request)
         ltch_output = LtchOutput()
