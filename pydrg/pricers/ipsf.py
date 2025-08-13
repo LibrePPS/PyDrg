@@ -129,7 +129,7 @@ class IPSFDatabase:
                 print(
                     f"Download directory {download_dir} does not exist, attempting to create"
                 )
-                os.mkdir(download_dir)
+                os.makedirs(download_dir, exist_ok=True)
             response = requests.get(url, stream=True)
             response.raise_for_status()
 

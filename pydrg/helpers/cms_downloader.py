@@ -25,6 +25,7 @@ Usage Example:
 """
 
 import glob
+import tempfile
 import logging
 import os
 import re
@@ -201,9 +202,12 @@ class CMSDownloader:
 
     def create_directory(self, directory):
         """Create a directory if it doesn't exist."""
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        try:
+            os.makedirs(directory, exist_ok=True)
             self.logger.info(f"Created directory: {directory}")
+        except Exception as e:
+            self.logger.error(f"Failed to create directory {directory}: {str(e)}")
+            raise
 
     def download_file(self, url, filename, directory=None):
         """Download a file with progress bar."""
@@ -424,11 +428,8 @@ class CMSDownloader:
         else:
             self.logger.info("Processing all JAR files from ZIP")
 
-        # Create a temporary directory for extraction
-        temp_extract_dir = os.path.join(
-            self.download_dir, f"temp_extract_{int(time.time())}"
-        )
-        self.create_directory(temp_extract_dir)
+        # Create a unique temporary directory for extraction
+        temp_extract_dir = tempfile.mkdtemp(prefix="temp_extract_", dir=self.download_dir)
 
         try:
             # Extract the ZIP file
@@ -515,7 +516,7 @@ class CMSDownloader:
         finally:
             # Clean up temporary directory
             if os.path.exists(temp_extract_dir):
-                shutil.rmtree(temp_extract_dir)
+                shutil.rmtree(temp_extract_dir, ignore_errors=True)
 
     def download_msdrg_files(self):
         """Download MS-DRG Java source files from the MS-DRG website."""
