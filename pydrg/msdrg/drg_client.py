@@ -468,7 +468,7 @@ class DrgClient:
         with open(file_path, "r") as file:
             for line in file:
                 try:
-                    claim = Claim.from_json(json.loads(line))
+                    claim = Claim.model_validate(json.loads(line))
                     list_of_claims.append(claim)
                 except Exception as e:
                     print(f"Error loading claim: {e}")
