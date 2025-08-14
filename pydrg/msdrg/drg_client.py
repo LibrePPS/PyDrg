@@ -4,6 +4,7 @@ from enum import Enum
 from typing import List
 
 import jpype
+from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import Claim, DiagnosisCode, PoaType, ProcedureCode
 from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
@@ -34,6 +35,14 @@ class DrgClient:
         self.load_enums()
         self.load_classes()
         self.load_drg_groupers()
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            pass
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
 
     def load_enums(self):
         # Get enumeration values needed for DRG Runtime options

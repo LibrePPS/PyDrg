@@ -5,7 +5,7 @@ from typing import Optional
 
 import jpype
 from pydantic import BaseModel
-from pydrg.plugins import apply_to_ipps_client, run_ipps_load_classes
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 
 from pydrg.helpers.utils import float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
@@ -427,14 +427,14 @@ class IppsClient:
         self.load_classes()
         # Allow plugins to load extra/override Java classes before pricer setup
         try:
-            run_ipps_load_classes(self)
+            run_client_load_classes(self)
         except Exception:
             # Plugins are optional; ignore failures here to avoid breaking core use
             pass
         self.pricer_setup()
         # Bind plugin-provided methods to this client instance
         try:
-            apply_to_ipps_client(self)
+            apply_client_methods(self)
         except Exception:
             pass
 

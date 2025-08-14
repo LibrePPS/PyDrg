@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 
 import jpype
+from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import (
     Claim,
@@ -20,6 +21,14 @@ class IoceClient:
                 "JVM is not started. Please start the JVM before using IoceClient."
             )
         self.load_classes()
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            pass
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
 
     def load_classes(self):
         """Load all required Java classes and components"""

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import jpype
+from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import Claim
 
@@ -14,6 +15,14 @@ class MceClient:
                 "JVM is not started. Please start the JVM before using MceClient."
             )
         self.load_enums()
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            pass
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
 
     def load_enums(self):
         self.icd_vers = jpype.JClass("gov.cms.editor.mce.component.edit.Const")

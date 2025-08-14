@@ -30,16 +30,16 @@ def register(plugin: Any) -> None:
     get_manager().register(plugin)
 
 
-def run_ipps_load_classes(ipps_client: Any) -> None:
+def run_client_load_classes(client: Any) -> None:
     pm = get_manager()
-    pm.hook.ipps_load_classes(ipps_client=ipps_client)
+    pm.hook.client_load_classes(client=client)
 
 
-def apply_to_ipps_client(ipps_client: Any) -> None:
-    if getattr(ipps_client, "_plugins_applied", False):
+def apply_client_methods(client: Any) -> None:
+    if getattr(client, "_plugins_applied", False):
         return
     pm = get_manager()
-    results = pm.hook.ipps_client_methods(ipps_client=ipps_client)
+    results = pm.hook.client_methods(client=client)
     merged: Dict[str, Callable[..., Any]] = {}
     for result in results:
         if not result:
@@ -47,12 +47,12 @@ def apply_to_ipps_client(ipps_client: Any) -> None:
         for name, func in result.items():
             if name in merged:
                 raise RuntimeError(
-                    f"Conflicting plugin methods for IPPS client: {name}"
+                    f"Conflicting plugin methods for client: {name}"
                 )
             merged[name] = func
     for name, func in merged.items():
-        bound = types.MethodType(func, ipps_client)
-        setattr(ipps_client, name, bound)
-    setattr(ipps_client, "_plugins_applied", True)
+        bound = types.MethodType(func, client)
+        setattr(client, name, bound)
+    setattr(client, "_plugins_applied", True)
 
 

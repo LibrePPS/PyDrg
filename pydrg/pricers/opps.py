@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 import jpype
+from pydrg.plugins import run_client_load_classes, apply_client_methods
 from pydantic import BaseModel
 
 from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
@@ -114,7 +115,15 @@ class OppsClient:
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
         self.load_classes()
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            pass
         self.pricer_setup()
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
 
     def load_classes(self):
         """
