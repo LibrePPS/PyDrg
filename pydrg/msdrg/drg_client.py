@@ -32,7 +32,7 @@ class DrgClient:
         if not jpype.isJVMStarted():
             raise RuntimeError("JVM is not started")
         self.load_enums()
-        self.load_input_classes()
+        self.load_classes()
         self.load_drg_groupers()
 
     def load_enums(self):
@@ -68,7 +68,7 @@ class DrgClient:
         except Exception as e:
             raise RuntimeError(f"Failed to initialize enumerations: {e}")
 
-    def load_input_classes(self):
+    def load_classes(self):
         try:
             self.drg_claim_class = jpype.JClass(
                 "gov.agency.msdrg.model.v2.transfer.MsdrgClaim"

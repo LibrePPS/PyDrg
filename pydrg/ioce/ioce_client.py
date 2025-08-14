@@ -19,9 +19,9 @@ class IoceClient:
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using IoceClient."
             )
-        self.load_java_classes()
+        self.load_classes()
 
-    def load_java_classes(self):
+    def load_classes(self):
         """Load all required Java classes and components"""
         try:
             # Main component classes
