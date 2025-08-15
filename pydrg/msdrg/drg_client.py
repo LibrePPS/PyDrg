@@ -4,7 +4,6 @@ from enum import Enum
 from typing import List
 
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import Claim, DiagnosisCode, PoaType, ProcedureCode
 from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
@@ -33,16 +32,8 @@ class DrgClient:
         if not jpype.isJVMStarted():
             raise RuntimeError("JVM is not started")
         self.load_enums()
-        self.load_classes()
+        self.load_input_classes()
         self.load_drg_groupers()
-        try:
-            run_client_load_classes(self)
-        except Exception:
-            pass
-        try:
-            apply_client_methods(self)
-        except Exception:
-            pass
 
     def load_enums(self):
         # Get enumeration values needed for DRG Runtime options
@@ -77,7 +68,7 @@ class DrgClient:
         except Exception as e:
             raise RuntimeError(f"Failed to initialize enumerations: {e}")
 
-    def load_classes(self):
+    def load_input_classes(self):
         try:
             self.drg_claim_class = jpype.JClass(
                 "gov.agency.msdrg.model.v2.transfer.MsdrgClaim"
@@ -279,7 +270,8 @@ class DrgClient:
             elif claim.patient.age == 0 and claim.patient.date_of_birth is not None:
                 input.withAgeInYears(0)
                 age_in_days = self.calculate_age_in_days(claim)
-                input.withAgeInDays(age_in_days)
+                input.withAgeDaysAdmit(age_in_days)
+                input.withAgeDaysDischarge(age_in_days + claim.los)
             else:
                 raise ValueError("Patient age or date of birth must be provided")
         # Set Sex
