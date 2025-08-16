@@ -49,7 +49,7 @@ DATATYPES = {
 class OPSFDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.connection: sqlite3.Connection = sqlite3.connect(db_path)
+        self.connection: sqlite3.Connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor: sqlite3.Cursor = self.connection.cursor()
 
     def close(self):
