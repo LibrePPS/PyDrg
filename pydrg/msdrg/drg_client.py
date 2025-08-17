@@ -4,9 +4,10 @@ from enum import Enum
 from typing import List
 
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
+
 from pydrg.input.claim import Claim, DiagnosisCode, PoaType, ProcedureCode
 from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 
 MSDRG_VSTART = "400"
 

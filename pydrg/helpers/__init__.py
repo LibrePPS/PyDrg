@@ -11,5 +11,3 @@ __all__ = [
     "json_claim_example",
     "opps_claim_example",
 ]
-
-

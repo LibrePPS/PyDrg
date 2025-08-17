@@ -1,16 +1,16 @@
 from .claim import (
     Address,
-    Patient,
-    Provider,
     Claim,
-    ValueCode,
-    ProcedureCode,
-    OccurrenceCode,
-    SpanCode,
-    DxType,
     DiagnosisCode,
+    DxType,
     LineItem,
+    OccurrenceCode,
+    Patient,
     PoaType,
+    ProcedureCode,
+    Provider,
+    SpanCode,
+    ValueCode,
 )
 
 __all__ = [

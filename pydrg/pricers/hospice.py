@@ -2,13 +2,15 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional
+from logging import Logger, getLogger
+from threading import current_thread
 
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 from pydantic import BaseModel
 
 from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.url_loader import UrlLoader
 
 CARE_REV_CODES = {
@@ -190,7 +192,7 @@ class RoutineCareRanges:
 
 
 class HospiceClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger]=None):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using HospiceClient."
@@ -204,6 +206,10 @@ class HospiceClient:
         # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("HospiceClient")
         self.load_classes()
         try:
             run_client_load_classes(self)
@@ -371,9 +377,9 @@ class HospiceClient:
                 return str(int(val_code.amount))
         return None
 
-    def create_input_claim(self, claim: Claim) -> None | str:
+    def create_input_claim(self, claim: Claim) -> jpype.JObject:
         claim_object = self.hospice_pricer_claim_data_class()
-        self.pricing_request = self.hospice_pricer_request_class()
+        pricing_request = self.hospice_pricer_request_class()
         patient_cbsa = self.get_patient_cbsa(claim)
         provider_cbsa = self.get_provider_cbsa(claim)
         billing_groups = BillingGroups(self)
@@ -405,11 +411,13 @@ class HospiceClient:
         for i, units in enumerate(siu_units):
             eola_days.add(self.java_integer_class(units))
         claim_object.setEndOfLifeAddOnDaysUnits(eola_days)
-        self.pricing_request.setClaimData(claim_object)
+        pricing_request.setClaimData(claim_object)
+        return pricing_request
 
     def process(self, claim: Claim) -> None | HospiceOutput:
-        self.create_input_claim(claim)
-        self.pricing_response = self.dispatch_obj.process(self.pricing_request)
+        self.logger.debug(f"Hospice Client processing claim on thread {current_thread().ident}")
+        pricing_request = self.create_input_claim(claim)
+        pricing_response = self.dispatch_obj.process(pricing_request)
         hospice_output = HospiceOutput()
-        hospice_output.from_java(self.pricing_response)
+        hospice_output.from_java(pricing_response)
         return hospice_output

@@ -1,6 +1,5 @@
 import pluggy
 
-
 project_name = "pydrg"
 
 hookspec = pluggy.HookspecMarker(project_name)
@@ -26,5 +25,3 @@ def client_methods(client):
     The callables should accept `self` as the first argument and will be bound with
     types.MethodType. Return an empty dict or None if not adding methods.
     """
-
-

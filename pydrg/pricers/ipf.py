@@ -2,14 +2,15 @@ import os
 import sqlite3
 from datetime import datetime
 from typing import Optional
-
+from threading import current_thread
+from logging import Logger, getLogger
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 from pydantic import BaseModel
 
 from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.ipsf import IPSFProvider
 from pydrg.pricers.url_loader import UrlLoader
 
@@ -138,7 +139,7 @@ class IpfOutput(BaseModel):
 
 
 class IpfClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using IpfClient."
@@ -152,6 +153,10 @@ class IpfClient:
         # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("IpfClient")
         self.load_classes()
         try:
             run_client_load_classes(self)
@@ -310,9 +315,9 @@ class IpfClient:
 
     def create_input_claim(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
-    ):
+    ) -> jpype.JObject:
         claim_object = self.ipf_claim_data_class()
-        self.pricing_request = self.ipf_price_request()
+        pricing_request = self.ipf_price_request()
         ipsf_provider = IPSFProvider()
         provider_object = self.inpatient_prov_data()
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
@@ -378,15 +383,16 @@ class IpfClient:
                 "Either billing or servicing provider must be provided for IPPS pricing."
             )
         ipsf_provider.set_java_values(provider_object, self)
-        self.pricing_request.setClaimData(claim_object)
-        self.pricing_request.setProviderData(provider_object)
-        return
+        pricing_request.setClaimData(claim_object)
+        pricing_request.setProviderData(provider_object)
+        return pricing_request
 
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> IpfOutput:
-        self.create_input_claim(claim, drg_output)
-        self.pricing_response = self.dispatch_obj.process(self.pricing_request)
+        self.logger.debug(f"IpfClient processing claim on thread {current_thread().ident}")
+        pricing_request = self.create_input_claim(claim, drg_output)
+        pricing_response = self.dispatch_obj.process(pricing_request)
         ipf_output = IpfOutput()
-        ipf_output.from_java(self.pricing_response)
+        ipf_output.from_java(pricing_response)
         return ipf_output

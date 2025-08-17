@@ -25,11 +25,11 @@ Usage Example:
 """
 
 import glob
-import tempfile
 import logging
 import os
 import re
 import shutil
+import tempfile
 import time
 import zipfile
 from urllib.parse import urljoin
@@ -429,7 +429,9 @@ class CMSDownloader:
             self.logger.info("Processing all JAR files from ZIP")
 
         # Create a unique temporary directory for extraction
-        temp_extract_dir = tempfile.mkdtemp(prefix="temp_extract_", dir=self.download_dir)
+        temp_extract_dir = tempfile.mkdtemp(
+            prefix="temp_extract_", dir=self.download_dir
+        )
 
         try:
             # Extract the ZIP file

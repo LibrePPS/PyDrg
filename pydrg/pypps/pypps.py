@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import jpype
 
@@ -7,14 +8,13 @@ from pydrg.helpers.cms_downloader import CMSDownloader
 from pydrg.ioce.ioce_client import IoceClient
 from pydrg.mce.mce_client import MceClient
 from pydrg.msdrg.drg_client import DrgClient
-from pydrg.pricers.ipsf import IPSFDatabase
-from pydrg.pricers.opsf import OPSFDatabase
 from pydrg.pricers.hospice import HospiceClient
 from pydrg.pricers.ipf import IpfClient
 from pydrg.pricers.ipps import IppsClient
+from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.ltch import LtchClient
 from pydrg.pricers.opps import OppsClient
-from typing import Optional
+from pydrg.pricers.opsf import OPSFDatabase
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -37,6 +37,7 @@ class Pypps:
         jar_path: str = "./jars",
         db_path: str = "./data/pypps.db",
         build_db: bool = False,
+        log_level:int = logging.INFO
     ):
         if not os.path.exists(jar_path):
             os.makedirs(jar_path)
@@ -54,7 +55,7 @@ class Pypps:
         self.opsf_db = OPSFDatabase(db_path)
         self.ipsf_db = IPSFDatabase(db_path)
         self.logger = logging.getLogger("Pypps")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(log_level)
         if build_db:
             self.opsf_db.to_sqlite()
             self.ipsf_db.to_sqlite()
@@ -117,7 +118,7 @@ class Pypps:
                     setattr(
                         self,
                         f"{pricer.lower()}_client",
-                        globals()[f"{pricer}Client"](jar_path, self.opsf_db.connection),
+                        globals()[f"{pricer}Client"](jar_path, self.opsf_db.connection, self.logger),
                     )
                 except KeyError:
                     self.logger.warning(

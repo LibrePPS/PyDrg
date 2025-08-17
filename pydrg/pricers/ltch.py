@@ -2,14 +2,15 @@ import os
 import sqlite3
 from datetime import datetime
 from typing import Optional
-
+from logging import Logger, getLogger
+from threading import current_thread
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 from pydantic import BaseModel
 
 from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.ipsf import IPSFProvider
 from pydrg.pricers.url_loader import UrlLoader
 
@@ -120,7 +121,7 @@ class LtchOutput(BaseModel):
 
 
 class LtchClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using LtcClient."
@@ -134,6 +135,10 @@ class LtchClient:
         # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("LtchClient")
         self.load_classes()
         try:
             run_client_load_classes(self)
@@ -243,9 +248,9 @@ class LtchClient:
 
     def create_input_claim(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
-    ):
+    ) -> jpype.JObject:
         claim_object = self.ltc_claim_data_class()
-        self.pricing_request = self.ltc_price_request()
+        pricing_request = self.ltc_price_request()
         ipsf_provider = IPSFProvider()
         provider_object = self.inpatient_prov_data()
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
@@ -295,6 +300,8 @@ class LtchClient:
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
             ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            if ipsf_provider.provider_type not in ("02", "2", "52"):
+                raise ValueError(f"Billed provider has a Provider Type of {ipsf_provider.provider_type} which is not valid for LTCH Pricer")
             claim_object.setProviderCcn(ipsf_provider.provider_ccn)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
@@ -309,15 +316,16 @@ class LtchClient:
                 "Either billing or servicing provider must be provided for IPPS pricing."
             )
         ipsf_provider.set_java_values(provider_object, self)
-        self.pricing_request.setClaimData(claim_object)
-        self.pricing_request.setProviderData(provider_object)
-        return
+        pricing_request.setClaimData(claim_object)
+        pricing_request.setProviderData(provider_object)
+        return pricing_request
 
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> LtchOutput:
-        self.create_input_claim(claim, drg_output)
-        self.pricing_response = self.dispatch_obj.process(self.pricing_request)
+        self.logger.debug(f"LtchClient processing claim on thread {current_thread().ident}")
+        pricing_request = self.create_input_claim(claim, drg_output)
+        pricing_response = self.dispatch_obj.process(pricing_request)
         ltch_output = LtchOutput()
-        ltch_output.from_java(self.pricing_response)
+        ltch_output.from_java(pricing_response)
         return ltch_output

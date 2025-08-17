@@ -2,14 +2,15 @@ import os
 import sqlite3
 from datetime import datetime
 from typing import Optional
-
+from logging import Logger, getLogger
+from threading import current_thread
 import jpype
 from pydantic import BaseModel
-from pydrg.plugins import apply_client_methods, run_client_load_classes
 
 from pydrg.helpers.utils import float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.ipsf import IPSFProvider
 from pydrg.pricers.url_loader import UrlLoader
 
@@ -410,7 +411,7 @@ class IppsOutput(BaseModel):
 
 
 class IppsClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using IppsClient."
@@ -424,6 +425,10 @@ class IppsClient:
         # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("IppsClient")
         self.load_classes()
         # Allow plugins to load extra/override Java classes before pricer setup
         try:
@@ -552,10 +557,10 @@ class IppsClient:
 
     def create_input_claim(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
-    ):
+    ) -> jpype.JObject:
         claim_object = self.ipps_claim_data_class()
         provider_data = self.inpatient_prov_data()
-        self.pricing_request = self.ipps_price_request()
+        pricing_request = self.ipps_price_request()
 
         # @TODO All these fields need to be added to Claim object or provide some sort of way for user to set them
         claim_object.setReviewCode("00")
@@ -610,7 +615,7 @@ class IppsClient:
         else:
             # @TODO need to add the ability to pass a DRG without a MsdrgOutput object
             raise ValueError("DRG output is required for IPPS pricing.")
-        self.pricing_request.setClaimData(claim_object)
+        pricing_request.setClaimData(claim_object)
 
         if claim.billing_provider is not None:
             if isinstance(claim.thru_date, datetime):
@@ -631,8 +636,8 @@ class IppsClient:
                 "Either billing or servicing provider must be provided for IPPS pricing."
             )
         ipsf_provider.set_java_values(provider_data, self)
-        self.pricing_request.setProviderData(provider_data)
-        return
+        pricing_request.setProviderData(provider_data)
+        return pricing_request
 
     def process(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None):
         """
@@ -644,9 +649,9 @@ class IppsClient:
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")
-
-        self.create_input_claim(claim, drg_output)
-        self.pricing_response = self.dispatch_obj.process(self.pricing_request)
+        self.logger.debug(f"IppsClient processing claim on thread {current_thread().ident}")
+        pricing_request = self.create_input_claim(claim, drg_output)
+        pricing_response = self.dispatch_obj.process(pricing_request)
         ipps_output = IppsOutput()
-        ipps_output.from_java(self.pricing_response)
+        ipps_output.from_java(pricing_response)
         return ipps_output

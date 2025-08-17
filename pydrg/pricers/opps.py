@@ -2,14 +2,15 @@ import os
 import sqlite3
 from datetime import datetime
 from typing import Optional
-
+from logging import Logger, getLogger
+from threading import current_thread
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 from pydantic import BaseModel
 
 from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
 from pydrg.input.claim import Claim
 from pydrg.ioce.ioce_output import IoceOutput
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.opsf import OPSFProvider
 from pydrg.pricers.url_loader import UrlLoader
 
@@ -100,7 +101,7 @@ class OppsOutput(BaseModel):
 
 
 class OppsClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None):
+    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using OppsClient."
@@ -114,6 +115,10 @@ class OppsClient:
         # This loads the jar file into our URL class loader
         self.url_loader.load_urls([f"file://{jar_path}"])
         self.db = db
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("OppsClient")
         self.load_classes()
         try:
             run_client_load_classes(self)
@@ -225,11 +230,11 @@ class OppsClient:
 
     def create_input_claim(
         self, claim: Claim, ioce_output: Optional[IoceOutput] = None
-    ):
-        self.opps_claim_object = self.opps_claim_data_class()
+    ) -> jpype.JObject:
+        opps_claim_object = self.opps_claim_data_class()
 
-        self.opps_claim_object.setTypeOfBill(claim.bill_type)
-        self.opps_claim_object.setServiceFromDate(
+        opps_claim_object.setTypeOfBill(claim.bill_type)
+        opps_claim_object.setServiceFromDate(
             self.py_date_to_java_date(claim.from_date)
         )
 
@@ -284,15 +289,17 @@ class OppsClient:
             raise ValueError(
                 "Not implemented yet: IOCE output is required for OPPS claims."
             )
-        self.opps_claim_object.setIoceServiceLines(ioce_lines)
+        opps_claim_object.setIoceServiceLines(ioce_lines)
+        return opps_claim_object
 
     def process(self, claim: Claim, ioce_output: Optional[IoceOutput] = None):
         """
         Process the claim and return the pricing response.
         """
-        self.create_input_claim(claim, ioce_output)
-        self.pricing_request = self.opps_price_request_class()
-        self.pricing_request.setClaimData(self.opps_claim_object)
+        self.logger.debug(f"OppsClient processing claim on thread {current_thread().ident}")
+        opps_claim_object = self.create_input_claim(claim, ioce_output)
+        pricing_request = self.opps_price_request_class()
+        pricing_request.setClaimData(opps_claim_object)
         provider_data = self.outpatient_prov_data_class()
 
         if claim.billing_provider is not None:
@@ -368,8 +375,8 @@ class OppsClient:
             self.py_date_to_java_date(opsf_provider.fiscal_year_begin_date)
         )
 
-        self.pricing_request.setProviderData(provider_data)
-        self.pricing_response = self.dispatch_obj.process(self.pricing_request)
+        pricing_request.setProviderData(provider_data)
+        pricing_response = self.dispatch_obj.process(pricing_request)
         opps_output = OppsOutput()
-        opps_output.from_java(self.pricing_response)
+        opps_output.from_java(pricing_response)
         return opps_output

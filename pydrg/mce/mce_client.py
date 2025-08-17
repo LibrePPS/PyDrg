@@ -1,9 +1,9 @@
 from datetime import datetime
 
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import Claim
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 
 from .mce_output import MceOutput
 

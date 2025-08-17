@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-
 import pytest
 
 from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
@@ -50,12 +49,16 @@ def pricer_available(name_substring):
 @pytest.fixture(scope="module")
 def pypps_or_skip():
     if not base_jars_present():
-        pytest.skip("Required runtime JARs not found in ./jars. Populate real CMS jars to run integration tests.")
+        pytest.skip(
+            "Required runtime JARs not found in ./jars. Populate real CMS jars to run integration tests."
+        )
 
     jar_path = jars_dir()
     db_path = os.path.join(project_root_dir(), "data", "pypps.db")
 
-    pypps = Pypps(build_jar_dirs=False, jar_path=jar_path, db_path=db_path, build_db=False)
+    pypps = Pypps(
+        build_jar_dirs=False, jar_path=jar_path, db_path=db_path, build_db=False
+    )
     pypps.setup_clients()
     try:
         yield pypps
@@ -166,5 +169,3 @@ def test_hospice_pricer_if_available(pypps_or_skip):
 
     output = pypps_or_skip.hospice_client.process(claim)
     assert hasattr(output, "model_dump")
-
-

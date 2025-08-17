@@ -3,13 +3,13 @@ from datetime import datetime
 from typing import List
 
 import jpype
-from pydrg.plugins import run_client_load_classes, apply_client_methods
 
 from pydrg.input.claim import (
     Claim,
     PoaType,
 )
 from pydrg.ioce.ioce_output import IoceOutput
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 
 
 class IoceClient:

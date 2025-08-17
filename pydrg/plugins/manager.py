@@ -6,7 +6,6 @@ import pluggy
 
 from .hookspecs import hookimpl, hookspec, project_name
 
-
 _plugin_manager: pluggy.PluginManager | None = None
 
 
@@ -46,13 +45,9 @@ def apply_client_methods(client: Any) -> None:
             continue
         for name, func in result.items():
             if name in merged:
-                raise RuntimeError(
-                    f"Conflicting plugin methods for client: {name}"
-                )
+                raise RuntimeError(f"Conflicting plugin methods for client: {name}")
             merged[name] = func
     for name, func in merged.items():
         bound = types.MethodType(func, client)
         setattr(client, name, bound)
     setattr(client, "_plugins_applied", True)
-
-
