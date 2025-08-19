@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from sqlalchemy import Engine
 from datetime import datetime
 from typing import Optional
 from threading import current_thread
@@ -139,7 +139,12 @@ class IpfOutput(BaseModel):
 
 
 class IpfClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
+    def __init__(
+        self,
+        jar_path=None,
+        db: Optional[Engine] = None,
+        logger: Optional[Logger] = None,
+    ):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using IpfClient."
@@ -316,6 +321,8 @@ class IpfClient:
     def create_input_claim(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> jpype.JObject:
+        if self.db is None:
+            raise ValueError("Database connection is required for IpfClient.")
         claim_object = self.ipf_claim_data_class()
         pricing_request = self.ipf_price_request()
         ipsf_provider = IPSFProvider()
@@ -390,7 +397,9 @@ class IpfClient:
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> IpfOutput:
-        self.logger.debug(f"IpfClient processing claim on thread {current_thread().ident}")
+        self.logger.debug(
+            f"IpfClient processing claim on thread {current_thread().ident}"
+        )
         pricing_request = self.create_input_claim(claim, drg_output)
         pricing_response = self.dispatch_obj.process(pricing_request)
         ipf_output = IpfOutput()

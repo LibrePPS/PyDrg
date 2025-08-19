@@ -1,6 +1,5 @@
 import os
-import sqlite3
-
+import sqlalchemy
 import requests
 from pydantic import BaseModel
 
@@ -95,27 +94,26 @@ DATATYPES = {
 class IPSFDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.connection: sqlite3.Connection = sqlite3.connect(db_path)
-        self.cursor: sqlite3.Cursor = self.connection.cursor()
+        self.engine = sqlalchemy.create_engine(f"sqlite:///{db_path}")
 
     def close(self):
-        if self.connection:
-            self.connection.close()
+        if self.engine:
+            self.engine.dispose()
 
     def create_table(self):
         columns = ", ".join(
             [f"{name} {info['type']}" for name, info in DATATYPES.items()]
         )
         create_table_sql = f"CREATE TABLE IF NOT EXISTS ipsf ({columns})"
-        self.cursor.execute(create_table_sql)
-        self.connection.commit()
-        # Create Index on provider_ccn, national_provider_identifier, and effective_date
-        self.cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_provider_ccn ON ipsf(provider_ccn, effective_date)"
-        )
-        self.cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_national_provider_identifier ON ipsf(national_provider_identifier, effective_date)"
-        )
+        with self.engine.connect() as connection:
+            connection.exec_driver_sql(create_table_sql)
+            # Create Index on provider_ccn, national_provider_identifier, and effective_date
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS idx_provider_ccn ON ipsf(provider_ccn, effective_date)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS idx_national_provider_identifier ON ipsf(national_provider_identifier, effective_date)"
+            )
 
     def download(self, url, download_dir: str = "./"):
         """
@@ -151,39 +149,39 @@ class IPSFDatabase:
         if create_table:
             self.create_table()
         else:
-            self.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
-            )
-            if not self.cursor.fetchone():
-                raise ValueError(
-                    "IPSF table does not exist. Please run build_db=True to create the database."
+            with self.engine.connect() as connection:
+                rs = connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
                 )
-            # truncate the table if it exists
-            self.cursor.execute("DELETE FROM ipsf")
-            self.connection.commit()
-        self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
-        query = "INSERT INTO ipsf VALUES ("
-        # Batch through the data and insert 1000 rows at a time
-        with open(
-            os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r"
-        ) as file:
-            file.readline()  # Skip header line
-            for line in file:
-                values = line.strip().split(",")
-                if len(values) != len(DATATYPES):
-                    print(
-                        f"Skipping line with incorrect number of values: {line.strip()}"
+                if not rs.fetchone():
+                    raise ValueError(
+                        "IPSF table does not exist. Please run build_db=True to create the database."
                     )
-                    continue
-                placeholders = ", ".join(["?"] * len(values))
-                query += placeholders + ")"
-                self.cursor.execute(query, values)
+                # truncate the table if it exists
+                connection.exec_driver_sql("DELETE FROM ipsf")
+                connection.commit()
+                self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
                 query = "INSERT INTO ipsf VALUES ("
-                if self.cursor.rowcount % 1000 == 0:
-                    self.connection.commit()
-        # Commit any remaining rows
-        if self.cursor.rowcount % 1000 != 0:
-            self.connection.commit()
+                # Batch through the data and insert 1000 rows at a time
+                with open(
+                    os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r"
+                ) as file:
+                    file.readline()  # Skip header line
+                    for line in file:
+                        values = line.strip().split(",")
+                        if len(values) != len(DATATYPES):
+                            print(
+                                f"Skipping line with incorrect number of values: {line.strip()}"
+                            )
+                            continue
+                        placeholders = ", ".join(["?"] * len(values))
+                        query += placeholders + ")"
+                        connection.exec_driver_sql(query, values)
+                        query = "INSERT INTO ipsf VALUES ("
+                        if connection.connection.cursor().rowcount % 1000 == 0:
+                            connection.commit()
+                # Commit any remaining rows
+                connection.commit()
 
 
 class IPSFProvider(BaseModel):
@@ -270,7 +268,7 @@ class IPSFProvider(BaseModel):
         0.0  # Default to 0.0 if not provided in data.
     )
 
-    def from_sqlite(self, conn, provider: Provider, date_int: int):
+    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):
         if provider.other_id:
             lookup_query = "SELECT * FROM ipsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
             lookup_value = provider.other_id
@@ -281,28 +279,28 @@ class IPSFProvider(BaseModel):
             raise ValueError(
                 "Provider must have either an NPI or other_id set to lookup IPSF data."
             )
-        cursor = conn.cursor()
-        cursor.execute(lookup_query, (lookup_value, date_int))
-        row = cursor.fetchone()
-        if row:
-            for key, value in DATATYPES.items():
-                if value["type"] in ["INT", "REAL"]:
-                    val = (
-                        row[value["position"]]
-                        if row[value["position"]] is not None
-                        and row[value["position"]] != ""
-                        else 0
-                    )
-                    setattr(self, key, val)
-                else:
-                    setattr(self, key, row[value["position"]])
-            if self.termination_date == 19000101 or self.termination_date == 0:
-                self.termination_date = 20991231
-            return
-        else:
-            raise ValueError(
-                f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
-            )
+        with conn.connect() as connection:
+            row = connection.exec_driver_sql(lookup_query, (lookup_value, date_int))
+            row = row.fetchone()
+            if row:
+                for key, value in DATATYPES.items():
+                    if value["type"] in ["INT", "REAL"]:
+                        val = (
+                            row[value["position"]]
+                            if row[value["position"]] is not None
+                            and row[value["position"]] != ""
+                            else 0
+                        )
+                        setattr(self, key, val)
+                    else:
+                        setattr(self, key, row[value["position"]])
+                if self.termination_date == 19000101 or self.termination_date == 0:
+                    self.termination_date = 20991231
+                return
+            else:
+                raise ValueError(
+                    f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
+                )
 
     def set_java_values(self, java_provider, client):
         if not hasattr(client, "java_integer_class") or not hasattr(

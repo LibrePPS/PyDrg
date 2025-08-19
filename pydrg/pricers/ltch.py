@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from sqlalchemy import Engine
 from datetime import datetime
 from typing import Optional
 from logging import Logger, getLogger
@@ -121,11 +121,18 @@ class LtchOutput(BaseModel):
 
 
 class LtchClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
+    def __init__(
+        self,
+        jar_path=None,
+        db: Optional[Engine] = None,
+        logger: Optional[Logger] = None,
+    ):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using LtcClient."
             )
+        if db is None:
+            raise ValueError("Database connection is required for LtchClient.")
         # We need to use the URL class loader from Java to prevent classpath issues with other CMS pricers
         if jar_path is None:
             raise ValueError("jar_path must be provided to Ltchlient")
@@ -249,6 +256,8 @@ class LtchClient:
     def create_input_claim(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> jpype.JObject:
+        if self.db is None:
+            raise ValueError("Database connection is required for LtchClient.")
         claim_object = self.ltc_claim_data_class()
         pricing_request = self.ltc_price_request()
         ipsf_provider = IPSFProvider()
@@ -301,7 +310,9 @@ class LtchClient:
             ipsf_provider = IPSFProvider()
             ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
             if ipsf_provider.provider_type not in ("02", "2", "52"):
-                raise ValueError(f"Billed provider has a Provider Type of {ipsf_provider.provider_type} which is not valid for LTCH Pricer")
+                raise ValueError(
+                    f"Billed provider has a Provider Type of {ipsf_provider.provider_type} which is not valid for LTCH Pricer"
+                )
             claim_object.setProviderCcn(ipsf_provider.provider_ccn)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
@@ -323,7 +334,9 @@ class LtchClient:
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> LtchOutput:
-        self.logger.debug(f"LtchClient processing claim on thread {current_thread().ident}")
+        self.logger.debug(
+            f"LtchClient processing claim on thread {current_thread().ident}"
+        )
         pricing_request = self.create_input_claim(claim, drg_output)
         pricing_response = self.dispatch_obj.process(pricing_request)
         ltch_output = LtchOutput()

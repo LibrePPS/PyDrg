@@ -37,7 +37,7 @@ class Pypps:
         jar_path: str = "./jars",
         db_path: str = "./data/pypps.db",
         build_db: bool = False,
-        log_level:int = logging.INFO
+        log_level: int = logging.INFO,
     ):
         if not os.path.exists(jar_path):
             os.makedirs(jar_path)
@@ -61,20 +61,24 @@ class Pypps:
             self.ipsf_db.to_sqlite()
         else:
             # check if ipsf and opsf tables exist
-            self.opsf_db.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
-            )
-            if not self.opsf_db.cursor.fetchone():
-                self.logger.warning(
-                    "OPSF table does not exist. Please run build_db=True to create the database."
+            with (
+                self.opsf_db.engine.connect() as opsf_connection,
+                self.ipsf_db.engine.connect() as ipsf_connection,
+            ):
+                rs = opsf_connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
                 )
-            self.ipsf_db.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
-            )
-            if not self.ipsf_db.cursor.fetchone():
-                self.logger.warning(
-                    "IPSF table does not exist. Please run build_db=True to create the database."
+                if not rs.fetchone():
+                    self.logger.warning(
+                        "OPSF table does not exist. Please run build_db=True to create the database."
+                    )
+                rs = ipsf_connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
                 )
+                if not rs.fetchone():
+                    self.logger.warning(
+                        "IPSF table does not exist. Please run build_db=True to create the database."
+                    )
         if build_jar_dirs:
             self.cms_downloader = CMSDownloader(
                 jars_dir=jar_path, log_level=self.logger.level
@@ -118,7 +122,9 @@ class Pypps:
                     setattr(
                         self,
                         f"{pricer.lower()}_client",
-                        globals()[f"{pricer}Client"](jar_path, self.opsf_db.connection, self.logger),
+                        globals()[f"{pricer}Client"](
+                            jar_path, self.opsf_db.engine, self.logger
+                        ),
                     )
                 except KeyError:
                     self.logger.warning(

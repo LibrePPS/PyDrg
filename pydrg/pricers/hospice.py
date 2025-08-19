@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from sqlalchemy import Engine
 from datetime import datetime, timedelta
 from typing import Optional
 from logging import Logger, getLogger
@@ -192,7 +192,12 @@ class RoutineCareRanges:
 
 
 class HospiceClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger]=None):
+    def __init__(
+        self,
+        jar_path=None,
+        db: Optional[Engine] = None,
+        logger: Optional[Logger] = None,
+    ):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using HospiceClient."
@@ -415,7 +420,9 @@ class HospiceClient:
         return pricing_request
 
     def process(self, claim: Claim) -> None | HospiceOutput:
-        self.logger.debug(f"Hospice Client processing claim on thread {current_thread().ident}")
+        self.logger.debug(
+            f"Hospice Client processing claim on thread {current_thread().ident}"
+        )
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.dispatch_obj.process(pricing_request)
         hospice_output = HospiceOutput()

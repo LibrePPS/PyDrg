@@ -1,9 +1,9 @@
 import os
-import sqlite3
 from typing import Optional
-
+import sqlalchemy
 import requests
 from pydantic import BaseModel
+from multiprocessing import cpu_count
 
 from pydrg.input.claim import Provider
 
@@ -49,30 +49,28 @@ DATATYPES = {
 class OPSFDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.connection: sqlite3.Connection = sqlite3.connect(
-            db_path, check_same_thread=False
-        )
-        self.cursor: sqlite3.Cursor = self.connection.cursor()
+        self.engine = sqlalchemy.create_engine(f"sqlite:///{db_path}", pool_size=cpu_count())
 
     def close(self):
-        if self.connection:
-            self.connection.close()
+        if self.engine:
+            self.engine.dispose()
 
     def create_table(self):
         columns = ", ".join(
             [f"{key} {value['type']}" for key, value in DATATYPES.items()]
         )
-        create_table_sql = f"CREATE TABLE IF NOT EXISTS opsf ({columns})"
-        self.cursor.execute(create_table_sql)
-        self.connection.commit()
-        # Create index on provider_ccn and effective_date for faster lookups
-        self.cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_opsf_provider_effective ON opsf (provider_ccn, effective_date)"
-        )
-        # Create index on national_provider_identifier for faster lookups
-        self.cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_opsf_npi ON opsf (national_provider_identifier, effective_date)"
-        )
+        with self.engine.connect() as connection:
+            create_table_sql = f"CREATE TABLE IF NOT EXISTS opsf ({columns})"
+            connection.exec_driver_sql(create_table_sql)
+            connection.commit()
+            # Create index on provider_ccn and effective_date for faster lookups
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS idx_opsf_provider_effective ON opsf (provider_ccn, effective_date)"
+            )
+            # Create index on national_provider_identifier for faster lookups
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS idx_opsf_npi ON opsf (national_provider_identifier, effective_date)"
+            )
 
     def download(self, url, download_dir: str = "./"):
         """
@@ -107,41 +105,41 @@ class OPSFDatabase:
         if create_table:
             self.create_table()
         else:
-            # Check if the table already exists
-            self.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
-            )
-            if not self.cursor.fetchone():
-                raise ValueError(
-                    "Table 'opsf' does not exist. Please run create_table=True to create the database."
+            with self.engine.connect() as connection:
+                # Check if the table already exists
+                rs = connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
                 )
-            # Truncate the table if it exists
-            self.cursor.execute("DELETE FROM opsf")
-            self.connection.commit()
-
-        self.download(OPSF_URL, download_dir=os.path.dirname(self.db_path))
-        query = "INSERT INTO opsf VALUES ("
-        # Batch through the data and insert 1000 rows at a time
-        with open(
-            os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"), "r"
-        ) as file:
-            file.readline()  # Skip header line
-            for line in file:
-                values = line.strip().split(",")
-                if len(values) != len(DATATYPES):
-                    print(
-                        f"Skipping line with incorrect number of values: {line.strip()}"
+                if not rs.fetchone():
+                    raise ValueError(
+                        "Table 'opsf' does not exist. Please run create_table=True to create the database."
                     )
-                    continue
-                placeholders = ", ".join(["?"] * len(values))
-                query += placeholders + ")"
-                self.cursor.execute(query, values)
-                query = "INSERT INTO opsf VALUES ("
-                if self.cursor.rowcount % 1000 == 0:
-                    self.connection.commit()
-        # Commit any remaining rows
-        if self.cursor.rowcount % 1000 != 0:
-            self.connection.commit()
+                # Truncate the table if it exists
+                connection.exec_driver_sql("DELETE FROM opsf")
+                connection.commit()
+
+            self.download(OPSF_URL, download_dir=os.path.dirname(self.db_path))
+            query = "INSERT INTO opsf VALUES ("
+            # Batch through the data and insert 1000 rows at a time
+            with open(
+                os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"), "r"
+            ) as file:
+                file.readline()  # Skip header line
+                for line in file:
+                    values = line.strip().split(",")
+                    if len(values) != len(DATATYPES):
+                        print(
+                            f"Skipping line with incorrect number of values: {line.strip()}"
+                        )
+                        continue
+                    placeholders = ", ".join(["?"] * len(values))
+                    query += placeholders + ")"
+                    connection.exec_driver_sql(query, values)
+                    query = "INSERT INTO opsf VALUES ("
+                    if connection.connection.cursor().rowcount % 1000 == 0:
+                        connection.commit()
+            # Commit any remaining rows
+            connection.commit()
 
 
 class OPSFProvider(BaseModel):
@@ -179,36 +177,36 @@ class OPSFProvider(BaseModel):
     carrier_code: Optional[str] = None
     locality_code: Optional[str] = None
 
-    def from_sqlite(self, conn, provider: Provider, date_int: int):
-        if provider.other_id:
-            lookup_query = "SELECT * FROM opsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-            lookup_value = provider.other_id
-        elif provider.npi:
-            lookup_query = "SELECT * FROM opsf WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-            lookup_value = provider.npi
-        else:
-            raise ValueError(
-                "Provider must have either an NPI or other_id set to lookup IPSF data."
-            )
-        cursor = conn.cursor()
-        cursor.execute(lookup_query, (lookup_value, date_int))
-        row = cursor.fetchone()
-        if row:
-            for key, value in DATATYPES.items():
-                if value["type"] in ["INT", "REAL"]:
-                    val = (
-                        row[value["position"]]
-                        if row[value["position"]] is not None
-                        and row[value["position"]] != ""
-                        else 0
-                    )
-                    setattr(self, key, val)
-                else:
-                    setattr(self, key, row[value["position"]])
-            if self.termination_date == 19000101 or self.termination_date == 0:
-                self.termination_date = 20991231
-            return
-        else:
-            raise ValueError(
-                f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
-            )
+    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):
+        with conn.connect() as connection:
+            if provider.other_id:
+                lookup_query = "SELECT * FROM opsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
+                lookup_value = provider.other_id
+            elif provider.npi:
+                lookup_query = "SELECT * FROM opsf WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
+                lookup_value = provider.npi
+            else:
+                raise ValueError(
+                    "Provider must have either an NPI or other_id set to lookup IPSF data."
+                )
+            row = connection.exec_driver_sql(lookup_query, (lookup_value, date_int))
+            row = row.fetchone()
+            if row:
+                for key, value in DATATYPES.items():
+                    if value["type"] in ["INT", "REAL"]:
+                        val = (
+                            row[value["position"]]
+                            if row[value["position"]] is not None
+                            and row[value["position"]] != ""
+                            else 0
+                        )
+                        setattr(self, key, val)
+                    else:
+                        setattr(self, key, row[value["position"]])
+                if self.termination_date == 19000101 or self.termination_date == 0:
+                    self.termination_date = 20991231
+                return
+            else:
+                raise ValueError(
+                    f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
+                )

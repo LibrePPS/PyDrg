@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from sqlalchemy import Engine
 from datetime import datetime
 from typing import Optional
 from logging import Logger, getLogger
@@ -101,7 +101,12 @@ class OppsOutput(BaseModel):
 
 
 class OppsClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
+    def __init__(
+        self,
+        jar_path=None,
+        db: Optional[Engine] = None,
+        logger: Optional[Logger] = None,
+    ):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using OppsClient."
@@ -234,9 +239,7 @@ class OppsClient:
         opps_claim_object = self.opps_claim_data_class()
 
         opps_claim_object.setTypeOfBill(claim.bill_type)
-        opps_claim_object.setServiceFromDate(
-            self.py_date_to_java_date(claim.from_date)
-        )
+        opps_claim_object.setServiceFromDate(self.py_date_to_java_date(claim.from_date))
 
         ioce_lines = self.array_list_class()
         if ioce_output is not None:
@@ -296,7 +299,11 @@ class OppsClient:
         """
         Process the claim and return the pricing response.
         """
-        self.logger.debug(f"OppsClient processing claim on thread {current_thread().ident}")
+        if self.db is None:
+            raise ValueError("Database connection is required for OppsClient.")
+        self.logger.debug(
+            f"OppsClient processing claim on thread {current_thread().ident}"
+        )
         opps_claim_object = self.create_input_claim(claim, ioce_output)
         pricing_request = self.opps_price_request_class()
         pricing_request.setClaimData(opps_claim_object)
@@ -308,6 +315,7 @@ class OppsClient:
             else:
                 date_int = int(str(claim.thru_date).replace("-", ""))
             opsf_provider = OPSFProvider()
+
             opsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):

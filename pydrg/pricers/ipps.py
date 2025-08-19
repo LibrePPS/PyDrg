@@ -1,5 +1,5 @@
 import os
-import sqlite3
+from sqlalchemy import Engine
 from datetime import datetime
 from typing import Optional
 from logging import Logger, getLogger
@@ -411,7 +411,12 @@ class IppsOutput(BaseModel):
 
 
 class IppsClient:
-    def __init__(self, jar_path=None, db: Optional[sqlite3.Connection] = None, logger:Optional[Logger] = None):
+    def __init__(
+        self,
+        jar_path=None,
+        db: Optional[Engine] = None,
+        logger: Optional[Logger] = None,
+    ):
         if not jpype.isJVMStarted():
             raise RuntimeError(
                 "JVM is not started. Please start the JVM before using IppsClient."
@@ -561,7 +566,8 @@ class IppsClient:
         claim_object = self.ipps_claim_data_class()
         provider_data = self.inpatient_prov_data()
         pricing_request = self.ipps_price_request()
-
+        if self.db is None:
+            raise ValueError("Database connection is required for IppsClient.")
         # @TODO All these fields need to be added to Claim object or provide some sort of way for user to set them
         claim_object.setReviewCode("00")
         demo_codes = self.array_list_class()
@@ -649,7 +655,9 @@ class IppsClient:
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")
-        self.logger.debug(f"IppsClient processing claim on thread {current_thread().ident}")
+        self.logger.debug(
+            f"IppsClient processing claim on thread {current_thread().ident}"
+        )
         pricing_request = self.create_input_claim(claim, drg_output)
         pricing_response = self.dispatch_obj.process(pricing_request)
         ipps_output = IppsOutput()
