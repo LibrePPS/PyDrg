@@ -38,6 +38,7 @@ class Pypps:
         db_path: str = "./data/pypps.db",
         build_db: bool = False,
         log_level: int = logging.INFO,
+        extra_classpaths: list[str] = [],
     ):
         if not os.path.exists(jar_path):
             os.makedirs(jar_path)
@@ -85,7 +86,7 @@ class Pypps:
             )
             self.cms_downloader.build_jar_environment(False)
         if not jpype.isJVMStarted():
-            jpype.startJVM(classpath=jar_path + "/*")
+            jpype.startJVM(classpath=[jar_path + "/*", *extra_classpaths])
 
     def update_opsf_db(self):
         """Update the OPSF database with the latest data."""
