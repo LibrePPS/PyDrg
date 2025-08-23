@@ -205,6 +205,11 @@ class OPSFProvider(BaseModel):
                         setattr(self, key, row[value["position"]])
                 if self.termination_date == 19000101 or self.termination_date == 0:
                     self.termination_date = 20991231
+                if "opsf" in provider.additional_data:
+                    if isinstance(provider.additional_data["opsf"], dict):
+                        for key, value in provider.additional_data["opsf"].items():
+                            if hasattr(self, key):
+                                setattr(self, key, value)
                 return
             else:
                 raise ValueError(

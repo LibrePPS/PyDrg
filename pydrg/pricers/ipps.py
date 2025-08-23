@@ -524,6 +524,9 @@ class IppsClient:
             "java.lang.String", loader=self.url_loader.class_loader
         )
 
+    def create_dispatch(self):
+        return self.ipps_dispatch(self.ipps_config_obj)
+
     def pricer_setup(self):
         self.ipps_config_obj = self.ipps_price_config()
         self.csv_ingest_obj = self.ipps_csv_ingest_class()
@@ -551,7 +554,7 @@ class IppsClient:
                 year -= 1
         self.ipps_config_obj.setSupportedYears(supported_years)
         self.ipps_data_tables_class.loadDataTables(self.ipps_config_obj)
-        self.dispatch_obj = self.ipps_dispatch(self.ipps_config_obj)
+        self.dispatch_obj = self.create_dispatch()
         if self.dispatch_obj is None:
             raise RuntimeError(
                 "Failed to create IppsPricerDispatch object. Check your JAR file and classpath."
@@ -645,6 +648,11 @@ class IppsClient:
         pricing_request.setProviderData(provider_data)
         return pricing_request
 
+    def process_claim(self, claim: Claim, pricing_request: jpype.JObject) -> jpype.JObject:
+        if hasattr(self.dispatch_obj, "process"):
+            return self.dispatch_obj.process(pricing_request)
+        raise ValueError("Dispatch object does not have a process method.")
+
     def process(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None):
         """
         Process the claim and return the IPPS pricing response.
@@ -659,7 +667,7 @@ class IppsClient:
             f"IppsClient processing claim on thread {current_thread().ident}"
         )
         pricing_request = self.create_input_claim(claim, drg_output)
-        pricing_response = self.dispatch_obj.process(pricing_request)
+        pricing_response = self.process_claim(claim, pricing_request)
         ipps_output = IppsOutput()
         ipps_output.from_java(pricing_response)
         return ipps_output

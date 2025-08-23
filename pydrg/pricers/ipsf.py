@@ -296,6 +296,12 @@ class IPSFProvider(BaseModel):
                         setattr(self, key, row[value["position"]])
                 if self.termination_date == 19000101 or self.termination_date == 0:
                     self.termination_date = 20991231
+                #Allow for request level overrides of provider variables
+                if "ipsf" in provider.additional_data:
+                    if isinstance(provider.additional_data["ipsf"], dict):
+                        for key, value in provider.additional_data["ipsf"].items():
+                            if hasattr(self, key):
+                                setattr(self, key, value)
                 return
             else:
                 raise ValueError(
