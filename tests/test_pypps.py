@@ -169,3 +169,28 @@ def test_hospice_pricer_if_available(pypps_or_skip):
 
     output = pypps_or_skip.hospice_client.process(claim)
     assert hasattr(output, "model_dump")
+
+
+def test_snf_pricer_if_available(pypps_or_skip):
+    if not pricer_available("snf-pricer"):
+        pytest.skip("SNF pricer jar not present in ./jars/pricers")
+    if pypps_or_skip.snf_client is None:
+        pytest.skip("SNF client not initialized")
+
+    claim = claim_example()
+    claim.admit_date = datetime(2025, 1, 1)
+    claim.from_date = datetime(2025, 1, 1)
+    claim.thru_date = datetime(2025, 1, 20)
+    claim.los = 20
+    claim.bill_type = "327"
+    claim.patient_status = "01"
+    claim.principal_dx.code = "B20"
+    claim.secondary_dxs[0].code = "C50911"
+    claim.lines.clear()
+    claim.lines.append(LineItem())
+    claim.lines[0].revenue_code = "0022"
+    claim.lines[0].hcpcs = "ABAC1"
+    claim.lines[0].service_date = datetime(2025, 1, 1)
+    claim.lines[0].units = 20
+    output = pypps_or_skip.snf_client.process(claim)
+    assert hasattr(output, "model_dump")

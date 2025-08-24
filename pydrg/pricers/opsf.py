@@ -49,7 +49,9 @@ DATATYPES = {
 class OPSFDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.engine = sqlalchemy.create_engine(f"sqlite:///{db_path}", pool_size=cpu_count())
+        self.engine = sqlalchemy.create_engine(
+            f"sqlite:///{db_path}", pool_size=cpu_count()
+        )
 
     def close(self):
         if self.engine:

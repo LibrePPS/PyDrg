@@ -7,7 +7,12 @@ from logging import Logger, getLogger
 import jpype
 from pydantic import BaseModel
 
-from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
+from pydrg.helpers.utils import (
+    ReturnCode,
+    float_or_none,
+    py_date_to_java_date,
+    create_supported_years,
+)
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -239,25 +244,7 @@ class IpfClient:
         self.ipf_config_obj.setCsvIngestionConfiguration(self.csv_ingest_obj)
 
         # Get today's year
-        today = datetime.now()
-        year = today.year
-        supported_years = self.array_list_class()
-        if os.getenv("IPF_SUPPORTED_YEARS") is not None:
-            supported_years_env = str(os.getenv("IPF_SUPPORTED_YEARS")).split(",")
-            if len(supported_years_env) > 0:
-                for year_str in supported_years_env:
-                    try:
-                        year_int = int(year_str.strip())
-                        if year_int >= today.year - 3:
-                            supported_years.add(self.java_integer_class(year_int))
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid year in IPF_SUPPORTED_YEARS: {year_str}"
-                        )
-        else:
-            while year >= today.year - 3:
-                supported_years.add(self.java_integer_class(year))
-                year -= 1
+        supported_years = create_supported_years("IPF")
         self.ipf_config_obj.setSupportedYears(supported_years)
         self.ipf_data_tables_class.loadDataTables(self.ipf_config_obj)
         self.dispatch_obj = self.ipf_dispatch(self.ipf_config_obj)

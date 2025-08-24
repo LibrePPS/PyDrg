@@ -11,6 +11,7 @@ from pydrg.msdrg.drg_client import DrgClient
 from pydrg.pricers.hospice import HospiceClient
 from pydrg.pricers.ipf import IpfClient
 from pydrg.pricers.ipps import IppsClient
+from pydrg.pricers.snf import SnfClient
 from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.ltch import LtchClient
 from pydrg.pricers.opps import OppsClient
@@ -50,6 +51,7 @@ class Pypps:
         self.ipf_client: Optional[IpfClient] = None
         self.ltch_client: Optional[LtchClient] = None
         self.hospice_client: Optional[HospiceClient] = None
+        self.snf_client: Optional[SnfClient] = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path

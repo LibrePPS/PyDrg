@@ -53,6 +53,7 @@ from .pricers.ipsf import IPSFDatabase, IPSFProvider
 from .pricers.ltch import LtchClient, LtchOutput
 from .pricers.opps import OppsClient, OppsOutput
 from .pricers.opsf import OPSFDatabase, OPSFProvider
+from .pricers.snf import SnfClient, SnfOutput
 from .pricers.url_loader import UrlLoader
 
 # High-level orchestrator
@@ -96,6 +97,8 @@ __all__ = [
     "LtchOutput",
     "HospiceClient",
     "HospiceOutput",
+    "SnfClient",
+    "SnfOutput",
     # Helpers and utilities
     "CMSDownloader",
     "IPSFDatabase",

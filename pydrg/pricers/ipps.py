@@ -7,7 +7,11 @@ from threading import current_thread
 import jpype
 from pydantic import BaseModel
 
-from pydrg.helpers.utils import float_or_none, py_date_to_java_date
+from pydrg.helpers.utils import (
+    float_or_none,
+    py_date_to_java_date,
+    create_supported_years,
+)
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -533,25 +537,7 @@ class IppsClient:
         self.ipps_config_obj.setCsvIngestionConfiguration(self.csv_ingest_obj)
 
         # Get today's year
-        today = datetime.now()
-        year = today.year
-        supported_years = self.array_list_class()
-        if os.getenv("IPPS_SUPPORTED_YEARS") is not None:
-            supported_years_env = str(os.getenv("IPPS_SUPPORTED_YEARS")).split(",")
-            if len(supported_years_env) > 0:
-                for year_str in supported_years_env:
-                    try:
-                        year_int = int(year_str.strip())
-                        if year_int >= today.year - 3:
-                            supported_years.add(self.java_integer_class(year_int))
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid year in IPPS_SUPPORTED_YEARS: {year_str}"
-                        )
-        else:
-            while year >= today.year - 3:
-                supported_years.add(self.java_integer_class(year))
-                year -= 1
+        supported_years = create_supported_years("IPPS")
         self.ipps_config_obj.setSupportedYears(supported_years)
         self.ipps_data_tables_class.loadDataTables(self.ipps_config_obj)
         self.dispatch_obj = self.create_dispatch()
@@ -571,13 +557,33 @@ class IppsClient:
         pricing_request = self.ipps_price_request()
         if self.db is None:
             raise ValueError("Database connection is required for IppsClient.")
-        # @TODO All these fields need to be added to Claim object or provide some sort of way for user to set them
-        claim_object.setReviewCode("00")
+
+        # @TODO Probably a better way to handle this
+        review_code = "0"
         demo_codes = self.array_list_class()
+        lifetime_reserve_days = 0
+        midnight_adjustment_geolocation = ""
+        if isinstance(claim.additional_data, dict):
+            if "ipps" in claim.additional_data:
+                ipps_data = claim.additional_data["ipps"]
+                if not isinstance(ipps_data, dict):
+                    pass
+                review_code = str(ipps_data.get("review_code", "0"))
+                lifetime_reserve_days = int(ipps_data.get("lifetime_reserve_days", 0))
+                midnight_adjustment_geolocation = str(
+                    ipps_data.get("midnight_adjustment_geolocation", "")
+                )
+                if "demo_codes" in ipps_data:
+                    if isinstance(ipps_data["demo_codes"], list):
+                        for demo_code in ipps_data["demo_codes"]:
+                            demo_codes.add(demo_code)
+        claim_object.setReviewCode(review_code)
+        claim_object.setLifetimeReserveDays(
+            self.java_integer_class(lifetime_reserve_days)
+        )
+        claim_object.setMidnightAdjustmentGeolocation(midnight_adjustment_geolocation)
         claim_object.setDemoCodes(demo_codes)
-        claim_object.setLifetimeReserveDays(self.java_integer_class(0))
-        claim_object.setMidnightAdjustmentGeolocation("")
-        # --------------------------------------------------
+
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
         if claim.los < claim.non_covered_days:
             raise ValueError("LOS cannot be less than non-covered days")
@@ -648,7 +654,9 @@ class IppsClient:
         pricing_request.setProviderData(provider_data)
         return pricing_request
 
-    def process_claim(self, claim: Claim, pricing_request: jpype.JObject) -> jpype.JObject:
+    def process_claim(
+        self, claim: Claim, pricing_request: jpype.JObject
+    ) -> jpype.JObject:
         if hasattr(self.dispatch_obj, "process"):
             return self.dispatch_obj.process(pricing_request)
         raise ValueError("Dispatch object does not have a process method.")

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-
+from os import getenv
 import jpype
 from pydantic import BaseModel
 
@@ -66,3 +66,27 @@ def py_date_to_java_date(self, py_date):
         raise TypeError(
             f"Unsupported date type: {type(py_date)}. Expected datetime, str, or int in YYYYMMDD format."
         )
+
+
+def create_supported_years(pps: str) -> jpype.JObject:
+    today = datetime.now()
+    year = today.year
+    java_integer_class = jpype.JClass("java.lang.Integer")
+    java_array = jpype.JClass("java.util.ArrayList")()
+    if getenv(f"{pps}_SUPPORTED_YEARS") is not None:
+        supported_years_env = str(getenv(f"{pps}_SUPPORTED_YEARS")).split(",")
+        if len(supported_years_env) > 0:
+            for year_str in supported_years_env:
+                try:
+                    year_int = int(year_str.strip())
+                    if year_int >= today.year - 3:
+                        java_array.add(java_integer_class(year_int))
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid year in {pps}_SUPPORTED_YEARS: {year_str}"
+                    )
+    else:
+        while year >= today.year - 3:
+            java_array.add(java_integer_class(year))
+            year -= 1
+    return java_array

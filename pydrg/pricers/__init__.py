@@ -5,6 +5,7 @@ from .ipsf import IPSFDatabase, IPSFProvider
 from .ltch import LtchClient, LtchOutput
 from .opps import OppsClient, OppsOutput
 from .opsf import OPSFDatabase, OPSFProvider
+from .snf import SnfClient, SnfOutput
 from .url_loader import UrlLoader
 
 __all__ = [
@@ -22,5 +23,7 @@ __all__ = [
     "IPSFProvider",
     "OPSFDatabase",
     "OPSFProvider",
+    "SnfClient",
+    "SnfOutput",
     "UrlLoader",
 ]

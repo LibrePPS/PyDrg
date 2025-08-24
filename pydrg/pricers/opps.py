@@ -7,7 +7,12 @@ from threading import current_thread
 import jpype
 from pydantic import BaseModel
 
-from pydrg.helpers.utils import ReturnCode, float_or_none, py_date_to_java_date
+from pydrg.helpers.utils import (
+    ReturnCode,
+    float_or_none,
+    py_date_to_java_date,
+    create_supported_years,
+)
 from pydrg.input.claim import Claim
 from pydrg.ioce.ioce_output import IoceOutput
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -201,25 +206,7 @@ class OppsClient:
     def pricer_setup(self):
         self.opps_config_obj = self.opps_price_config_class()
         # Get today's year
-        today = datetime.now()
-        year = today.year
-        supported_years = self.array_list_class()
-        if os.getenv("OPPS_SUPPORTED_YEARS") is not None:
-            supported_years_env = str(os.getenv("OPPS_SUPPORTED_YEARS")).split(",")
-            if len(supported_years_env) > 0:
-                for year_str in supported_years_env:
-                    try:
-                        year_int = int(year_str.strip())
-                        if year_int >= today.year - 3:
-                            supported_years.add(self.java_integer_class(year_int))
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid year in OPPS_SUPPORTED_YEARS: {year_str}"
-                        )
-        else:
-            while year >= today.year - 3:
-                supported_years.add(self.java_integer_class(year))
-                year -= 1
+        supported_years = create_supported_years("OPPS")
         self.opps_config_obj.setSupportedYears(supported_years)
         self.dispatch_obj = self.opps_dispatch_class(self.opps_config_obj)
         if self.dispatch_obj is None:
