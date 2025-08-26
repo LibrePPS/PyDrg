@@ -45,6 +45,9 @@ from .msdrg import DrgClient, MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 from .pricers.hospice import HospiceClient, HospiceOutput
 from .pricers.ipf import IpfClient, IpfOutput
 
+# HHA Grouper
+from .hhag import HhagClient, HhagOutput, HhagEdit
+
 # Pricers
 from .pricers.ipps import IppsClient, IppsOutput
 
@@ -78,6 +81,10 @@ __all__ = [
     "MsdrgOutput",
     "MsdrgOutputDxCode",
     "MsdrgOutputPrCode",
+    # HHA
+    "HhagClient",
+    "HhagOutput",
+    "HhagEdit",
     # MCE
     "MceClient",
     "MceOutput",

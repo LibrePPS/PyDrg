@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
-from pydrg.input import LineItem, ValueCode
+from pydrg.input import LineItem, ValueCode, DiagnosisCode, PoaType
 from pydrg.pypps import Pypps
 
 
@@ -193,4 +193,35 @@ def test_snf_pricer_if_available(pypps_or_skip):
     claim.lines[0].service_date = datetime(2025, 1, 1)
     claim.lines[0].units = 20
     output = pypps_or_skip.snf_client.process(claim)
+    assert hasattr(output, "model_dump")
+
+
+def test_hhag_grouper(pypps_or_skip):
+    claim = claim_example()
+    claim.patient.age = 65
+    claim.from_date = datetime(2025, 1, 1)
+    claim.thru_date = datetime(2025, 1, 31)
+    claim.los = 30
+    claim.principal_dx.code = "I10"
+    claim.principal_dx.poa = PoaType.Y
+    claim.secondary_dxs.append(DiagnosisCode(code="C50911", poa=PoaType.Y))
+    output = pypps_or_skip.hhag_client.process(claim)
+    claim.additional_data["oasis"] = dict()
+    claim.additional_data["oasis"]["fall_risk"] = True
+    claim.additional_data["oasis"]["multiple_hospital_stays"] = True
+    claim.additional_data["oasis"]["multiple_ed_visits"] = True
+    claim.additional_data["oasis"]["mental_behavior_risk"] = False
+    claim.additional_data["oasis"]["compliance_risk"] = True
+    claim.additional_data["oasis"]["five_or_more_meds"] = True
+    claim.additional_data["oasis"]["exhaustion"] = "00"
+    claim.additional_data["oasis"]["other_risk"] = False
+    claim.additional_data["oasis"]["none_of_above"] = False
+    claim.additional_data["oasis"]["weight_loss"] = False
+    claim.additional_data["oasis"]["grooming"] = "1"
+    claim.additional_data["oasis"]["dress_upper"] = "2"
+    claim.additional_data["oasis"]["dress_lower"] = "2"
+    claim.additional_data["oasis"]["bathing"] = "0"
+    claim.additional_data["oasis"]["toileting"] = "1"
+    claim.additional_data["oasis"]["transferring"] = "2"
+    claim.additional_data["oasis"]["ambulation"] = "3"
     assert hasattr(output, "model_dump")

@@ -60,6 +60,7 @@ class CMSDownloader:
     SLF4J_JAR2 = (
         "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.9/slf4j-api-2.0.9.jar"
     )
+    HHAG_URL = "https://www.cms.gov/medicare/payment/prospective-payment-systems/home-health/home-health-grouper-software"
     REQUIRED_JARS = {
         "slf4j": ["slf4j-simple-2.0.9.jar", "slf4j-api-2.0.9.jar"],
         "gfc": ["gfc-base-api-3.4.9.jar"],
@@ -73,6 +74,7 @@ class CMSDownloader:
             "Utility-1.1.1.jar",
         ],
         "ioce": ["ioce-standalone-26.2.0.7.jar"],
+        "hhag": ["HomeHealth.jar"],
         "pricers": [
             "esrd-pricer-application-2.8.0.jar",
             "fqhc-pricer-application-2.7.0.jar",
@@ -669,6 +671,84 @@ class CMSDownloader:
             self.logger.error(f"Error downloading IOCE files: {str(e)}")
             return None
 
+    def download_hhagrouper_files(self):
+        # find the first href that contains hh-pps-grouper-software and ends with .zip
+        try:
+            self.logger.info(f"Connecting to HHAGrouper website: {self.HHAG_URL}")
+            headers = {"User-Agent": self.USER_AGENT}
+            response = requests.get(self.HHAG_URL, headers=headers)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Find the link to hh-pps-grouper-software.zip
+            hh_link = None
+            for link in soup.find_all(
+                "a", href=re.compile(r"hh-pps-grouper-software.*\.zip")
+            ):
+                # if the link contains -gui go to the next
+                if "-gui" in link["href"]:
+                    continue
+                hh_link = link["href"]
+                break
+
+            if not hh_link:
+                self.logger.error(
+                    "Could not find 'hh-pps-grouper-software' link on the HHAGrouper page"
+                )
+                return None
+
+            # Download the hh-pps-grouper-software zip file
+            full_url = urljoin(self.HHAG_URL, hh_link)
+            filename = self.get_filename_from_url(
+                full_url
+            )  # <-- CMS names the zip files generically like "2025.zip", so we'll add to the filename
+            filename = f"hhgs-{filename}"
+
+            self.logger.info(f"Found HHAGrouper zip: {filename} with link: {full_url}")
+            return self.download_file(full_url, filename)
+        except Exception as e:
+            self.logger.error(f"Error downloading HHAGrouper files: {str(e)}")
+            return None
+
+    def process_hhagrouper_zip(self, zip_path):
+        # find the HomeHealth.jar file and move it to the jars directory
+        if not zip_path or not os.path.exists(zip_path):
+            self.logger.error(f"ZIP file not found: {zip_path}")
+            return
+        zip_filename = os.path.basename(zip_path)
+        self.logger.info(f"Processing HHAGrouper ZIP file: {zip_filename}")
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                # Extract all files to a temporary directory
+                temp_extract_dir = os.path.join(
+                    self.download_dir, f"temp_extract_{int(time.time())}"
+                )
+                self.create_directory(temp_extract_dir)
+                zip_ref.extractall(temp_extract_dir)
+
+                # Find the HomeHealth.jar file
+                jar_files = glob.glob(
+                    os.path.join(temp_extract_dir, "**", "HomeHealth.jar"),
+                    recursive=True,
+                )
+                if not jar_files:
+                    self.logger.error(
+                        "Could not find HomeHealth.jar in the HHAGrouper ZIP"
+                    )
+                    return
+
+                # Move the HomeHealth.jar file to the jars directory
+                for jar_file in jar_files:
+                    dest_path = os.path.join(self.jars_dir, "HomeHealth.jar")
+                    shutil.move(jar_file, dest_path)
+                    self.logger.info(f"Moved HomeHealth.jar to {dest_path}")
+            self.logger.info("HHAGrouper JAR extraction complete")
+        except Exception as e:
+            self.logger.error(
+                f"Error processing HHAGrouper ZIP file {zip_filename}: {str(e)}"
+            )
+
     def extract_jar_files(self, dest_dir=None):
         """Extract JAR files from downloaded ZIP files and move them to jars directory."""
         if dest_dir is None:
@@ -683,11 +763,12 @@ class CMSDownloader:
             self.logger.info(f"Found {len(zip_files)} ZIP files to process")
 
             for zip_file in zip_files:
-                # Skip the MSDRG and IOCE files as they are processed separately
+                # Skip the MSDRG, HHA Grouper and IOCE files as they are processed separately
                 zip_filename = os.path.basename(zip_file)
                 if (
                     self.JAVA_SOURCE_PATTERN in zip_filename
                     or self.JAVA_STANDALONE_PATTERN in zip_filename
+                    or "hhgs" in zip_filename.lower()
                 ):
                     continue
 
@@ -975,6 +1056,26 @@ class CMSDownloader:
             else:
                 self.logger.info("IOCE components already exist, skipping download")
 
+            # Download and process the HHAG files
+            if force_all_downloads or not self.is_component_complete("hhag"):
+                self.logger.info("Starting HHAGrouper file download process")
+                hhag_zip_path = self.download_hhagrouper_files()
+                if hhag_zip_path:
+                    self.logger.info("Processing HHAGrouper ZIP file")
+                    if force_all_downloads:
+                        # Process all JARs from the ZIP
+                        self.process_zip_for_jars(hhag_zip_path, "HomeHealth")
+                    else:
+                        # Only process missing JARs
+                        missing_hhag_jars = self.get_missing_jars_for_component("hhag")
+                        self.process_zip_for_jars(
+                            hhag_zip_path, "HomeHealth", missing_jars=missing_hhag_jars
+                        )
+            else:
+                self.logger.info(
+                    "HHAGrouper components already exist, skipping download"
+                )
+
             # Process individual JAR components
             self.process_gfc_jar(force_download=force_all_downloads)
             self.process_grpc_jar(force_download=force_all_downloads)
@@ -1000,7 +1101,9 @@ class CMSDownloader:
                 shutil.rmtree(self.download_dir)
 
             # Remove sources jar files
-            sources_jar_files = glob.glob(os.path.join(self.jars_dir, "*sources*.jar"))
+            sources_jar_files = glob.glob(os.path.join(self.jars_dir, "*source*.jar"))
+            gui_jar_files = glob.glob(os.path.join(self.jars_dir, "*GUI*.jar"))
+            sources_jar_files.extend(gui_jar_files)
             for jar_file in sources_jar_files:
                 os.remove(jar_file)
                 self.logger.info(f"Removed sources JAR file: {jar_file}")

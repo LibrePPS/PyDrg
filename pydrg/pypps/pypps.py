@@ -6,6 +6,7 @@ import jpype
 
 from pydrg.helpers.cms_downloader import CMSDownloader
 from pydrg.ioce.ioce_client import IoceClient
+from pydrg.hhag.hhag_client import HhagClient
 from pydrg.mce.mce_client import MceClient
 from pydrg.msdrg.drg_client import DrgClient
 from pydrg.pricers.hospice import HospiceClient
@@ -103,6 +104,7 @@ class Pypps:
         self.drg_client = DrgClient()
         self.mce_client = MceClient()
         self.ioce_client = IoceClient()
+        self.hhag_client = HhagClient()
         # check for pricer sub directory
         if os.path.exists(os.path.join(self.jar_path, "pricers")):
             self.pricers_path = os.path.abspath(os.path.join(self.jar_path, "pricers"))
