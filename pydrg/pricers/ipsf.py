@@ -148,40 +148,46 @@ class IPSFDatabase:
 
         if create_table:
             self.create_table()
-        else:
-            with self.engine.connect() as connection:
-                rs = connection.exec_driver_sql(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
+
+        with self.engine.connect() as connection:
+            rs = connection.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
+            )
+            if not rs.fetchone():
+                raise ValueError(
+                    "IPSF table does not exist. Please run build_db=True to create the database."
                 )
-                if not rs.fetchone():
-                    raise ValueError(
-                        "IPSF table does not exist. Please run build_db=True to create the database."
-                    )
-                # truncate the table if it exists
-                connection.exec_driver_sql("DELETE FROM ipsf")
-                connection.commit()
-                self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
-                query = "INSERT INTO ipsf VALUES ("
-                # Batch through the data and insert 1000 rows at a time
-                with open(
-                    os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r"
-                ) as file:
-                    file.readline()  # Skip header line
-                    for line in file:
-                        values = line.strip().split(",")
-                        if len(values) != len(DATATYPES):
-                            print(
-                                f"Skipping line with incorrect number of values: {line.strip()}"
-                            )
-                            continue
-                        placeholders = ", ".join(["?"] * len(values))
-                        query += placeholders + ")"
-                        connection.exec_driver_sql(query, values)
-                        query = "INSERT INTO ipsf VALUES ("
-                        if connection.connection.cursor().rowcount % 1000 == 0:
-                            connection.commit()
+            # truncate the table if it exists
+            connection.exec_driver_sql("DELETE FROM ipsf")
+            connection.commit()
+            self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
+            # Prepare the query string once
+            placeholders = ", ".join(["?"] * len(DATATYPES))
+            query = f"INSERT INTO ipsf VALUES ({placeholders})"
+            # Batch through the data and insert 1000 rows at a time
+            with open(
+                os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r"
+            ) as file:
+                file.readline()  # Skip header line
+                row_count = 0
+                for line in file:
+                    values = line.strip().split(",")
+                    if len(values) != len(DATATYPES):
+                        print(
+                            f"Skipping line with incorrect number of values: {line.strip()}"
+                        )
+                        continue
+                    try:
+                        connection.exec_driver_sql(query, tuple(values))
+                    except Exception as e:
+                        print(f"Error inserting values into ipsf: {e}")
+                    row_count += 1
+                    if row_count % 1000 == 0:
+                        connection.commit()
                 # Commit any remaining rows
                 connection.commit()
+        if os.path.exists(os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv")):
+            os.remove(os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"))
 
 
 class IPSFProvider(BaseModel):

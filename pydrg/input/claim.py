@@ -5,6 +5,12 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
+class ICDConvertOption(Enum):
+    NONE = "NONE"
+    AUTO = "AUTO"
+    MANUAL = "MANUAL"
+
+
 class PoaType(Enum):
     Y = "Y"
     N = "N"
@@ -54,6 +60,12 @@ class Provider(BaseModel):
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ICDConvertOptions(BaseModel):
+    option: Optional[ICDConvertOption] = None
+    target_version: Optional[str] = None
+    billed_version: Optional[str] = None
+
+
 class Claim(BaseModel):
     claimid: str = ""
     from_date: Optional[datetime] = None
@@ -78,7 +90,7 @@ class Claim(BaseModel):
     servicing_provider: Optional[Provider] = None
     patient: Patient = Field(default_factory=Patient)
     additional_data: Dict[str, Any] = Field(default_factory=dict)
-    map_flag: bool = False
+    icd_convert: Optional[ICDConvertOptions] = None
     admit_date: Optional[datetime] = None
     admission_source: str = ""
 

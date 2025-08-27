@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
+from pydrg.converter.icd_converter import ICD10ConvertOutput
 
 
 class MsdrgHac(BaseModel):
@@ -103,6 +104,7 @@ class MsdrgOutput(BaseModel):
     principal_dx_output: MsdrgOutputDxCode = Field(default_factory=MsdrgOutputDxCode)
     secondary_dx_outputs: List[MsdrgOutputDxCode] = Field(default_factory=list)
     procedure_outputs: List[MsdrgOutputPrCode] = Field(default_factory=list)
+    icd10_conversion_output: Optional[ICD10ConvertOutput] = None
 
     def __str__(self):
         return f"MsdrgOutput(final_drg={self.final_drg_value}, final_mdc={self.final_mdc_value}, final_severity={self.final_severity})"

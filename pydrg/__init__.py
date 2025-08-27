@@ -31,6 +31,8 @@ from .input.claim import (
     Provider,
     SpanCode,
     ValueCode,
+    ICDConvertOptions,
+    ICDConvertOption,
 )
 
 # IOCE (OPPS code editor)
@@ -59,6 +61,15 @@ from .pricers.opsf import OPSFDatabase, OPSFProvider
 from .pricers.snf import SnfClient, SnfOutput
 from .pricers.url_loader import UrlLoader
 
+from .converter import (
+    create_database,
+    expand_code_range,
+    parse_icd_conversion_table,
+    ICD10Conversion,
+    ICDConverter,
+    ICD10ConvertOutput,
+)
+
 # High-level orchestrator
 from .pypps.pypps import Pypps
 
@@ -76,6 +87,8 @@ __all__ = [
     "DiagnosisCode",
     "LineItem",
     "PoaType",
+    "ICDConvertOption",
+    "ICDConvertOptions",
     # MSDRG
     "DrgClient",
     "MsdrgOutput",
@@ -113,6 +126,13 @@ __all__ = [
     "IPSFProvider",
     "OPSFProvider",
     "UrlLoader",
+    # Converter
+    "ICD10Conversion",
+    "ICDConverter",
+    "create_database",
+    "parse_icd_conversion_table",
+    "expand_code_range",
+    "ICD10ConvertOutput",
     # Orchestrator
     "Pypps",
 ]

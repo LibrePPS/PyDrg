@@ -52,6 +52,8 @@ class OPSFDatabase:
         self.engine = sqlalchemy.create_engine(
             f"sqlite:///{db_path}", pool_size=cpu_count()
         )
+        with self.engine.connect():
+            pass
 
     def close(self):
         if self.engine:
@@ -106,27 +108,30 @@ class OPSFDatabase:
             raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
         if create_table:
             self.create_table()
-        else:
-            with self.engine.connect() as connection:
-                # Check if the table already exists
-                rs = connection.exec_driver_sql(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
+
+        with self.engine.connect() as connection:
+            # Check if the table already exists
+            rs = connection.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
+            )
+            if not rs.fetchone():
+                raise ValueError(
+                    "Table 'opsf' does not exist. Please run create_table=True to create the database."
                 )
-                if not rs.fetchone():
-                    raise ValueError(
-                        "Table 'opsf' does not exist. Please run create_table=True to create the database."
-                    )
-                # Truncate the table if it exists
-                connection.exec_driver_sql("DELETE FROM opsf")
-                connection.commit()
+            # Truncate the table if it exists
+            connection.exec_driver_sql("DELETE FROM opsf")
+            connection.commit()
 
             self.download(OPSF_URL, download_dir=os.path.dirname(self.db_path))
-            query = "INSERT INTO opsf VALUES ("
+            # Prepare the query string once
+            placeholders = ", ".join(["?"] * len(DATATYPES))
+            query = f"INSERT INTO opsf VALUES ({placeholders})"
             # Batch through the data and insert 1000 rows at a time
             with open(
                 os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"), "r"
             ) as file:
                 file.readline()  # Skip header line
+                row_count = 0
                 for line in file:
                     values = line.strip().split(",")
                     if len(values) != len(DATATYPES):
@@ -134,14 +139,17 @@ class OPSFDatabase:
                             f"Skipping line with incorrect number of values: {line.strip()}"
                         )
                         continue
-                    placeholders = ", ".join(["?"] * len(values))
-                    query += placeholders + ")"
-                    connection.exec_driver_sql(query, values)
-                    query = "INSERT INTO opsf VALUES ("
-                    if connection.connection.cursor().rowcount % 1000 == 0:
+                    try:
+                        connection.exec_driver_sql(query, tuple(values))
+                    except Exception as e:
+                        print(f"Error inserting values into opsf: {e}")
+                    row_count += 1
+                    if row_count % 1000 == 0:
                         connection.commit()
-            # Commit any remaining rows
-            connection.commit()
+                # Commit any remaining rows
+                connection.commit()
+        if os.path.exists(os.path.join(os.path.dirname(self.db_path), "opsf_data.csv")):
+            os.remove(os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"))
 
 
 class OPSFProvider(BaseModel):

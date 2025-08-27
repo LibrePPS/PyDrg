@@ -17,6 +17,7 @@ from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.ltch import LtchClient
 from pydrg.pricers.opps import OppsClient
 from pydrg.pricers.opsf import OPSFDatabase
+from pydrg.converter import ICDConverter
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -44,7 +45,7 @@ class Pypps:
     ):
         if not os.path.exists(jar_path):
             os.makedirs(jar_path)
-        if not os.path.exists(db_path):
+        if not os.path.exists(os.path.dirname(db_path)):
             os.makedirs(os.path.dirname(db_path))
         # Pricer Clients @TODO: Add more pricer clients as needed
         self.ipps_client: Optional[IppsClient] = None
@@ -56,13 +57,17 @@ class Pypps:
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
+        # -----------------Database stuff, these all share the same SQLAlchemy engine
         self.opsf_db = OPSFDatabase(db_path)
         self.ipsf_db = IPSFDatabase(db_path)
+        self.icd10_converter = ICDConverter(self.ipsf_db.engine)
+        # ----------------------------------------------------------------------------
         self.logger = logging.getLogger("Pypps")
         self.logger.setLevel(log_level)
         if build_db:
             self.opsf_db.to_sqlite()
             self.ipsf_db.to_sqlite()
+            self.icd10_converter.download_icd_conversion_file()
         else:
             # check if ipsf and opsf tables exist
             with (

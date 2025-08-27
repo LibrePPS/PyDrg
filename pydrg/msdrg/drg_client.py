@@ -1,13 +1,20 @@
 import json
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 import jpype
 
-from pydrg.input.claim import Claim, DiagnosisCode, PoaType, ProcedureCode
+from pydrg.input.claim import (
+    Claim,
+    DiagnosisCode,
+    PoaType,
+    ProcedureCode,
+    ICDConvertOption,
+)
 from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 from pydrg.plugins import apply_client_methods, run_client_load_classes
+from pydrg.converter.icd_converter import ICDConverter, ICD10ConvertOutput
 
 MSDRG_VSTART = "400"
 
@@ -270,7 +277,25 @@ class DrgClient:
         age_in_days = (from_date - dob).days
         return age_in_days if age_in_days > 0 else 0
 
-    def create_drg_input(self, claim: Claim):
+    def mapped_dx_or_self(
+        self, dx, mappings: Optional[ICD10ConvertOutput] = None
+    ) -> str:
+        if mappings is None:
+            return dx
+        mapped = mappings.mappings.get(dx)
+        if (
+            mapped is None
+            or mapped.conversion_choices is None
+            or len(mapped.conversion_choices) == 0
+        ):
+            return dx
+        return mapped.conversion_choices[
+            0
+        ]  # <---- We always return the first conversion choice
+
+    def create_drg_input(
+        self, claim: Claim, mappings: Optional[ICD10ConvertOutput] = None
+    ):
         input = self.drg_input_class.builder()
         # Set Patient Age
         if claim.patient is not None:
@@ -308,14 +333,20 @@ class DrgClient:
         if claim.admit_dx:
             input.withAdmissionDiagnosisCode(
                 self.drg_dx_class(
-                    claim.admit_dx.code.replace(".", ""), self.poa_values.Y
+                    self.mapped_dx_or_self(
+                        claim.admit_dx.code.replace(".", ""), mappings
+                    ),
+                    self.poa_values.Y,
                 )
             )
 
         if claim.principal_dx:
             input.withPrincipalDiagnosisCode(
                 self.drg_dx_class(
-                    claim.principal_dx.code.replace(".", ""), self.poa_values.Y
+                    self.mapped_dx_or_self(
+                        claim.principal_dx.code.replace(".", ""), mappings
+                    ),
+                    self.poa_values.Y,
                 )
             )
         else:
@@ -333,7 +364,12 @@ class DrgClient:
                         poa_value = self.poa_values.U
                     elif dx.poa == PoaType.W:
                         poa_value = self.poa_values.W
-                    java_dxs.add(self.drg_dx_class(dx.code.replace(".", ""), poa_value))
+                    java_dxs.add(
+                        self.drg_dx_class(
+                            self.mapped_dx_or_self(dx.code.replace(".", ""), mappings),
+                            poa_value,
+                        )
+                    )
                 else:
                     raise ValueError(
                         "Secondary diagnosis must be a DiagnosisCode object"
@@ -353,7 +389,7 @@ class DrgClient:
             input.withProcedureCodes(java_pxs)
         return input.build()
 
-    def extract_msdrg_output(self, java_drg_output):
+    def extract_msdrg_output(self, java_drg_output) -> MsdrgOutput:
         """
         Extract all data from the Java MsdrgOutput object and populate a Python MsdrgOutput object.
         """
@@ -445,6 +481,7 @@ class DrgClient:
         self,
         claim: Claim,
         drg_version=None,
+        icd_converter: Optional[ICDConverter] = None,
         hospital_status: MsdrgHospitalStatusOptionFlag = MsdrgHospitalStatusOptionFlag.NON_EXEMPT,
         affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE,
         logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE,
@@ -463,7 +500,20 @@ class DrgClient:
         drg_component = self.reconfigure(
             drg_version, hospital_status, affect_drg, logic_tiebreaker
         )
-        drg_input = self.create_drg_input(claim)
+
+        if claim.thru_date is None:
+            raise ValueError("Claim thru_date must be provided")
+        if claim.principal_dx is None:
+            raise ValueError("Claim principal_dx must be provided")
+
+        # Determine if code conversions are requests
+        mappings = None
+        if claim.icd_convert is not None and icd_converter is not None:
+            if claim.icd_convert.option != ICDConvertOption.NONE:
+                # generate conversions
+                mappings = icd_converter.generate_claim_mappings(claim, drg_version)
+
+        drg_input = self.create_drg_input(claim, mappings)
         drg_claim = self.drg_claim_class(drg_input)
         drg_component.process(drg_claim)
         drg_output = drg_claim.getOutput()
@@ -471,7 +521,10 @@ class DrgClient:
             raise RuntimeError("DRG output is not present")
         drg_result = drg_output.get()
 
-        return self.extract_msdrg_output(drg_result)
+        output = self.extract_msdrg_output(drg_result)
+        if mappings is not None:
+            output.icd10_conversion_output = mappings
+        return output
 
     def batch_load_claims(self, file_path: str):
         list_of_claims = []

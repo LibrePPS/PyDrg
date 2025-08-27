@@ -11,6 +11,8 @@ from .claim import (
     Provider,
     SpanCode,
     ValueCode,
+    ICDConvertOption,
+    ICDConvertOptions,
 )
 
 __all__ = [
@@ -26,4 +28,6 @@ __all__ = [
     "DiagnosisCode",
     "LineItem",
     "PoaType",
+    "ICDConvertOption",
+    "ICDConvertOptions",
 ]
