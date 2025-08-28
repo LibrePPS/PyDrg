@@ -2,7 +2,14 @@ import os
 from datetime import datetime
 
 from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
-from pydrg.input import LineItem, ValueCode
+from pydrg.input import (
+    LineItem,
+    ValueCode,
+    Provider,
+    DiagnosisCode,
+    PoaType,
+    OccurrenceCode,
+)
 from pydrg.pypps import Pypps
 
 if __name__ == "__main__":
@@ -52,6 +59,8 @@ if __name__ == "__main__":
         print("=== End of IPF Pricer Example ===")
     if pypps.ltch_client is not None:
         print("=== LTCH Pricer Example ===")
+        if test_claim_1.billing_provider is None:
+            test_claim_1.billing_provider = Provider()
         test_claim_1.billing_provider.other_id = "012006"
         ltch_output = pypps.ltch_client.process(test_claim_1, drg_output)
         print(ltch_output.model_dump_json(indent=2))
@@ -86,3 +95,63 @@ if __name__ == "__main__":
         hospice_output = pypps.hospice_client.process(hospice_claim)
         print(hospice_output.model_dump_json(indent=2))
         print("=== End of Hospice Pricer Example ===")
+        print("=== HHA Pricer Example ===")
+        if pypps.hha_client is not None:
+            claim = claim_example()
+            claim.patient.age = 65
+            claim.patient.address.zip = "35300"
+            claim.from_date = datetime(2025, 1, 1)
+            claim.admit_date = datetime(2025, 1, 1)
+            claim.thru_date = datetime(2025, 1, 30)
+            claim.bill_type = "329"
+            claim.los = 30
+            claim.principal_dx.code = "I10"
+            claim.principal_dx.poa = PoaType.Y
+            claim.secondary_dxs.append(DiagnosisCode(code="C50911", poa=PoaType.Y))
+            claim.billing_provider.other_id = "047127"
+            claim.lines.append(
+                LineItem(
+                    service_date=datetime(2025, 1, 30), revenue_code="0420", units=20
+                )
+            )
+            claim.lines.append(
+                LineItem(
+                    service_date=datetime(2025, 1, 29), revenue_code="0430", units=20
+                )
+            )
+            claim.lines.append(
+                LineItem(
+                    service_date=datetime(2025, 1, 28), revenue_code="0440", units=20
+                )
+            )
+            claim.lines.append(
+                LineItem(
+                    service_date=datetime(2025, 1, 27), revenue_code="0550", units=20
+                )
+            )
+            claim.occurrence_codes.append(
+                OccurrenceCode(code="61", date=datetime(2024, 12, 15))
+            )
+            claim.additional_data["oasis"] = dict()
+            claim.additional_data["oasis"]["fall_risk"] = True
+            claim.additional_data["oasis"]["multiple_hospital_stays"] = True
+            claim.additional_data["oasis"]["multiple_ed_visits"] = True
+            claim.additional_data["oasis"]["mental_behavior_risk"] = False
+            claim.additional_data["oasis"]["compliance_risk"] = True
+            claim.additional_data["oasis"]["five_or_more_meds"] = True
+            claim.additional_data["oasis"]["exhaustion"] = "00"
+            claim.additional_data["oasis"]["other_risk"] = False
+            claim.additional_data["oasis"]["none_of_above"] = False
+            claim.additional_data["oasis"]["weight_loss"] = False
+            claim.additional_data["oasis"]["grooming"] = "1"
+            claim.additional_data["oasis"]["dress_upper"] = "2"
+            claim.additional_data["oasis"]["dress_lower"] = "2"
+            claim.additional_data["oasis"]["bathing"] = "0"
+            claim.additional_data["oasis"]["toileting"] = "1"
+            claim.additional_data["oasis"]["transferring"] = "2"
+            claim.additional_data["oasis"]["ambulation"] = "3"
+            claim.additional_data["hha"] = dict()
+            hhag_output = pypps.hhag_client.process(claim)
+            hha_pricer = pypps.hha_client.process(claim, hhag_output)
+            print(hha_pricer.model_dump_json(indent=2))
+            print("=== End of HHA Pricer Example ===")

@@ -17,6 +17,7 @@ from pydrg.msdrg.msdrg_output import MsdrgOutput
 from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.ipsf import IPSFProvider
 from pydrg.pricers.url_loader import UrlLoader
+from pydrg.helpers.utils import ReturnCode
 
 
 class AdditionalCapitalVariableData(BaseModel):
@@ -343,7 +344,9 @@ class IppsOutput(BaseModel):
     """
     Represents the output of the IPPS pricer.
     """
-
+    ms_drg_output: Optional[MsdrgOutput] = None
+    return_code: Optional[ReturnCode] = None
+    calculation_version: Optional[str] = None
     average_length_of_stay: Optional[float] = None
     days_cutoff: Optional[float] = None
     lifetime_reserved_days_used: Optional[int] = 0
@@ -362,6 +365,11 @@ class IppsOutput(BaseModel):
     )
 
     def from_java(self, java_obj):
+        self.calculation_version = str(java_obj.getCalculationVersion())
+        return_code_value = java_obj.getReturnCodeData()
+        if return_code_value:
+            self.return_code = ReturnCode()
+            self.return_code.from_java(return_code_value)
         payment_data = java_obj.getPaymentData()
         self.average_length_of_stay = float_or_none(
             payment_data.getAverageLengthOfStay()
@@ -559,7 +567,7 @@ class IppsClient:
             raise ValueError("Database connection is required for IppsClient.")
 
         # @TODO Probably a better way to handle this
-        review_code = "0"
+        review_code = "00"
         demo_codes = self.array_list_class()
         lifetime_reserve_days = 0
         midnight_adjustment_geolocation = ""
@@ -568,7 +576,7 @@ class IppsClient:
                 ipps_data = claim.additional_data["ipps"]
                 if not isinstance(ipps_data, dict):
                     pass
-                review_code = str(ipps_data.get("review_code", "0"))
+                review_code = str(ipps_data.get("review_code", "00"))
                 lifetime_reserve_days = int(ipps_data.get("lifetime_reserve_days", 0))
                 midnight_adjustment_geolocation = str(
                     ipps_data.get("midnight_adjustment_geolocation", "")
@@ -678,4 +686,6 @@ class IppsClient:
         pricing_response = self.process_claim(claim, pricing_request)
         ipps_output = IppsOutput()
         ipps_output.from_java(pricing_response)
+        if drg_output is not None:
+            ipps_output.ms_drg_output = drg_output
         return ipps_output

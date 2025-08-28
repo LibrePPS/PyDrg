@@ -6,6 +6,7 @@ from .ltch import LtchClient, LtchOutput
 from .opps import OppsClient, OppsOutput
 from .opsf import OPSFDatabase, OPSFProvider
 from .snf import SnfClient, SnfOutput
+from .hha import HhaClient, HhaOutput
 from .url_loader import UrlLoader
 
 __all__ = [
@@ -25,5 +26,7 @@ __all__ = [
     "OPSFProvider",
     "SnfClient",
     "SnfOutput",
+    "HhaClient",
+    "HhaOutput",
     "UrlLoader",
 ]

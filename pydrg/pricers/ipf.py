@@ -84,6 +84,8 @@ class IpfAdditionalVariables(BaseModel):
 
 
 class IpfOutput(BaseModel):
+    ms_drg_output: Optional[MsdrgOutput] = None
+    calculation_version: Optional[str] = None
     return_code: Optional[ReturnCode] = None
     total_payment: Optional[float] = None
     final_cbsa: Optional[str] = None
@@ -103,6 +105,7 @@ class IpfOutput(BaseModel):
     def from_java(self, java_obj):
         self.return_code = ReturnCode()
         self.return_code.from_java(java_obj.getReturnCodeData())
+        self.calculation_version = str(java_obj.getCalculationVersion())
 
         payment_data = java_obj.getPaymentData()
         if payment_data is not None:
@@ -394,4 +397,6 @@ class IpfClient:
         pricing_response = self.dispatch_obj.process(pricing_request)
         ipf_output = IpfOutput()
         ipf_output.from_java(pricing_response)
+        if drg_output is not None:
+            ipf_output.ms_drg_output = drg_output
         return ipf_output

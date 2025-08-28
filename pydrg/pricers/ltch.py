@@ -22,6 +22,7 @@ from pydrg.pricers.url_loader import UrlLoader
 
 class LtchOutput(BaseModel):
     calculation_version: Optional[str] = None
+    ms_drg_output: Optional[MsdrgOutput] = None
     return_code: Optional[ReturnCode] = None
     total_payment: Optional[float] = None
     final_cbsa: Optional[str] = None
@@ -331,4 +332,6 @@ class LtchClient:
         pricing_response = self.dispatch_obj.process(pricing_request)
         ltch_output = LtchOutput()
         ltch_output.from_java(pricing_response)
+        if drg_output is not None:
+            ltch_output.ms_drg_output = drg_output
         return ltch_output

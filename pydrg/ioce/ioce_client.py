@@ -370,7 +370,9 @@ class IoceClient:
                 try:
                     result = self.process(claim)
                     claim_time = time.time() - claim_start
-                    print(f"Processed claim {claim.claimid} in {claim_time:.2f} seconds")
+                    print(
+                        f"Processed claim {claim.claimid} in {claim_time:.2f} seconds"
+                    )
                     f.write(result.model_dump_json(indent=2) + "\n")
 
                     stats["successful_claims"] += 1

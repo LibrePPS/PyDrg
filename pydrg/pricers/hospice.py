@@ -406,7 +406,7 @@ class HospiceClient:
         pricing_request.setClaimData(claim_object)
         return pricing_request
 
-    def process(self, claim: Claim) -> None | HospiceOutput:
+    def process(self, claim: Claim) -> HospiceOutput:
         self.logger.debug(
             f"Hospice Client processing claim on thread {current_thread().ident}"
         )

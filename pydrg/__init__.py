@@ -59,6 +59,7 @@ from .pricers.ltch import LtchClient, LtchOutput
 from .pricers.opps import OppsClient, OppsOutput
 from .pricers.opsf import OPSFDatabase, OPSFProvider
 from .pricers.snf import SnfClient, SnfOutput
+from .pricers.hha import HhaClient, HhaOutput
 from .pricers.url_loader import UrlLoader
 
 from .converter import (
@@ -119,6 +120,8 @@ __all__ = [
     "HospiceOutput",
     "SnfClient",
     "SnfOutput",
+    "HhaClient",
+    "HhaOutput",
     # Helpers and utilities
     "CMSDownloader",
     "IPSFDatabase",

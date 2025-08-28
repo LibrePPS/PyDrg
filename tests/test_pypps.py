@@ -196,7 +196,11 @@ def test_snf_pricer_if_available(pypps_or_skip):
     assert hasattr(output, "model_dump")
 
 
-def test_hhag_grouper(pypps_or_skip):
+def test_hha_pricer_if_available(pypps_or_skip):
+    if not pricer_available("hha-pricer"):
+        pytest.skip("HHA pricer jar not present in ./jars/pricers")
+    if pypps_or_skip.hha_client is None:
+        pytest.skip("HHA client not initialized")
     claim = claim_example()
     claim.patient.age = 65
     claim.from_date = datetime(2025, 1, 1)
@@ -205,7 +209,18 @@ def test_hhag_grouper(pypps_or_skip):
     claim.principal_dx.code = "I10"
     claim.principal_dx.poa = PoaType.Y
     claim.secondary_dxs.append(DiagnosisCode(code="C50911", poa=PoaType.Y))
-    output = pypps_or_skip.hhag_client.process(claim)
+    claim.lines.append(
+        LineItem(service_date=datetime(2025, 1, 1), revenue_code="0420", units=20)
+    )
+    claim.lines.append(
+        LineItem(service_date=datetime(2025, 1, 1), revenue_code="0430", units=20)
+    )
+    claim.lines.append(
+        LineItem(service_date=datetime(2025, 1, 1), revenue_code="0440", units=20)
+    )
+    claim.lines.append(
+        LineItem(service_date=datetime(2025, 1, 1), revenue_code="0550", units=20)
+    )
     claim.additional_data["oasis"] = dict()
     claim.additional_data["oasis"]["fall_risk"] = True
     claim.additional_data["oasis"]["multiple_hospital_stays"] = True
@@ -224,4 +239,37 @@ def test_hhag_grouper(pypps_or_skip):
     claim.additional_data["oasis"]["toileting"] = "1"
     claim.additional_data["oasis"]["transferring"] = "2"
     claim.additional_data["oasis"]["ambulation"] = "3"
+    hhag_output = pypps_or_skip.hhag_client.process(claim)
+    hha_pricer = pypps_or_skip.hha_client.process(claim, hhag_output)
+    assert hasattr(hha_pricer, "model_dump")
+
+
+def test_hhag_grouper(pypps_or_skip):
+    claim = claim_example()
+    claim.patient.age = 65
+    claim.from_date = datetime(2025, 1, 1)
+    claim.thru_date = datetime(2025, 1, 31)
+    claim.los = 30
+    claim.principal_dx.code = "I10"
+    claim.principal_dx.poa = PoaType.Y
+    claim.secondary_dxs.append(DiagnosisCode(code="C50911", poa=PoaType.Y))
+    claim.additional_data["oasis"] = dict()
+    claim.additional_data["oasis"]["fall_risk"] = True
+    claim.additional_data["oasis"]["multiple_hospital_stays"] = True
+    claim.additional_data["oasis"]["multiple_ed_visits"] = True
+    claim.additional_data["oasis"]["mental_behavior_risk"] = False
+    claim.additional_data["oasis"]["compliance_risk"] = True
+    claim.additional_data["oasis"]["five_or_more_meds"] = True
+    claim.additional_data["oasis"]["exhaustion"] = "00"
+    claim.additional_data["oasis"]["other_risk"] = False
+    claim.additional_data["oasis"]["none_of_above"] = False
+    claim.additional_data["oasis"]["weight_loss"] = False
+    claim.additional_data["oasis"]["grooming"] = "1"
+    claim.additional_data["oasis"]["dress_upper"] = "2"
+    claim.additional_data["oasis"]["dress_lower"] = "2"
+    claim.additional_data["oasis"]["bathing"] = "0"
+    claim.additional_data["oasis"]["toileting"] = "1"
+    claim.additional_data["oasis"]["transferring"] = "2"
+    claim.additional_data["oasis"]["ambulation"] = "3"
+    output = pypps_or_skip.hhag_client.process(claim)
     assert hasattr(output, "model_dump")

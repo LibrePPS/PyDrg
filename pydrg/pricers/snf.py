@@ -21,6 +21,7 @@ from pydrg.pricers.url_loader import UrlLoader
 
 class SnfOutput(BaseModel):
     return_code: Optional[ReturnCode] = None
+    calculation_version: Optional[str] = None
     aids_indicator: Optional[str] = None
     quality_reporting_indicator: Optional[str] = None
     region_indicator: Optional[str] = None
@@ -30,6 +31,7 @@ class SnfOutput(BaseModel):
     total_payment: Optional[float] = None
 
     def from_java(self, java_response: jpype.JClass):
+        self.calculation_version = str(java_response.getCalculationVersion())
         ret_code = java_response.getReturnCodeData()
         if ret_code is not None:
             self.return_code = ReturnCode()
@@ -243,9 +245,6 @@ class SnfClient:
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")
-        self.logger.debug(
-            f"IppsClient processing claim on thread {current_thread().ident}"
-        )
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.process_claim(claim, pricing_request)
         snf_output = SnfOutput()
