@@ -337,7 +337,7 @@ class IoceClient:
             for claim in claims:
                 try:
                     result = self.process(claim)
-                    f.write(json.dumps(result.to_json(), indent=2) + "\n")
+                    f.write(result.model_dump_json(indent=2) + "\n")
                 except Exception as e:
                     print(f"Error processing claim {claim.claimid}: {e}")
 
@@ -370,8 +370,8 @@ class IoceClient:
                 try:
                     result = self.process(claim)
                     claim_time = time.time() - claim_start
-
-                    f.write(json.dumps(result.to_json(), indent=2) + "\n")
+                    print(f"Processed claim {claim.claimid} in {claim_time:.2f} seconds")
+                    f.write(result.model_dump_json(indent=2) + "\n")
 
                     stats["successful_claims"] += 1
                     stats["processing_times"].append(claim_time)
@@ -533,7 +533,7 @@ class IoceClient:
                 if item.edit_list:
                     for edit in item.edit_list:
                         edit_desc = self.ioce_component.getEditDescription(
-                            str(int(edit)), internal_version
+                            str(int(edit.edit)), internal_version
                         )
                         edit.description = str(edit_desc) if edit_desc else ""
 
