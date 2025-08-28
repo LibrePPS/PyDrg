@@ -321,6 +321,9 @@ class LtchClient:
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> LtchOutput:
+        """
+        Processes the python claim object through the CMS LTCH Java Pricer.
+        """
         self.logger.debug(
             f"LtchClient processing claim on thread {current_thread().ident}"
         )

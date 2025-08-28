@@ -284,7 +284,7 @@ class OppsClient:
 
     def process(self, claim: Claim, ioce_output: Optional[IoceOutput] = None):
         """
-        Process the claim and return the pricing response.
+        Process the python claim object through the CMS OPPS Java Pricer.
         """
         if self.db is None:
             raise ValueError("Database connection is required for OppsClient.")

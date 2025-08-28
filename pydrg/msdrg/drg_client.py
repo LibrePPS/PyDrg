@@ -37,6 +37,10 @@ class MsdrgHospitalStatusOptionFlag(Enum):
 
 class DrgClient:
     def __init__(self):
+        """
+        DrgClient class is responsible for interacting with the CMS Java based DRG system.
+        The Client will load the necessary Java classes and convert from Python objects to Java objects.
+        """
         if not jpype.isJVMStarted():
             raise RuntimeError("JVM is not started")
         self.load_enums()
@@ -280,6 +284,9 @@ class DrgClient:
     def mapped_dx_or_self(
         self, dx, mappings: Optional[ICD10ConvertOutput] = None
     ) -> str:
+        """
+        Maps the diagnosis code to its converted value if available, else returns self
+        """
         if mappings is None:
             return dx
         mapped = mappings.mappings.get(dx)
@@ -296,6 +303,9 @@ class DrgClient:
     def create_drg_input(
         self, claim: Claim, mappings: Optional[ICD10ConvertOutput] = None
     ):
+        """
+        Creates the DRG input object from the claim and mappings.
+        """
         input = self.drg_input_class.builder()
         # Set Patient Age
         if claim.patient is not None:
@@ -486,6 +496,9 @@ class DrgClient:
         affect_drg: MsdrgAffectDrgOptionFlag = MsdrgAffectDrgOptionFlag.COMPUTE,
         logic_tiebreaker: MarkingLogicTieBreaker = MarkingLogicTieBreaker.CLINICAL_SIGNIFICANCE,
     ):
+        """
+        Processes the claim through the DRG system.
+        """
         if drg_version is None:
             """Determine the DRG version based on the claim date"""
             if type(claim.thru_date) is str:

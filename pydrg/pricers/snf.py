@@ -236,11 +236,10 @@ class SnfClient:
 
     def process(self, claim: Claim):
         """
-        Process the claim and return the IPPS pricing response.
+        Process the claim and return the SNF pricing response.
 
         :param claim: Claim object to process.
-        :param drg_output: MsdrgOutput object containing DRG information.
-        :return: IppsClaimPricingResponse object.
+        :return: SnfOutput object.
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")

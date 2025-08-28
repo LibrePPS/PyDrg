@@ -384,6 +384,9 @@ class IpfClient:
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> IpfOutput:
+        """
+        Processes the python claim object through the CMS IPF Java Pricer.
+        """
         self.logger.debug(
             f"IpfClient processing claim on thread {current_thread().ident}"
         )

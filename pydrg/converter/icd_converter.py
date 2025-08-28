@@ -71,11 +71,18 @@ def populate_database(db: Engine, json_path: str):
 
 class ICDConverter:
     def __init__(self, db: Engine):
+        """
+        ICDConverter class is used to forward and backward convert ICD-10 codes.
+        """
         self.engine = db
         self.Session = sessionmaker(bind=self.engine)
         Base.metadata.create_all(self.engine)
 
     def download_icd_conversion_file(self):
+        """
+        Downloads the latest ICD-10 conversion file from CMS and loads to the SQL database,
+        on the class instance.
+        """
         # clear the icd10_conversion table
         session = self.Session()
         session.query(ICD10Conversion).delete()
@@ -190,6 +197,7 @@ class ICDConverter:
         """
         Generate ICD-10 code mappings for a given claim.
         Asserts that claim.thru_date must be provided.
+        Asserts that claim.principal_dx must be provided.
         """
         # Determine if we need to do ICD-10 code conversions/mappings
         assert claim.thru_date is not None, "Claim thru_date must be provided"
