@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ICDConvertOption(Enum):
@@ -93,6 +93,39 @@ class Claim(BaseModel):
     icd_convert: Optional[ICDConvertOptions] = None
     admit_date: Optional[datetime] = None
     admission_source: str = ""
+
+    @field_validator("los", mode="after")
+    @classmethod
+    def validate_los(cls, v):
+        if v < 0:
+            raise ValueError("Length of stay (LOS) must be non-negative")
+        return v
+
+    @field_validator("total_charges", mode="after")
+    @classmethod
+    def validate_total_charges(cls, v):
+        if v < 0:
+            raise ValueError("Total charges must be non-negative")
+        return v
+
+    @model_validator(mode="after")
+    def check_dates(self):
+        if self.from_date and self.thru_date:
+            if self.from_date.date() > self.thru_date.date():
+                raise ValueError("From date cannot be after thru date")
+            if self.admit_date and self.admit_date > self.thru_date:
+                raise ValueError("Admit date cannot be after thru date")
+            if self.lines:
+                for line in self.lines:
+                    if line.service_date:
+                        if (
+                            line.service_date.date() < self.from_date.date()
+                            or line.service_date.date() > self.thru_date.date()
+                        ):
+                            raise ValueError(
+                                "Line item service date must be within claim from and thru dates"
+                            )
+        return self
 
 
 class ValueCode(BaseModel):
