@@ -566,11 +566,12 @@ class DrgClient:
                     result = self.process(
                         claim,
                         drg_version,
+                        None,
                         hospital_status,
                         affect_drg,
                         logic_tiebreaker,
                     )
-                    f.write(json.dumps(result.to_json(), indent=2) + "\n")
+                    f.write(json.dumps(result.model_dump_json(indent=2)) + "\n")
                 except Exception as e:
                     print(f"Error processing claim {claim.claimid}: {e}")
 
@@ -614,13 +615,14 @@ class DrgClient:
                     result = self.process(
                         claim,
                         drg_version,
+                        None,
                         hospital_status,
                         affect_drg,
                         logic_tiebreaker,
                     )
                     claim_time = time.time() - claim_start
 
-                    f.write(json.dumps(result.to_json(), indent=2) + "\n")
+                    f.write(result.model_dump_json(indent=2) + "\n")
 
                     stats["successful_claims"] += 1
                     stats["processing_times"].append(claim_time)
