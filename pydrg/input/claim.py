@@ -93,6 +93,7 @@ class Claim(BaseModel):
     icd_convert: Optional[ICDConvertOptions] = None
     admit_date: Optional[datetime] = None
     admission_source: str = ""
+    hmo: bool = False
 
     @field_validator("los", mode="after")
     @classmethod
