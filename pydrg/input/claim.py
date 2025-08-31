@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from .oasis import OasisAssessment
 
 
 class ICDConvertOption(Enum):
@@ -94,6 +95,7 @@ class Claim(BaseModel):
     admit_date: Optional[datetime] = None
     admission_source: str = ""
     hmo: bool = False
+    oasis_assessment: Optional[OasisAssessment] = None
 
     @field_validator("los", mode="after")
     @classmethod

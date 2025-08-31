@@ -61,66 +61,54 @@ class HhagClient:
 
         for dx in claim.secondary_dxs:
             claim_obj.addSdx(dx.code, dx.poa.name)
-
-        if "oasis" not in claim.additional_data:
-            self.set_oasis_defaults(claim_obj)
-        else:
+            
+        if claim.oasis_assessment is not None:
             claim_obj.setHospRiskHistoryFalls(
-                str(int(claim.additional_data["oasis"].get("fall_risk", "0")))
+                str(claim.oasis_assessment.fall_risk)
             )
             claim_obj.setHospRiskWeightLoss(
-                str(int(claim.additional_data["oasis"].get("weight_loss", "0")))
+                str(claim.oasis_assessment.weight_loss)
             )
             claim_obj.setHospRiskMultiHospital(
-                str(
-                    int(
-                        claim.additional_data["oasis"].get(
-                            "multiple_hospital_stays", "0"
-                        )
-                    )
-                )
+                str(claim.oasis_assessment.multiple_hospital_stays)
             )
             claim_obj.setHospRiskMultiEdVisit(
-                str(int(claim.additional_data["oasis"].get("multiple_ed_visits", "0")))
+                str(claim.oasis_assessment.multiple_ed_visits)
             )
             claim_obj.setHospRiskMentalBehavDecl(
-                str(
-                    int(claim.additional_data["oasis"].get("mental_behavior_risk", "0"))
-                )
+                str(claim.oasis_assessment.mental_behavior_risk)
             )
             claim_obj.setHospRiskCompliance(
-                str(int(claim.additional_data["oasis"].get("compliance_risk", "0")))
+                str(claim.oasis_assessment.compliance_risk)
             )
             claim_obj.setHospRiskFiveMoreMeds(
-                str(int(claim.additional_data["oasis"].get("five_or_more_meds", "0")))
+                str(claim.oasis_assessment.five_or_more_meds)
             )
             claim_obj.setHospRiskExhaustion(
-                str(int(claim.additional_data["oasis"].get("exhaustion", "0")))
+                str(claim.oasis_assessment.exhaustion)
             )
             claim_obj.setHospRiskOtherRisk(
-                str(int(claim.additional_data["oasis"].get("other_risk", "0")))
+                str(claim.oasis_assessment.other_risk)
             )
             claim_obj.setHospRiskNoneAbove(
-                str(int(claim.additional_data["oasis"].get("none_of_above", "0")))
+                str(claim.oasis_assessment.none_of_above)
             )
-            # ------------------Categories above this line should technically be booleans but we'll allow integers--------------------------------------
-            # ------------------Below this line are true strings----------------------------------------------------------------------------------------
-            claim_obj.setGrooming(claim.additional_data["oasis"].get("grooming", "00"))
+            claim_obj.setGrooming(claim.oasis_assessment.grooming)
             claim_obj.setDressUpper(
-                claim.additional_data["oasis"].get("dress_upper", "00")
+                claim.oasis_assessment.dress_upper
             )
             claim_obj.setDressLower(
-                claim.additional_data["oasis"].get("dress_lower", "00")
+                claim.oasis_assessment.dress_lower
             )
-            claim_obj.setBathing(claim.additional_data["oasis"].get("bathing", "00"))
+            claim_obj.setBathing(claim.oasis_assessment.bathing)
             claim_obj.setToileting(
-                claim.additional_data["oasis"].get("toileting", "00")
+                claim.oasis_assessment.toileting
             )
             claim_obj.setTransferring(
-                claim.additional_data["oasis"].get("transferring", "00")
+                claim.oasis_assessment.transferring
             )
             claim_obj.setAmbulation(
-                claim.additional_data["oasis"].get("ambulation", "00")
+                claim.oasis_assessment.ambulation
             )
         return claim_obj
 

@@ -465,31 +465,43 @@ class IppsClient:
     def add_hmo(self, jar_path):
         """
         Adds HMO functionality to the IPPS pricer by dynamically modifying Java classes.
-        
+
         This method uses Javassist to:
         1. Add an hmoClaim field to IppsClaimPricingRequest
         2. Modify the pricing logic to handle HMO claims
         3. Enable the HMO totals calculation rule
-        
+
         Args:
             jar_path: Path to the IPPS pricer JAR file
         """
         # Load Javassist classes with the custom class loader
-        ct_class = jpype.JClass("javassist.CtClass", loader=self.url_loader.class_loader)
-        ct_field = jpype.JClass("javassist.CtField", loader=self.url_loader.class_loader)
-        ct_new_method = jpype.JClass("javassist.CtNewMethod", loader=self.url_loader.class_loader)
-        class_pool = jpype.JClass("javassist.ClassPool", loader=self.url_loader.class_loader)
-        loader_class_path = jpype.JClass("javassist.LoaderClassPath", loader=self.url_loader.class_loader)
-        
+        ct_class = jpype.JClass(
+            "javassist.CtClass", loader=self.url_loader.class_loader
+        )
+        ct_field = jpype.JClass(
+            "javassist.CtField", loader=self.url_loader.class_loader
+        )
+        ct_new_method = jpype.JClass(
+            "javassist.CtNewMethod", loader=self.url_loader.class_loader
+        )
+        class_pool = jpype.JClass(
+            "javassist.ClassPool", loader=self.url_loader.class_loader
+        )
+        loader_class_path = jpype.JClass(
+            "javassist.LoaderClassPath", loader=self.url_loader.class_loader
+        )
+
         # Set up ClassPool with system path and custom class loader
         cp = class_pool()
         cp.appendSystemPath()  # Include core Java classes
         cp.insertClassPath(loader_class_path(self.url_loader.class_loader))
         cp.appendClassPath(jar_path)
-        
+
         # Step 1: Add hmoClaim field to IppsClaimPricingRequest
-        claim_request_class = cp.get("gov.cms.fiss.pricers.ipps.api.v2.IppsClaimPricingRequest")
-        
+        claim_request_class = cp.get(
+            "gov.cms.fiss.pricers.ipps.api.v2.IppsClaimPricingRequest"
+        )
+
         try:
             # Check if hmoClaim field already exists
             claim_request_class.getField("hmoClaim")
@@ -497,23 +509,25 @@ class IppsClient:
             return
         except Exception:
             # Add the hmoClaim field and its getter/setter methods
-            hmo_field = ct_field.make("public boolean hmoClaim = false;", claim_request_class)
+            hmo_field = ct_field.make(
+                "public boolean hmoClaim = false;", claim_request_class
+            )
             claim_request_class.addField(hmo_field)
-            
+
             # Add getter method
             getter = ct_new_method.make(
-                "public boolean getHmoClaim() { return $0.hmoClaim; }", 
-                claim_request_class
+                "public boolean getHmoClaim() { return $0.hmoClaim; }",
+                claim_request_class,
             )
             claim_request_class.addMethod(getter)
-            
+
             # Add setter method
             setter = ct_new_method.make(
                 "public void setHmoClaim(boolean value) { $0.hmoClaim = value; }",
                 claim_request_class,
             )
             claim_request_class.addMethod(setter)
-            
+
             # Load the modified class (required for Java 19+)
             neighbor_class = jpype.JClass(
                 "gov.cms.fiss.pricers.ipps.api.v2.IppsClaimPricingResponse",
@@ -523,20 +537,22 @@ class IppsClient:
 
         # Step 2: Modify RuleContextExecutor to handle HMO claims
         self._modify_rule_context_executor(cp)
-        
+
         # Step 3: Enable HMO totals calculation
         self._enable_hmo_totals_calculation(cp)
 
     def _modify_rule_context_executor(self, class_pool):
         """
         Modifies the RuleContextExecutor to extract and set HMO flag during pricing.
-        
+
         Args:
             class_pool: Javassist ClassPool instance
         """
-        ctx_class = class_pool.get("gov.cms.fiss.pricers.common.application.rules.RuleContextExecutor")
+        ctx_class = class_pool.get(
+            "gov.cms.fiss.pricers.common.application.rules.RuleContextExecutor"
+        )
         price_claim_method = ctx_class.getDeclaredMethod("priceClaim")
-        
+
         # New method body that extracts HMO flag and sets it in the context
         new_method_body = """{
             gov.cms.fiss.pricers.common.application.rules.CalculationContext calculationContext = $0.contextFor($1);
@@ -547,9 +563,9 @@ class IppsClient:
             gov.cms.fiss.pricers.common.application.rules.ContextCapture.resetRuleSequence();
             return calculationContext.getOutput();
         }"""
-        
+
         price_claim_method.setBody(new_method_body)
-        
+
         # Load the modified class
         ctx_neighbor = jpype.JClass(
             "gov.cms.fiss.pricers.common.application.rules.CalculationContext",
@@ -560,7 +576,7 @@ class IppsClient:
     def _enable_hmo_totals_calculation(self, class_pool):
         """
         Enables the HMO totals calculation rule by overriding shouldExecute to always return true.
-        
+
         Args:
             class_pool: Javassist ClassPool instance
         """
@@ -569,7 +585,7 @@ class IppsClient:
         )
         should_execute_method = hmo_class.getDeclaredMethod("shouldExecute")
         should_execute_method.setBody("{ return true; }")
-        
+
         # Load the modified class
         hmo_neighbor = jpype.JClass(
             "gov.cms.fiss.pricers.ipps.core.rules.calculate_payment.totals.CalculateOperatingTotals",
