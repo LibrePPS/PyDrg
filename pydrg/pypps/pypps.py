@@ -19,6 +19,7 @@ from pydrg.pricers.hha import HhaClient
 from pydrg.pricers.opps import OppsClient
 from pydrg.pricers.opsf import OPSFDatabase
 from pydrg.converter import ICDConverter
+from pydrg.irfg.irfg_client import IrfgClient
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -56,6 +57,7 @@ class Pypps:
         self.hospice_client: Optional[HospiceClient] = None
         self.snf_client: Optional[SnfClient] = None
         self.hha_client: Optional[HhaClient] = None
+        self.irf_client: Optional[IrfgClient] = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path
@@ -112,6 +114,7 @@ class Pypps:
         self.mce_client = MceClient()
         self.ioce_client = IoceClient()
         self.hhag_client = HhagClient()
+        self.irfg_client = IrfgClient()
         # check for pricer sub directory
         if os.path.exists(os.path.join(self.jar_path, "pricers")):
             self.pricers_path = os.path.abspath(os.path.join(self.jar_path, "pricers"))

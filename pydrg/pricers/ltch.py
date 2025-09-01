@@ -276,6 +276,7 @@ class LtchClient:
             raise ValueError("DRG output is required for LTC pricing.")
 
         java_dxs = self.array_list_class()
+        #@TODO need to verify if we need to strip out decimal points from diagnosis codes
         if claim.principal_dx is not None:
             java_dxs.add(self.java_string_class(claim.principal_dx.code))
         if claim.admit_dx is not None:

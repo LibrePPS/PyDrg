@@ -13,6 +13,8 @@ from .claim import (
     ValueCode,
     ICDConvertOption,
     ICDConvertOptions,
+    IrfPai,
+    OasisAssessment
 )
 
 __all__ = [
@@ -30,4 +32,6 @@ __all__ = [
     "PoaType",
     "ICDConvertOption",
     "ICDConvertOptions",
+    "IrfPai",
+    "OasisAssessment"
 ]

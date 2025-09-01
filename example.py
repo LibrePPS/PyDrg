@@ -9,6 +9,8 @@ from pydrg.input import (
     DiagnosisCode,
     PoaType,
     OccurrenceCode,
+    OasisAssessment,
+    IrfPai
 )
 from pydrg.pypps import Pypps
 
@@ -132,26 +134,53 @@ if __name__ == "__main__":
             claim.occurrence_codes.append(
                 OccurrenceCode(code="61", date=datetime(2024, 12, 15))
             )
-            claim.additional_data["oasis"] = dict()
-            claim.additional_data["oasis"]["fall_risk"] = True
-            claim.additional_data["oasis"]["multiple_hospital_stays"] = True
-            claim.additional_data["oasis"]["multiple_ed_visits"] = True
-            claim.additional_data["oasis"]["mental_behavior_risk"] = False
-            claim.additional_data["oasis"]["compliance_risk"] = True
-            claim.additional_data["oasis"]["five_or_more_meds"] = True
-            claim.additional_data["oasis"]["exhaustion"] = "00"
-            claim.additional_data["oasis"]["other_risk"] = False
-            claim.additional_data["oasis"]["none_of_above"] = False
-            claim.additional_data["oasis"]["weight_loss"] = False
-            claim.additional_data["oasis"]["grooming"] = "1"
-            claim.additional_data["oasis"]["dress_upper"] = "2"
-            claim.additional_data["oasis"]["dress_lower"] = "2"
-            claim.additional_data["oasis"]["bathing"] = "0"
-            claim.additional_data["oasis"]["toileting"] = "1"
-            claim.additional_data["oasis"]["transferring"] = "2"
-            claim.additional_data["oasis"]["ambulation"] = "3"
-            claim.additional_data["hha"] = dict()
+            claim.oasis_assessment = OasisAssessment()
+            claim.oasis_assessment.fall_risk = True
+            claim.oasis_assessment.multiple_hospital_stays = True
+            claim.oasis_assessment.multiple_ed_visits = True
+            claim.oasis_assessment.mental_behavior_risk = False
+            claim.oasis_assessment.compliance_risk = True
+            claim.oasis_assessment.five_or_more_meds = True
+            claim.oasis_assessment.exhaustion = False
+            claim.oasis_assessment.other_risk = False
+            claim.oasis_assessment.none_of_above = False
+            claim.oasis_assessment.weight_loss = False
+            claim.oasis_assessment.grooming = "1"
+            claim.oasis_assessment.dress_upper = "2"
+            claim.oasis_assessment.dress_lower = "2"
+            claim.oasis_assessment.bathing = "0"
+            claim.oasis_assessment.toileting = "1"
+            claim.oasis_assessment.transferring = "2"
+            claim.oasis_assessment.ambulation = "3"
             hhag_output = pypps.hhag_client.process(claim)
             hha_pricer = pypps.hha_client.process(claim, hhag_output)
             print(hha_pricer.model_dump_json(indent=2))
             print("=== End of HHA Pricer Example ===")
+
+        print("===IRF Grouper ===")
+        claim.oasis_assessment = None
+        claim.irf_pai = IrfPai()
+        claim.principal_dx.code = "D61.03"
+        claim.admit_date = datetime(2025, 1, 1)
+        claim.thru_date = datetime(2025, 1, 30)
+        claim.patient.date_of_birth = datetime(1970, 1, 1)
+        claim.secondary_dxs.clear()
+        claim.irf_pai.assessment_system = "IRF-PAI"
+        claim.irf_pai.transaction_type = 1
+        claim.irf_pai.impairment_admit_group_code = "0012.9   "
+        claim.irf_pai.eating_self_admsn_cd = "06"
+        claim.irf_pai.oral_hygne_admsn_cd = "06"
+        claim.irf_pai.toileting_hygne_admsn_cd = "06"
+        claim.irf_pai.bathing_hygne_admsn_cd = "06"
+        claim.irf_pai.footwear_dressing_cd = "06"
+        claim.irf_pai.chair_bed_transfer_cd = "06"
+        claim.irf_pai.toilet_transfer_cd = "06"
+        claim.irf_pai.walk_10_feet_cd = "06"
+        claim.irf_pai.walk_50_feet_cd = "06"
+        claim.irf_pai.walk_150_feet_cd = "06"
+        claim.irf_pai.step_1_cd = "06"
+        claim.irf_pai.urinary_continence_cd = "0"
+        claim.irf_pai.bowel_continence_cd = "0"
+
+        irf_output = pypps.irfg_client.process(claim)
+        print(irf_output.model_dump_json(indent=2))

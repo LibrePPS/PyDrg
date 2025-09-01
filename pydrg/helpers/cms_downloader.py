@@ -61,6 +61,7 @@ class CMSDownloader:
         "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.9/slf4j-api-2.0.9.jar"
     )
     HHAG_URL = "https://www.cms.gov/medicare/payment/prospective-payment-systems/home-health/home-health-grouper-software"
+    CMG_URL = "https://www.cms.gov/medicare/payment/prospective-payment-systems/inpatient-rehabilitation/grouper-case-mix-group"
     REQUIRED_JARS = {
         "slf4j": ["slf4j-simple-2.0.9.jar", "slf4j-api-2.0.9.jar"],
         "gfc": ["gfc-base-api-3.4.9.jar"],
@@ -75,6 +76,7 @@ class CMSDownloader:
         ],
         "ioce": ["ioce-standalone-26.2.0.7.jar"],
         "hhag": ["HomeHealth.jar"],
+        "cmg": ["CMG_540.jar", "irf-proto-1.2.0.jar", "gfc-base-factory-3.4.9.jar"],
         "pricers": [
             "esrd-pricer-application-2.8.0.jar",
             "fqhc-pricer-application-2.7.0.jar",
@@ -749,6 +751,58 @@ class CMSDownloader:
                 f"Error processing HHAGrouper ZIP file {zip_filename}: {str(e)}"
             )
 
+    def download_cmg_grouper(self):
+        """Download the CMG Grouper ZIP file."""
+        try:
+            headers = {"User-Agent": self.USER_AGENT}
+            response = requests.get(self.CMG_URL, headers=headers)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Find the link to the CMG Grouper ZIP file
+            cmg_link = None
+            #example /files/zip/cmg-version-530-final.zip
+            for link in soup.find_all("a", href=re.compile(r"/files/zip/cmg-version-\d+-final\.zip")):
+                cmg_link = link["href"]
+                break
+
+            if not cmg_link:
+                self.logger.error(
+                    "Could not find 'cmg-grouper' link on the CMS page"
+                )
+                return None
+
+            # Download the CMG Grouper ZIP file
+            full_url = urljoin(self.CMG_URL, cmg_link)
+            filename = self.get_filename_from_url(full_url)
+            self.logger.info(f"Found CMG Grouper zip: {filename} with link: {full_url}")
+            return self.download_file(full_url, filename)
+        except Exception as e:
+            self.logger.error(f"Error downloading CMG Grouper files: {str(e)}")
+            return None
+
+    def process_cmggrouper_zip(self, zip_path):
+        """
+        CMG Zip file contains 2 sub .zip files
+         1.) CMG JAR.zip
+         2.) CMG_v{version}_LIB.zip
+
+         from CMG JAR.zip we'll extract the CMG_<version>.jar
+         from CMG_v{version}_LIB.zip we'll extract all jars, compare them 
+         to what's already in the jars directory, if a jar does not exist we'll
+         place that into the jars directory, otherwise we'll skip it.
+         """
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(self.download_dir)
+
+        # Process the extracted ZIP files
+        zip_files = glob.glob(os.path.join(self.download_dir, "*.zip"))
+        for zip_file in zip_files:
+            self.process_zip_for_jars(zip_file, "cmg", self.jars_dir, self.REQUIRED_JARS["cmg"])
+
+
     def extract_jar_files(self, dest_dir=None):
         """Extract JAR files from downloaded ZIP files and move them to jars directory."""
         if dest_dir is None:
@@ -1075,11 +1129,32 @@ class CMSDownloader:
                 self.logger.info(
                     "HHAGrouper components already exist, skipping download"
                 )
+            
 
             # Process individual JAR components
             self.process_gfc_jar(force_download=force_all_downloads)
             self.process_grpc_jar(force_download=force_all_downloads)
             self.process_slf4j_jar(force_download=force_all_downloads)
+
+            # Download and process the CMG Grouper files
+            if force_all_downloads or not self.is_component_complete("cmg"):
+                self.logger.info("Starting CMGrouper file download process")
+                cmg_zip_path = self.download_cmg_grouper()
+                if cmg_zip_path:
+                    self.logger.info("Processing CMGrouper ZIP file")
+                    if force_all_downloads:
+                        # Process all JARs from the ZIP
+                        self.process_cmggrouper_zip(cmg_zip_path)
+                    else:
+                        # Only process missing JARs
+                        missing_cmg_jars = self.get_missing_jars_for_component("cmg")
+                        self.process_zip_for_jars(
+                            cmg_zip_path, "CMGrouper", missing_jars=missing_cmg_jars
+                        )
+            else:
+                self.logger.info(
+                    "CMGrouper components already exist, skipping download"
+                )
 
             # Get CMS Web Pricers - these go in their own subdirectory
             if force_all_downloads:
