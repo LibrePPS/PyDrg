@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 import jpype
 
+
 class IrfgOutput(BaseModel):
     irf_version: Optional[int] = None
     motor_score: Optional[float] = None

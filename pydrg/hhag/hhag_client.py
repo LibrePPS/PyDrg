@@ -61,14 +61,10 @@ class HhagClient:
 
         for dx in claim.secondary_dxs:
             claim_obj.addSdx(dx.code, dx.poa.name)
-            
+
         if claim.oasis_assessment is not None:
-            claim_obj.setHospRiskHistoryFalls(
-                str(claim.oasis_assessment.fall_risk)
-            )
-            claim_obj.setHospRiskWeightLoss(
-                str(claim.oasis_assessment.weight_loss)
-            )
+            claim_obj.setHospRiskHistoryFalls(str(claim.oasis_assessment.fall_risk))
+            claim_obj.setHospRiskWeightLoss(str(claim.oasis_assessment.weight_loss))
             claim_obj.setHospRiskMultiHospital(
                 str(claim.oasis_assessment.multiple_hospital_stays)
             )
@@ -78,38 +74,20 @@ class HhagClient:
             claim_obj.setHospRiskMentalBehavDecl(
                 str(claim.oasis_assessment.mental_behavior_risk)
             )
-            claim_obj.setHospRiskCompliance(
-                str(claim.oasis_assessment.compliance_risk)
-            )
+            claim_obj.setHospRiskCompliance(str(claim.oasis_assessment.compliance_risk))
             claim_obj.setHospRiskFiveMoreMeds(
                 str(claim.oasis_assessment.five_or_more_meds)
             )
-            claim_obj.setHospRiskExhaustion(
-                str(claim.oasis_assessment.exhaustion)
-            )
-            claim_obj.setHospRiskOtherRisk(
-                str(claim.oasis_assessment.other_risk)
-            )
-            claim_obj.setHospRiskNoneAbove(
-                str(claim.oasis_assessment.none_of_above)
-            )
+            claim_obj.setHospRiskExhaustion(str(claim.oasis_assessment.exhaustion))
+            claim_obj.setHospRiskOtherRisk(str(claim.oasis_assessment.other_risk))
+            claim_obj.setHospRiskNoneAbove(str(claim.oasis_assessment.none_of_above))
             claim_obj.setGrooming(claim.oasis_assessment.grooming)
-            claim_obj.setDressUpper(
-                claim.oasis_assessment.dress_upper
-            )
-            claim_obj.setDressLower(
-                claim.oasis_assessment.dress_lower
-            )
+            claim_obj.setDressUpper(claim.oasis_assessment.dress_upper)
+            claim_obj.setDressLower(claim.oasis_assessment.dress_lower)
             claim_obj.setBathing(claim.oasis_assessment.bathing)
-            claim_obj.setToileting(
-                claim.oasis_assessment.toileting
-            )
-            claim_obj.setTransferring(
-                claim.oasis_assessment.transferring
-            )
-            claim_obj.setAmbulation(
-                claim.oasis_assessment.ambulation
-            )
+            claim_obj.setToileting(claim.oasis_assessment.toileting)
+            claim_obj.setTransferring(claim.oasis_assessment.transferring)
+            claim_obj.setAmbulation(claim.oasis_assessment.ambulation)
         return claim_obj
 
     def set_oasis_defaults(self, claim_obj: jpype.JObject) -> None:

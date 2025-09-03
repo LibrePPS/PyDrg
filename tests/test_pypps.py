@@ -3,7 +3,14 @@ from datetime import datetime
 import pytest
 
 from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
-from pydrg.input import LineItem, ValueCode, DiagnosisCode, PoaType
+from pydrg.input import (
+    LineItem,
+    ValueCode,
+    DiagnosisCode,
+    PoaType,
+    IrfPai,
+    OasisAssessment,
+)
 from pydrg.pypps import Pypps
 
 
@@ -196,6 +203,43 @@ def test_snf_pricer_if_available(pypps_or_skip):
     assert hasattr(output, "model_dump")
 
 
+def test_irf_pricer_if_availabler(pypps_or_skip):
+    if not pricer_available("irf-pricer"):
+        pytest.skip("IRF pricer jar not present in ./jars/pricers")
+    if pypps_or_skip.irf_client is None:
+        pytest.skip("IRF client not initialized")
+
+    claim = claim_example()
+    claim.billing_provider.other_id = "013025"
+    claim.los = 20
+    claim.non_covered_days = 0
+    claim.irf_pai = IrfPai()
+    claim.principal_dx.code = "D61.03"
+    claim.admit_date = datetime(2025, 1, 1)
+    claim.thru_date = datetime(2025, 1, 30)
+    claim.patient.date_of_birth = datetime(1970, 1, 1)
+    claim.secondary_dxs.clear()
+    claim.irf_pai.assessment_system = "IRF-PAI"
+    claim.irf_pai.transaction_type = 1
+    claim.irf_pai.impairment_admit_group_code = "0012.9   "
+    claim.irf_pai.eating_self_admsn_cd = "06"
+    claim.irf_pai.oral_hygne_admsn_cd = "06"
+    claim.irf_pai.toileting_hygne_admsn_cd = "06"
+    claim.irf_pai.bathing_hygne_admsn_cd = "06"
+    claim.irf_pai.footwear_dressing_cd = "06"
+    claim.irf_pai.chair_bed_transfer_cd = "06"
+    claim.irf_pai.toilet_transfer_cd = "06"
+    claim.irf_pai.walk_10_feet_cd = "06"
+    claim.irf_pai.walk_50_feet_cd = "06"
+    claim.irf_pai.walk_150_feet_cd = "06"
+    claim.irf_pai.step_1_cd = "06"
+    claim.irf_pai.urinary_continence_cd = "0"
+    claim.irf_pai.bowel_continence_cd = "0"
+    cmg_output = pypps_or_skip.irfg_client.process(claim)
+    irf_output = pypps_or_skip.irf_client.process(claim, cmg_output)
+    assert hasattr(irf_output, "model_dump")
+
+
 def test_hha_pricer_if_available(pypps_or_skip):
     if not pricer_available("hha-pricer"):
         pytest.skip("HHA pricer jar not present in ./jars/pricers")
@@ -221,24 +265,24 @@ def test_hha_pricer_if_available(pypps_or_skip):
     claim.lines.append(
         LineItem(service_date=datetime(2025, 1, 1), revenue_code="0550", units=20)
     )
-    claim.additional_data["oasis"] = dict()
-    claim.additional_data["oasis"]["fall_risk"] = True
-    claim.additional_data["oasis"]["multiple_hospital_stays"] = True
-    claim.additional_data["oasis"]["multiple_ed_visits"] = True
-    claim.additional_data["oasis"]["mental_behavior_risk"] = False
-    claim.additional_data["oasis"]["compliance_risk"] = True
-    claim.additional_data["oasis"]["five_or_more_meds"] = True
-    claim.additional_data["oasis"]["exhaustion"] = "00"
-    claim.additional_data["oasis"]["other_risk"] = False
-    claim.additional_data["oasis"]["none_of_above"] = False
-    claim.additional_data["oasis"]["weight_loss"] = False
-    claim.additional_data["oasis"]["grooming"] = "1"
-    claim.additional_data["oasis"]["dress_upper"] = "2"
-    claim.additional_data["oasis"]["dress_lower"] = "2"
-    claim.additional_data["oasis"]["bathing"] = "0"
-    claim.additional_data["oasis"]["toileting"] = "1"
-    claim.additional_data["oasis"]["transferring"] = "2"
-    claim.additional_data["oasis"]["ambulation"] = "3"
+    claim.oasis_assessment = OasisAssessment()
+    claim.oasis_assessment.fall_risk = True
+    claim.oasis_assessment.multiple_hospital_stays = True
+    claim.oasis_assessment.multiple_ed_visits = True
+    claim.oasis_assessment.mental_behavior_risk = False
+    claim.oasis_assessment.compliance_risk = True
+    claim.oasis_assessment.five_or_more_meds = True
+    claim.oasis_assessment.exhaustion = False
+    claim.oasis_assessment.other_risk = False
+    claim.oasis_assessment.none_of_above = False
+    claim.oasis_assessment.weight_loss = False
+    claim.oasis_assessment.grooming = "1"
+    claim.oasis_assessment.dress_upper = "2"
+    claim.oasis_assessment.dress_lower = "2"
+    claim.oasis_assessment.bathing = "0"
+    claim.oasis_assessment.toileting = "1"
+    claim.oasis_assessment.transferring = "2"
+    claim.oasis_assessment.ambulation = "3"
     hhag_output = pypps_or_skip.hhag_client.process(claim)
     hha_pricer = pypps_or_skip.hha_client.process(claim, hhag_output)
     assert hasattr(hha_pricer, "model_dump")
@@ -253,23 +297,23 @@ def test_hhag_grouper(pypps_or_skip):
     claim.principal_dx.code = "I10"
     claim.principal_dx.poa = PoaType.Y
     claim.secondary_dxs.append(DiagnosisCode(code="C50911", poa=PoaType.Y))
-    claim.additional_data["oasis"] = dict()
-    claim.additional_data["oasis"]["fall_risk"] = True
-    claim.additional_data["oasis"]["multiple_hospital_stays"] = True
-    claim.additional_data["oasis"]["multiple_ed_visits"] = True
-    claim.additional_data["oasis"]["mental_behavior_risk"] = False
-    claim.additional_data["oasis"]["compliance_risk"] = True
-    claim.additional_data["oasis"]["five_or_more_meds"] = True
-    claim.additional_data["oasis"]["exhaustion"] = "00"
-    claim.additional_data["oasis"]["other_risk"] = False
-    claim.additional_data["oasis"]["none_of_above"] = False
-    claim.additional_data["oasis"]["weight_loss"] = False
-    claim.additional_data["oasis"]["grooming"] = "1"
-    claim.additional_data["oasis"]["dress_upper"] = "2"
-    claim.additional_data["oasis"]["dress_lower"] = "2"
-    claim.additional_data["oasis"]["bathing"] = "0"
-    claim.additional_data["oasis"]["toileting"] = "1"
-    claim.additional_data["oasis"]["transferring"] = "2"
-    claim.additional_data["oasis"]["ambulation"] = "3"
+    claim.oasis_assessment = OasisAssessment()
+    claim.oasis_assessment.fall_risk = True
+    claim.oasis_assessment.multiple_hospital_stays = True
+    claim.oasis_assessment.multiple_ed_visits = True
+    claim.oasis_assessment.mental_behavior_risk = False
+    claim.oasis_assessment.compliance_risk = True
+    claim.oasis_assessment.five_or_more_meds = True
+    claim.oasis_assessment.exhaustion = False
+    claim.oasis_assessment.other_risk = False
+    claim.oasis_assessment.none_of_above = False
+    claim.oasis_assessment.weight_loss = False
+    claim.oasis_assessment.grooming = "1"
+    claim.oasis_assessment.dress_upper = "2"
+    claim.oasis_assessment.dress_lower = "2"
+    claim.oasis_assessment.bathing = "0"
+    claim.oasis_assessment.toileting = "1"
+    claim.oasis_assessment.transferring = "2"
+    claim.oasis_assessment.ambulation = "3"
     output = pypps_or_skip.hhag_client.process(claim)
     assert hasattr(output, "model_dump")

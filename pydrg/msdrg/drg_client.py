@@ -156,7 +156,7 @@ class DrgClient:
         )
 
         self.drg_versions = {}
-        while int(curr_version) <= int(end_version):
+        while True:
             try:
                 drg_component = jpype.JClass(
                     f"gov.agency.msdrg.v{curr_version}.MsdrgComponent"
@@ -165,6 +165,8 @@ class DrgClient:
                 print(f"Loaded DRG version: {curr_version}")
             except Exception as e:
                 print(f"Failed to load DRG version {curr_version}: {e}")
+                if curr_version > end_version:
+                    break
                 curr_version = self.increment_version(curr_version)
                 continue
             curr_version = self.increment_version(curr_version)

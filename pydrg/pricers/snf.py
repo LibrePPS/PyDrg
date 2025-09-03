@@ -3,7 +3,6 @@ from sqlalchemy import Engine
 from datetime import datetime
 from typing import Optional
 from logging import Logger, getLogger
-from threading import current_thread
 import jpype
 from pydantic import BaseModel
 
@@ -159,7 +158,7 @@ class SnfClient:
 
     def create_input_claim(self, claim: Claim) -> jpype.JObject:
         if self.db is None:
-            raise ValueError("Database connection is required for IppsClient.")
+            raise ValueError("Database connection is required for SnfClient.")
         claim_obj = self.snf_pricer_claim_data_class()
         provider_data = self.snf_pricer_provider_data_class()
         pricing_request = self.snf_pricer_request_class()
@@ -196,7 +195,7 @@ class SnfClient:
                             prior_pdpm_days = snf_data["prior_pdpm_days"]
         claim_obj.setPdpmPriorDays(self.java_integer_class(prior_pdpm_days))
         dx_list = self.array_list_class()
-        #@TODO need to verify if we need to strip out decimal points from diagnosis codes
+        # @TODO need to verify if we need to strip out decimal points from diagnosis codes
         if claim.principal_dx is not None:
             dx_list.add(claim.principal_dx.code)
         if claim.admit_dx is not None:

@@ -33,6 +33,12 @@ import tempfile
 import time
 import zipfile
 from urllib.parse import urljoin
+from multiprocessing import cpu_count
+
+# Async imports for parallel downloads
+import asyncio
+import aiohttp
+import aiofiles
 
 import requests
 from bs4 import BeautifulSoup
@@ -67,10 +73,10 @@ class CMSDownloader:
         "gfc": ["gfc-base-api-3.4.9.jar"],
         "grpc": ["protobuf-java-3.22.2.jar", "protobuf-java-3.21.7.jar"],
         "msdrg": [
-            "msdrg-binary-access-1.3.0.jar",
-            "msdrg-model-v2-2.8.0.jar",
-            "msdrg-v421-42.1.0.0.jar",
-            "MCE-2.0-42.1.0.0.jar",
+            "msdrg-binary-access-1.4.2.jar",
+            "msdrg-model-v2-2.10.0.jar",
+            "msdrg-v430-43.0.0.2.jar",
+            "MCE-2.0-43.0.0.1.jar",
             "mce-proto-1.2.0.jar",
             "Utility-1.1.1.jar",
         ],
@@ -247,6 +253,34 @@ class CMSDownloader:
             self.logger.error(f"Error downloading {url}: {str(e)}")
             return None
 
+    async def async_download_file(self, session, url, filename, directory=None):
+        """Async download a file with progress bar."""
+        if directory is None:
+            directory = self.download_dir
+
+        file_path = os.path.join(directory, filename)
+
+        try:
+            headers = {"User-Agent": self.USER_AGENT}
+            async with session.get(url, headers=headers) as response:
+                response.raise_for_status()
+
+                downloaded = 0
+
+                async with aiofiles.open(file_path, "wb") as f:
+                    async for chunk in response.content.iter_chunked(8192):
+                        await f.write(chunk)
+                        downloaded += len(chunk)
+
+                self.logger.info(
+                    f"Successfully downloaded: {filename} ({downloaded} bytes)"
+                )
+                return file_path
+
+        except Exception as e:
+            self.logger.error(f"Error downloading {url}: {str(e)}")
+            return None
+
     def get_filename_from_url(self, url):
         """Extract filename from URL."""
         return url.split("/")[-1]
@@ -263,6 +297,17 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"Error downloading SLF4J JAR file: {str(e)}")
             return None
+
+    async def async_download_slf4j_jar(self, session):
+        """Async download SLF4J JAR files."""
+        self.logger.info(
+            f"Downloading SLF4J JAR files from: {self.SLF4J_JAR} and {self.SLF4J_JAR2}"
+        )
+        tasks = [
+            self.async_download_file(session, self.SLF4J_JAR, "slf4j-simple-2.0.9.jar"),
+            self.async_download_file(session, self.SLF4J_JAR2, "slf4j-api-2.0.9.jar"),
+        ]
+        return await asyncio.gather(*tasks)
 
     def process_slf4j_jar(self, force_download=False):
         """Process the SLF4J JAR file."""
@@ -297,6 +342,13 @@ class CMSDownloader:
             self.logger.error(f"Error downloading GFC Base API JAR file: {str(e)}")
             return None
 
+    async def async_download_gfc_jar(self, session):
+        """Async download the GFC Base API JAR file."""
+        self.logger.info(f"Downloading GFC Base API JAR file from: {self.GFC_JAR}")
+        return await self.async_download_file(
+            session, self.GFC_JAR, "gfc-base-api-3.4.9.jar"
+        )
+
     def download_grpc_jar(self):
         """Download GRPC JAR files."""
         try:
@@ -309,6 +361,21 @@ class CMSDownloader:
         except Exception as e:
             self.logger.error(f"Error downloading GRPC JAR file: {str(e)}")
             return None
+
+    async def async_download_grpc_jar(self, session):
+        """Async download GRPC JAR files."""
+        self.logger.info(
+            f"Downloading GRPC JAR files from: {self.GRPC_JAR1} and {self.GRPC_JAR2}"
+        )
+        tasks = [
+            self.async_download_file(
+                session, self.GRPC_JAR1, "protobuf-java-3.22.2.jar"
+            ),
+            self.async_download_file(
+                session, self.GRPC_JAR2, "protobuf-java-3.21.7.jar"
+            ),
+        ]
+        return await asyncio.gather(*tasks)
 
     def process_gfc_jar(self, force_download=False):
         """Process the GFC Base API JAR file."""
@@ -527,35 +594,138 @@ class CMSDownloader:
     def download_msdrg_files(self):
         """Download MS-DRG Java source files from the MS-DRG website."""
         try:
-            self.logger.info(f"Connecting to MS-DRG website: {self.MSDRG_URL}")
-            headers = {"User-Agent": self.USER_AGENT}
-            response = requests.get(self.MSDRG_URL, headers=headers)
+            self.logger.info(f"Fetching MS-DRG files from: {self.MSDRG_URL}")
+            response = requests.get(
+                self.MSDRG_URL, headers={"User-Agent": self.USER_AGENT}
+            )
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, "html.parser")
 
-            # Find the link to java-source.zip
-            java_source_link = None
-            for link in soup.find_all("a", href=re.compile(self.JAVA_SOURCE_PATTERN)):
-                java_source_link = link["href"]
-                break
+            # Look for links that contain <strong> elements with "Java Source Code" text
+            java_source_links = []
 
-            if not java_source_link:
-                self.logger.error(
-                    f"Could not find '{self.JAVA_SOURCE_PATTERN}' link on the MS-DRG page"
-                )
-                return None
+            for link in soup.find_all("a", href=True):
+                # Check if the link contains a <strong> element with "Java Source Code"
+                strong_elements = link.find_all("strong")
+                for strong in strong_elements:
+                    if strong.get_text() and "Java Source Code" in strong.get_text():
+                        href = link.get("href", "")
+                        if href and (".zip" in href.lower()):
+                            # Extract version number from the strong text or href
+                            version = self._extract_msdrg_version_from_text(
+                                strong.get_text(), href
+                            )
+                            java_source_links.append(
+                                {
+                                    "href": href,
+                                    "version": version,
+                                    "text": strong.get_text().strip(),
+                                }
+                            )
+                            self.logger.info(
+                                f"Found MS-DRG Java Source: {href} (version {version}) - {strong.get_text()[:100]}..."
+                            )
+                            break
 
-            # Download the java source zip file
-            full_url = urljoin(self.MSDRG_URL, java_source_link)
-            filename = self.get_filename_from_url(full_url)
+            if not java_source_links:
+                self.logger.error("No MS-DRG Java Source Code links found")
+                return False
 
-            self.logger.info(f"Found MS-DRG Java source zip: {filename}")
-            return self.download_file(full_url, filename)
+            # Sort by version (highest first) and take the newest
+            java_source_links.sort(key=lambda x: x["version"], reverse=True)
+            selected = java_source_links[0]
+
+            self.logger.info(
+                f"Selected MS-DRG file: {selected['href']} (version {selected['version']})"
+            )
+
+            # Download the selected file
+            if selected["href"].startswith("/"):
+                download_url = urljoin("https://www.cms.gov", selected["href"])
+            else:
+                download_url = selected["href"]
+
+            filename = os.path.basename(selected["href"])
+            # Handle various zip filename suffixes that CMS uses
+            if filename.endswith((".zip-11", ".zip-1", ".zip-2")):
+                # Remove numeric suffixes for local storage
+                filename = re.sub(r"\.zip-\d+$", ".zip", filename)
+
+            success = self.download_file(download_url, filename, self.download_dir)
+            if success:
+                zip_path = os.path.join(self.download_dir, filename)
+                missing_jars = self.get_missing_jars_for_component("msdrg")
+                self.process_zip_for_jars(zip_path, "msdrg", missing_jars=missing_jars)
+                return True
+            else:
+                return False
 
         except Exception as e:
-            self.logger.error(f"Error downloading MSDRG files: {str(e)}")
-            return None
+            self.logger.error(f"Error downloading MS-DRG files: {e}")
+            return False
+
+    def _extract_msdrg_version_from_text(self, text, href):
+        """
+        Extract version number from MS-DRG text and URL for version comparison.
+
+        Args:
+            text (str): The text content from the <strong> element
+            href (str): The download URL
+
+        Returns:
+            float: Version number for comparison (higher = newer)
+        """
+        try:
+            # First try to extract version from the text (e.g., "Version 43")
+            text_version_match = re.search(
+                r"Version\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE
+            )
+            if text_version_match:
+                return float(text_version_match.group(1))
+
+            # Try to extract from "V43" or "v43" pattern in text
+            text_v_match = re.search(r"v(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+            if text_v_match:
+                return float(text_v_match.group(1))
+
+            # Fall back to URL-based extraction
+            return self._extract_msdrg_version(href)
+
+        except (ValueError, AttributeError):
+            return 0.0
+
+    def _extract_msdrg_version(self, href):
+        """
+        Extract version number from MS-DRG download URL for version comparison.
+
+        Args:
+            href (str): The download URL
+
+        Returns:
+            float: Version number for comparison (higher = newer)
+        """
+        try:
+            # Pattern for v43 format: ms-drg-mce-v43-standalone-jars.zip
+            v_match = re.search(r"v(\d+(?:\.\d+)?)", href, re.IGNORECASE)
+            if v_match:
+                return float(v_match.group(1))
+
+            # Pattern for version in filename like v42.1
+            version_match = re.search(r"(\d+\.\d+)", href)
+            if version_match:
+                return float(version_match.group(1))
+
+            # Pattern for standalone version numbers
+            standalone_match = re.search(r"(\d+)", href)
+            if standalone_match:
+                return float(standalone_match.group(1))
+
+            # Default to 0 if no version found
+            return 0.0
+
+        except (ValueError, AttributeError):
+            return 0.0
 
     def download_ioce_files(self):
         """Download IOCE Editor Java files."""
@@ -762,15 +932,15 @@ class CMSDownloader:
 
             # Find the link to the CMG Grouper ZIP file
             cmg_link = None
-            #example /files/zip/cmg-version-530-final.zip
-            for link in soup.find_all("a", href=re.compile(r"/files/zip/cmg-version-\d+-final\.zip")):
+            # example /files/zip/cmg-version-530-final.zip
+            for link in soup.find_all(
+                "a", href=re.compile(r"/files/zip/cmg-version-\d+-final\.zip")
+            ):
                 cmg_link = link["href"]
                 break
 
             if not cmg_link:
-                self.logger.error(
-                    "Could not find 'cmg-grouper' link on the CMS page"
-                )
+                self.logger.error("Could not find 'cmg-grouper' link on the CMS page")
                 return None
 
             # Download the CMG Grouper ZIP file
@@ -789,10 +959,10 @@ class CMSDownloader:
          2.) CMG_v{version}_LIB.zip
 
          from CMG JAR.zip we'll extract the CMG_<version>.jar
-         from CMG_v{version}_LIB.zip we'll extract all jars, compare them 
+         from CMG_v{version}_LIB.zip we'll extract all jars, compare them
          to what's already in the jars directory, if a jar does not exist we'll
          place that into the jars directory, otherwise we'll skip it.
-         """
+        """
 
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(self.download_dir)
@@ -800,8 +970,9 @@ class CMSDownloader:
         # Process the extracted ZIP files
         zip_files = glob.glob(os.path.join(self.download_dir, "*.zip"))
         for zip_file in zip_files:
-            self.process_zip_for_jars(zip_file, "cmg", self.jars_dir, self.REQUIRED_JARS["cmg"])
-
+            self.process_zip_for_jars(
+                zip_file, "cmg", self.jars_dir, self.REQUIRED_JARS["cmg"]
+            )
 
     def extract_jar_files(self, dest_dir=None):
         """Extract JAR files from downloaded ZIP files and move them to jars directory."""
@@ -950,6 +1121,139 @@ class CMSDownloader:
 
         except Exception as e:
             self.logger.error(f"An error occurred: {str(e)}")
+
+    async def async_download_web_pricers(
+        self, session, download_dir=None, force_all_downloads=False, max_concurrent=5
+    ):
+        """
+        Async version of download_web_pricers with parallel downloads using worker pool.
+
+        Args:
+            session: aiohttp ClientSession for downloads
+            download_dir (str): Directory to download files to
+            force_all_downloads (bool): If True, download all files regardless of existing JARs
+            max_concurrent (int): Maximum number of concurrent downloads
+        """
+        if download_dir is None:
+            download_dir = self.download_dir
+
+        try:
+            headers = {"User-Agent": self.USER_AGENT}
+            response = requests.get(self.CMS_URL, headers=headers)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Find the target header
+            target_section = None
+            for h2 in soup.find_all("h2"):
+                if self.TARGET_HEADER in h2.text:
+                    target_section = h2
+                    break
+
+            if not target_section:
+                self.logger.error(
+                    f"Could not find section with header: {self.TARGET_HEADER}"
+                )
+                return
+
+            # Look at content following the header until we hit another h2 or reach the end
+            download_links = []
+            current = target_section.next_sibling
+
+            while current and (not current.name or current.name != "h2"):
+                if current.name == "a" and self.ZIP_PATH_PATTERN in current.get(
+                    "href", ""
+                ):
+                    download_links.append(current["href"])
+                elif hasattr(current, "find_all"):
+                    for link in current.find_all(
+                        "a", href=re.compile(self.ZIP_PATH_PATTERN)
+                    ):
+                        download_links.append(link["href"])
+                current = current.next_sibling
+
+            if not download_links:
+                self.logger.warning("No download links found matching the criteria")
+                return
+
+            self.logger.info(f"Found {len(download_links)} potential files to download")
+
+            # Create pricers subdirectory
+            pricers_dir = os.path.join(self.jars_dir, "pricers")
+            self.create_directory(pricers_dir)
+
+            # If not forcing all downloads, filter links based on missing JARs
+            if not force_all_downloads:
+                missing_jars = self.get_missing_jars_for_component("pricers")
+                if not missing_jars:
+                    self.logger.info(
+                        "All pricer JARs are already present. Use force_all_downloads=True to redownload."
+                    )
+                    return
+
+                self.logger.info(f"Missing JAR files: {missing_jars}")
+
+                # Filter download links to only include those for missing JARs
+                filtered_links = []
+                for link in download_links:
+                    full_url = urljoin(self.CMS_URL, link)
+                    expected_jar = self.map_url_to_jar_filename(full_url)
+
+                    if expected_jar and expected_jar in missing_jars:
+                        filtered_links.append(link)
+                        self.logger.info(
+                            f"Will download {self.get_filename_from_url(full_url)} for missing JAR: {expected_jar}"
+                        )
+                    elif expected_jar:
+                        self.logger.info(
+                            f"Skipping {self.get_filename_from_url(full_url)} as JAR {expected_jar} already exists"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"Could not map URL {full_url} to expected JAR filename"
+                        )
+
+                download_links = filtered_links
+
+                if not download_links:
+                    self.logger.info(
+                        "No downloads needed - all required JARs are present"
+                    )
+                    return
+
+            self.logger.info(
+                f"Will download {len(download_links)} files in parallel (max {max_concurrent} concurrent)"
+            )
+
+            # Create semaphore to limit concurrent downloads
+            semaphore = asyncio.Semaphore(max_concurrent)
+
+            async def download_with_semaphore(link):
+                async with semaphore:
+                    full_url = urljoin(self.CMS_URL, link)
+                    filename = self.get_filename_from_url(full_url)
+                    self.logger.info(f"Starting download: {filename}")
+                    return await self.async_download_file(session, full_url, filename)
+
+            # Download all files in parallel with semaphore control
+            tasks = [download_with_semaphore(link) for link in download_links]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            success_count = sum(
+                1 for r in results if r and not isinstance(r, Exception)
+            )
+            failed_count = sum(1 for r in results if isinstance(r, Exception))
+
+            self.logger.info(
+                f"Parallel download complete. Successfully downloaded {success_count} files, {failed_count} failed."
+            )
+
+            # Extract jar files from downloaded ZIPs
+            self.extract_jar_files(dest_dir=pricers_dir)
+
+        except Exception as e:
+            self.logger.error(f"An error occurred in async download: {str(e)}")
 
     def list_jar_inventory(self):
         """
@@ -1129,7 +1433,6 @@ class CMSDownloader:
                 self.logger.info(
                     "HHAGrouper components already exist, skipping download"
                 )
-            
 
             # Process individual JAR components
             self.process_gfc_jar(force_download=force_all_downloads)
@@ -1192,8 +1495,209 @@ class CMSDownloader:
                 shutil.rmtree(self.download_dir)
             return False
 
+    async def async_build_jar_environment(
+        self, clean_existing=True, force_download=False, max_concurrent=5
+    ):
+        """
+        Async version of build_jar_environment with parallel downloads.
+
+        Args:
+            clean_existing (bool): If True, delete everything and start fresh
+            force_download (bool): If True, force download even if files exist
+            max_concurrent (int): Maximum number of concurrent downloads
+        """
+        try:
+            # If clean_existing=True, delete everything and start fresh
+            if clean_existing:
+                if os.path.exists(self.jars_dir):
+                    shutil.rmtree(self.jars_dir)
+                os.makedirs(self.jars_dir, exist_ok=True)
+                force_all_downloads = True  # Force all downloads when cleaning
+            else:
+                self.create_directory(self.jars_dir)
+                force_all_downloads = force_download
+
+            self.logger.info("Starting CMS Software download process (async)")
+
+            # Log current environment status
+            if not clean_existing:
+                missing_jars = self.get_all_missing_jars()
+                if not missing_jars:
+                    self.logger.info("All JAR components are already present")
+                else:
+                    self.logger.info(f"Missing components: {list(missing_jars.keys())}")
+
+            # Create directories
+            self.create_directory(self.download_dir)
+            self.create_directory(self.jars_dir)
+
+            # Create aiohttp session for all async downloads
+            async with aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(limit=max_concurrent),
+                timeout=aiohttp.ClientTimeout(total=3600),  # 1 hour timeout
+            ) as session:
+                # Download and process MSDRG files (still sync as it's a single file with complex form)
+                if force_all_downloads or not self.is_component_complete("msdrg"):
+                    self.logger.info("Starting MSDRG file download process")
+                    msdrg_zip_path = self.download_msdrg_files()
+                    if msdrg_zip_path:
+                        self.logger.info("Processing MSDRG ZIP file")
+                        if force_all_downloads:
+                            self.process_zip_for_jars(msdrg_zip_path, "msdrg")
+                        else:
+                            missing_msdrg_jars = self.get_missing_jars_for_component(
+                                "msdrg"
+                            )
+                            self.process_zip_for_jars(
+                                msdrg_zip_path, "msdrg", missing_jars=missing_msdrg_jars
+                            )
+                else:
+                    self.logger.info(
+                        "MSDRG components already exist, skipping download"
+                    )
+
+                # Download and process IOCE files (still sync due to form complexity)
+                if force_all_downloads or not self.is_component_complete("ioce"):
+                    self.logger.info("Starting IOCE file download process")
+                    ioce_zip_path = self.download_ioce_files()
+                    if ioce_zip_path:
+                        self.logger.info("Processing IOCE ZIP file")
+                        if force_all_downloads:
+                            self.process_zip_for_jars(ioce_zip_path, "ioce")
+                        else:
+                            missing_ioce_jars = self.get_missing_jars_for_component(
+                                "ioce"
+                            )
+                            self.process_zip_for_jars(
+                                ioce_zip_path, "ioce", missing_jars=missing_ioce_jars
+                            )
+                else:
+                    self.logger.info("IOCE components already exist, skipping download")
+
+                # Download and process the HHAG files (still sync)
+                if force_all_downloads or not self.is_component_complete("hhag"):
+                    self.logger.info("Starting HHAGrouper file download process")
+                    hhag_zip_path = self.download_hhagrouper_files()
+                    if hhag_zip_path:
+                        self.logger.info("Processing HHAGrouper ZIP file")
+                        if force_all_downloads:
+                            self.process_zip_for_jars(hhag_zip_path, "HomeHealth")
+                        else:
+                            missing_hhag_jars = self.get_missing_jars_for_component(
+                                "hhag"
+                            )
+                            self.process_zip_for_jars(
+                                hhag_zip_path,
+                                "HomeHealth",
+                                missing_jars=missing_hhag_jars,
+                            )
+                else:
+                    self.logger.info(
+                        "HHAGrouper components already exist, skipping download"
+                    )
+
+                # Download and process the CMG Grouper files (still sync)
+                if force_all_downloads or not self.is_component_complete("cmg"):
+                    self.logger.info("Starting CMGrouper file download process")
+                    cmg_zip_path = self.download_cmg_grouper()
+                    if cmg_zip_path:
+                        self.logger.info("Processing CMGrouper ZIP file")
+                        if force_all_downloads:
+                            self.process_cmggrouper_zip(cmg_zip_path)
+                        else:
+                            missing_cmg_jars = self.get_missing_jars_for_component(
+                                "cmg"
+                            )
+                            self.process_zip_for_jars(
+                                cmg_zip_path, "CMGrouper", missing_jars=missing_cmg_jars
+                            )
+                else:
+                    self.logger.info(
+                        "CMGrouper components already exist, skipping download"
+                    )
+
+                # Process individual JAR components in parallel
+                jar_tasks = []
+
+                # Check which components need downloading
+                if force_all_downloads or not self.is_component_complete("slf4j"):
+                    jar_tasks.append(self.async_download_slf4j_jar(session))
+
+                if force_all_downloads or not self.is_component_complete("gfc"):
+                    jar_tasks.append(self.async_download_gfc_jar(session))
+
+                if force_all_downloads or not self.is_component_complete("grpc"):
+                    jar_tasks.append(self.async_download_grpc_jar(session))
+
+                if jar_tasks:
+                    self.logger.info(
+                        f"Downloading {len(jar_tasks)} JAR components in parallel"
+                    )
+                    jar_results = await asyncio.gather(
+                        *jar_tasks, return_exceptions=True
+                    )
+
+                    # Process results and move JARs to proper locations
+                    for i, result in enumerate(jar_results):
+                        if isinstance(result, Exception):
+                            self.logger.error(f"JAR download {i} failed: {result}")
+                        elif result:
+                            # Move downloaded JARs to jars directory
+                            paths = result if isinstance(result, list) else [result]
+                            for path in paths:
+                                if (
+                                    path
+                                    and isinstance(path, str)
+                                    and os.path.exists(path)
+                                ):
+                                    dest_path = os.path.join(
+                                        self.jars_dir, os.path.basename(path)
+                                    )
+                                    shutil.move(path, dest_path)
+                                    self.logger.info(
+                                        f"Moved JAR file: {os.path.basename(path)}"
+                                    )
+
+                # Get CMS Web Pricers using async parallel downloads
+                if force_all_downloads or not self.is_component_complete("pricers"):
+                    self.logger.info(
+                        "Starting CMS Web Pricers download process (async)"
+                    )
+                    await self.async_download_web_pricers(
+                        session,
+                        force_all_downloads=force_all_downloads,
+                        max_concurrent=max_concurrent,
+                    )
+                else:
+                    self.logger.info(
+                        "Pricer components already exist, skipping download"
+                    )
+
+            # Clean up download directory
+            if os.path.exists(self.download_dir):
+                shutil.rmtree(self.download_dir)
+
+            # Remove sources jar files
+            sources_jar_files = glob.glob(os.path.join(self.jars_dir, "*source*.jar"))
+            gui_jar_files = glob.glob(os.path.join(self.jars_dir, "*GUI*.jar"))
+            sources_jar_files.extend(gui_jar_files)
+            for jar_file in sources_jar_files:
+                os.remove(jar_file)
+                self.logger.info(f"Removed sources JAR file: {jar_file}")
+
+            self.logger.info("Async JAR environment build complete!")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"An unhandled error occurred in async build: {str(e)}")
+            if os.path.exists(self.download_dir):
+                shutil.rmtree(self.download_dir)
+            return False
+
 
 if __name__ == "__main__":
+    import asyncio
+
     # Create downloader instance and build the JAR environment
     downloader = CMSDownloader()
 
@@ -1201,19 +1705,26 @@ if __name__ == "__main__":
     print("Checking current JAR environment...")
     downloader.print_jar_inventory()
 
-    # Build with selective downloading (default behavior)
-    success = downloader.build_jar_environment(clean_existing=False)
+    async def main():
+        """Main async function for parallel downloads."""
+        # Use async build with parallel downloads (max 5 concurrent)
+        success = await downloader.async_build_jar_environment(
+            clean_existing=False, max_concurrent=cpu_count()
+        )
 
-    if success:
-        print("\nJAR environment build completed successfully!")
-        # Show final inventory
-        downloader.print_jar_inventory()
+        if success:
+            print("\nJAR environment build completed successfully!")
+            # Show final inventory
+            downloader.print_jar_inventory()
 
-        # Validate the environment
-        validation = downloader.validate_jar_environment()
-        print(f"\nEnvironment Validation: {validation['status_message']}")
-    else:
-        print("JAR environment build failed. Check logs for details.")
+            # Validate the environment
+            validation = downloader.validate_jar_environment()
+            print(f"\nEnvironment Validation: {validation['status_message']}")
+        else:
+            print("JAR environment build failed. Check logs for details.")
 
-    # Uncomment to force clean rebuild:
-    # success = downloader.build_jar_environment(clean_existing=True)
+    # Run the async main function
+    asyncio.run(main())
+
+    # Uncomment to force clean rebuild with async:
+    # asyncio.run(downloader.async_build_jar_environment(clean_existing=True, max_concurrent=8))

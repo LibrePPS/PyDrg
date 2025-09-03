@@ -4,6 +4,7 @@ import sqlalchemy
 import requests
 from pydantic import BaseModel
 from multiprocessing import cpu_count
+import jpype
 
 from pydrg.input.claim import Provider
 
@@ -69,7 +70,7 @@ class OPSFDatabase:
             connection.commit()
             # Create index on provider_ccn and effective_date for faster lookups
             connection.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS idx_opsf_provider_effective ON opsf (provider_ccn, effective_date)"
+                "CREATE INDEX IF NOT EXISTS idx_self_effective ON opsf (provider_ccn, effective_date)"
             )
             # Create index on national_provider_identifier for faster lookups
             connection.exec_driver_sql(
@@ -225,3 +226,54 @@ class OPSFProvider(BaseModel):
                 raise ValueError(
                     f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
                 )
+
+    def set_java_values(self, java_obj: jpype.JObject, client):
+        if (
+            not hasattr(client, "java_integer_class")
+            or not hasattr(client, "java_big_decimal_class")
+            or not hasattr(client, "py_date_to_java_date")
+        ):
+            raise AttributeError(
+                "Client must have java_integer_class,java_big_decimal_class and py_date_to_java_date attributes."
+            )
+        java_obj.setCbsaActualGeographicLocation(self.cbsa_actual_geographic_location)
+        java_obj.setCbsaWageIndexLocation(self.cbsa_wage_index_location)
+        java_obj.setCostOfLivingAdjustment(
+            client.java_big_decimal_class(self.cost_of_living_adjustment)
+        )
+        java_obj.setCountyCode(self.county_code)
+        java_obj.setHospitalQualityIndicator(self.hospital_quality_indicator)
+        java_obj.setIntermediaryNumber(self.intermediary_number)
+        java_obj.setMedicarePerformanceAdjustment(
+            client.java_big_decimal_class(self.medicare_performance_adjustment)
+        )
+        java_obj.setOperatingCostToChargeRatio(
+            client.java_big_decimal_class(self.operating_cost_to_charge_ratio)
+        )
+        java_obj.setProviderCcn(self.provider_ccn)
+        java_obj.setProviderType(self.provider_type)
+        java_obj.setSpecialPaymentIndicator(self.special_payment_indicator)
+        java_obj.setPaymentModelAdjustment(
+            client.java_big_decimal_class(self.payment_model_adjustment)
+        )
+        java_obj.setSpecialLocalityIndicator(self.special_locality_indicator)
+        java_obj.setPaymentCbsa(self.payment_cbsa)
+        java_obj.setDeviceCostToChargeRatio(
+            client.java_big_decimal_class(self.device_cost_to_charge_ratio)
+        )
+        java_obj.setSpecialWageIndex(
+            client.java_big_decimal_class(self.special_wage_index)
+        )
+        java_obj.setStateCode(self.state_code)
+        java_obj.setSupplementalWageIndex(
+            client.java_big_decimal_class(self.supplemental_wage_index)
+        )
+        java_obj.setSupplementalWageIndexIndicator(
+            self.supplemental_wage_index_indicator
+        )
+        java_obj.setWaiverIndicator(self.waiver_indicator)
+        java_obj.setEffectiveDate(client.py_date_to_java_date(self.effective_date))
+        java_obj.setTerminationDate(client.py_date_to_java_date(self.termination_date))
+        java_obj.setFiscalYearBeginDate(
+            client.py_date_to_java_date(self.fiscal_year_begin_date)
+        )

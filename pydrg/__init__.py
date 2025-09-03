@@ -34,7 +34,7 @@ from .input.claim import (
     ICDConvertOptions,
     ICDConvertOption,
     IrfPai,
-    OasisAssessment
+    OasisAssessment,
 )
 
 # IOCE (OPPS code editor)
@@ -63,6 +63,8 @@ from .pricers.opsf import OPSFDatabase, OPSFProvider
 from .pricers.snf import SnfClient, SnfOutput
 from .pricers.hha import HhaClient, HhaOutput
 from .pricers.url_loader import UrlLoader
+from .pricers.irf import IrfClient, IrfOutput
+from .pricers.esrd import EsrdClient, EsrdOutput
 
 from .converter import (
     create_database,
@@ -126,6 +128,10 @@ __all__ = [
     "SnfOutput",
     "HhaClient",
     "HhaOutput",
+    "IrfClient",
+    "IrfOutput",
+    "EsrdClient",
+    "EsrdOutput",
     # Helpers and utilities
     "CMSDownloader",
     "IPSFDatabase",

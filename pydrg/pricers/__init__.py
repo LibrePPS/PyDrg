@@ -7,6 +7,8 @@ from .opps import OppsClient, OppsOutput
 from .opsf import OPSFDatabase, OPSFProvider
 from .snf import SnfClient, SnfOutput
 from .hha import HhaClient, HhaOutput
+from .irf import IrfClient, IrfOutput
+from .esrd import EsrdClient, EsrdOutput
 from .url_loader import UrlLoader
 
 __all__ = [
@@ -29,4 +31,8 @@ __all__ = [
     "HhaClient",
     "HhaOutput",
     "UrlLoader",
+    "IrfClient",
+    "IrfOutput",
+    "EsrdClient",
+    "EsrdOutput",
 ]

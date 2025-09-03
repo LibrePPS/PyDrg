@@ -1,7 +1,3 @@
-import json
-from datetime import datetime
-from enum import Enum
-from typing import List, Optional
 from pydrg.input import IrfPai
 from .irfg_output import IrfgOutput
 
@@ -9,16 +5,12 @@ import jpype
 
 from pydrg.input.claim import (
     Claim,
-    DiagnosisCode,
-    ICDConvertOption,
 )
 from pydrg.helpers.utils import (
-    float_or_none,
     py_date_to_java_date,
 )
 
 from pydrg.plugins import apply_client_methods, run_client_load_classes
-from pydrg.converter.icd_converter import ICDConverter, ICD10ConvertOutput
 
 ASSESSMENT_TAGS = {
     "eating_self_admsn_cd": "GG0130A1",
@@ -38,10 +30,8 @@ ASSESSMENT_TAGS = {
     "walk_150_feet_cd": "GG0170I1",
     "step_1_cd": "GG0170M1",
     "urinary_continence_cd": "H0350",
-    "bowel_continence_cd": "H0400"
+    "bowel_continence_cd": "H0400",
 }
-
-
 
 
 class IrfgClient:
@@ -76,7 +66,9 @@ class IrfgClient:
         self.java_date_class = jpype.JClass("java.time.LocalDate")
         self.java_data_formatter = jpype.JClass("java.time.format.DateTimeFormatter")
         self.pai_class = jpype.JClass("gov.cms.grouper.irf.model.Pai")
-        self.dx_code_class = jpype.JClass("com.mmm.his.cer.foundation.model.DiagnosisCode")
+        self.dx_code_class = jpype.JClass(
+            "com.mmm.his.cer.foundation.model.DiagnosisCode"
+        )
 
     def py_date_to_java_date(self, py_date):
         """
@@ -85,13 +77,13 @@ class IrfgClient:
         if py_date is None:
             return None
         return py_date_to_java_date(self, py_date)
-    
+
     def create_assessments(self, pai: IrfPai):
         """
         Create a list of Assessment Java objects from the given IrfPai object.
-        
+
         Java constructor:
-            public Assessment(String name, String item, String value) 
+            public Assessment(String name, String item, String value)
         The item parameter is what matters, it's tied to the form location on IRF-PAI data spec.
         The name parameter doesn't seem to be used within the CMG Grouper but we provide for completeness.
         """
@@ -119,13 +111,15 @@ class IrfgClient:
         claim_obj.setImpairmentGroup(claim.irf_pai.impairment_admit_group_code)
         claim_obj.setDischargeDate(self.py_date_to_java_date(claim.thru_date))
         dx_idx = 0
-        #Do not strip decimal points out of Dx Codes, CMS's CMG Grouper validates the pattern of ICD-10 codes
+        # Do not strip decimal points out of Dx Codes, CMS's CMG Grouper validates the pattern of ICD-10 codes
         if claim.principal_dx is not None:
             claim_obj.addCode(self.dx_code_class(claim.principal_dx.code.ljust(8, "^")))
             dx_idx += 1
         while dx_idx < len(claim.secondary_dxs) and dx_idx < 25:
             if claim.secondary_dxs[dx_idx] is not None:
-                claim_obj.addCode(self.dx_code_class(claim.secondary_dxs[dx_idx].code.ljust(8, "^")))
+                claim_obj.addCode(
+                    self.dx_code_class(claim.secondary_dxs[dx_idx].code.ljust(8, "^"))
+                )
             dx_idx += 1
         assessments = self.create_assessments(claim.irf_pai)
         if assessments is not None:
@@ -145,7 +139,9 @@ class IrfgClient:
         try:
             grouper.process(claim_input)
         except jpype.JException as ex:
-            raise RuntimeError(f"Java exception during IRF Grouper processing: {str(ex)}")
+            raise RuntimeError(
+                f"Java exception during IRF Grouper processing: {str(ex)}"
+            )
         output = IrfgOutput()
         output.from_java(claim_input)
         return output

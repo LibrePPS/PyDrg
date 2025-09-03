@@ -98,6 +98,8 @@ class Claim(BaseModel):
     hmo: bool = False
     oasis_assessment: Optional[OasisAssessment] = None
     irf_pai: Optional[IrfPai] = None
+    esrd_initial_date: Optional[datetime] = None
+    demo_codes: List[str] = Field(default_factory=list)
 
     @field_validator("los", mode="after")
     @classmethod

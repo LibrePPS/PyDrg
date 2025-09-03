@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
 from pydrg.input import (
@@ -10,7 +10,7 @@ from pydrg.input import (
     PoaType,
     OccurrenceCode,
     OasisAssessment,
-    IrfPai
+    IrfPai,
 )
 from pydrg.pypps import Pypps
 
@@ -159,6 +159,7 @@ if __name__ == "__main__":
 
         print("===IRF Grouper ===")
         claim.oasis_assessment = None
+        claim.billing_provider.other_id = "013025"
         claim.irf_pai = IrfPai()
         claim.principal_dx.code = "D61.03"
         claim.admit_date = datetime(2025, 1, 1)
@@ -184,3 +185,28 @@ if __name__ == "__main__":
 
         irf_output = pypps.irfg_client.process(claim)
         print(irf_output.model_dump_json(indent=2))
+        print("=== End of IRF Grouper ===")
+        print("=== IRF Pricer Example ===")
+        irf_pricer = pypps.irf_client.process(claim, irf_output)
+        print(irf_pricer.model_dump_json(indent=2))
+        print("=== End of IRF Pricer Example ===")
+        print("=== ESRD Pricer Example ===")
+        claim.billing_provider.other_id = "012525"
+        claim.irf_pai = None
+        claim.cond_codes.clear()
+        claim.cond_codes.append("74")
+        claim.value_codes.clear()
+        claim.value_codes.append(ValueCode(code="QH", amount=5000.00))
+        start_date = datetime(2025, 1, 1)
+        claim.esrd_initial_date = datetime(2025, 1, 1)
+        while start_date < datetime(2025, 1, 26):
+            line = LineItem()
+            line.revenue_code = "0821"
+            line.service_date = start_date
+            claim.lines.append(line)
+            start_date += timedelta(days=1)
+        claim.value_codes.append(ValueCode(code="A8", amount=70.0))
+        claim.value_codes.append(ValueCode(code="A9", amount=180.0))
+        esrd_output = pypps.esrd_client.process(claim)
+        print(esrd_output.model_dump_json(indent=2))
+        print("=== End ESRD Pricer Example ===")

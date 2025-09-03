@@ -475,9 +475,6 @@ class IppsClient:
             jar_path: Path to the IPPS pricer JAR file
         """
         # Load Javassist classes with the custom class loader
-        ct_class = jpype.JClass(
-            "javassist.CtClass", loader=self.url_loader.class_loader
-        )
         ct_field = jpype.JClass(
             "javassist.CtField", loader=self.url_loader.class_loader
         )
@@ -700,8 +697,13 @@ class IppsClient:
             raise ValueError("Database connection is required for IppsClient.")
 
         # @TODO Probably a better way to handle this
+        # Also need to document that the 'ipps' key needs to be present in additional_data
         review_code = "00"
         demo_codes = self.array_list_class()
+        for code in claim.demo_codes:
+            demo_codes.add(code)
+        claim_object.setDemoCodes(demo_codes)
+
         lifetime_reserve_days = 0
         midnight_adjustment_geolocation = ""
         if isinstance(claim.additional_data, dict):
@@ -714,17 +716,11 @@ class IppsClient:
                 midnight_adjustment_geolocation = str(
                     ipps_data.get("midnight_adjustment_geolocation", "")
                 )
-                if "demo_codes" in ipps_data:
-                    if isinstance(ipps_data["demo_codes"], list):
-                        for demo_code in ipps_data["demo_codes"]:
-                            demo_codes.add(demo_code)
         claim_object.setReviewCode(review_code)
         claim_object.setLifetimeReserveDays(
             self.java_integer_class(lifetime_reserve_days)
         )
         claim_object.setMidnightAdjustmentGeolocation(midnight_adjustment_geolocation)
-        claim_object.setDemoCodes(demo_codes)
-
         claim_object.setCoveredCharges(self.java_big_decimal_class(claim.total_charges))
         if claim.los < claim.non_covered_days:
             raise ValueError("LOS cannot be less than non-covered days")

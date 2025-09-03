@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel
 
+
 class OasisAssessment(BaseModel):
     fall_risk: Optional[int] = 0
     weight_loss: Optional[int] = 0

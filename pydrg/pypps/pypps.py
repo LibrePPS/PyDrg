@@ -16,6 +16,8 @@ from pydrg.pricers.snf import SnfClient
 from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.ltch import LtchClient
 from pydrg.pricers.hha import HhaClient
+from pydrg.pricers.irf import IrfClient
+from pydrg.pricers.esrd import EsrdClient
 from pydrg.pricers.opps import OppsClient
 from pydrg.pricers.opsf import OPSFDatabase
 from pydrg.converter import ICDConverter
@@ -54,10 +56,12 @@ class Pypps:
         self.opps_client: Optional[OppsClient] = None
         self.ipf_client: Optional[IpfClient] = None
         self.ltch_client: Optional[LtchClient] = None
+        self.irf_client: Optional[IrfClient] = None
         self.hospice_client: Optional[HospiceClient] = None
         self.snf_client: Optional[SnfClient] = None
         self.hha_client: Optional[HhaClient] = None
-        self.irf_client: Optional[IrfgClient] = None
+        self.esrd_client: Optional[EsrdClient] = None
+        self.irfg_client: Optional[IrfgClient] = None
         # End of Pricer Clients
         self.jar_path = jar_path
         self.db_path = db_path

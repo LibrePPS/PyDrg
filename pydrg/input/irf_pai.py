@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, field_validator
 
+
 class IrfPai(BaseModel):
     assessment_system: Optional[str] = "IRF-PAI"
     transaction_type: Optional[int] = 1
@@ -24,12 +25,13 @@ class IrfPai(BaseModel):
     step_1_cd: Optional[str] = None
     urinary_continence_cd: Optional[str] = None
     bowel_continence_cd: Optional[str] = None
-    
+
     @field_validator("assessment_system")
     def check_assessment_system(cls, v):
         if v != "IRF-PAI":
             raise ValueError("Invalid assessment system")
         return v
+
     @field_validator("transaction_type")
     def check_transaction_type(cls, v):
         if v not in [1, 2]:
