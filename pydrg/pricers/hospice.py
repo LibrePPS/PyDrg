@@ -3,7 +3,6 @@ from sqlalchemy import Engine
 from datetime import datetime, timedelta
 from typing import Optional
 from logging import Logger, getLogger
-from threading import current_thread
 
 import jpype
 from pydantic import BaseModel
@@ -407,9 +406,6 @@ class HospiceClient:
         return pricing_request
 
     def process(self, claim: Claim) -> HospiceOutput:
-        self.logger.debug(
-            f"Hospice Client processing claim on thread {current_thread().ident}"
-        )
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.dispatch_obj.process(pricing_request)
         hospice_output = HospiceOutput()
