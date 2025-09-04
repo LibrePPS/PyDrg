@@ -52,6 +52,10 @@ from .pricers.ipf import IpfClient, IpfOutput
 # HHA Grouper
 from .hhag import HhagClient, HhagOutput, HhagEdit
 
+#CMG Grouper
+from .irfg.irfg_client import IrfgClient
+from .irfg.irfg_output import IrfgOutput
+
 # Pricers
 from .pricers.ipps import IppsClient, IppsOutput
 
@@ -101,6 +105,9 @@ __all__ = [
     "MsdrgOutput",
     "MsdrgOutputDxCode",
     "MsdrgOutputPrCode",
+    # CMG
+    "IrfgClient",
+    "IrfgOutput",
     # HHA
     "HhagClient",
     "HhagOutput",
