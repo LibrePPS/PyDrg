@@ -112,8 +112,7 @@ class HhagClient:
     def process(self, claim: Claim):
         """
         Process the claim through the HHAG system.
-        Remember that the HHA Grouper requires OASIS assesment data to be entered.
-        You should pass this data in 'claim.additional_data["oasis"]'.
+        Remember that the HHA Grouper requires OASIS assesment data to be entered..
         """
         claim_obj = self.create_input_claim(claim)
         self.hhag_grouper_obj.group(claim_obj)

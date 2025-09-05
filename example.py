@@ -20,7 +20,7 @@ if __name__ == "__main__":
         os.path.join(os.path.dirname(__file__), "data", "pypps.db")
     )
     pypps = Pypps(
-        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=True
+        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False
     )  # <--- Set build_db=True to create the database if it does not exist
     pypps.setup_clients()
 
@@ -135,16 +135,16 @@ if __name__ == "__main__":
                 OccurrenceCode(code="61", date=datetime(2024, 12, 15))
             )
             claim.oasis_assessment = OasisAssessment()
-            claim.oasis_assessment.fall_risk = True
-            claim.oasis_assessment.multiple_hospital_stays = True
-            claim.oasis_assessment.multiple_ed_visits = True
-            claim.oasis_assessment.mental_behavior_risk = False
-            claim.oasis_assessment.compliance_risk = True
-            claim.oasis_assessment.five_or_more_meds = True
-            claim.oasis_assessment.exhaustion = False
-            claim.oasis_assessment.other_risk = False
-            claim.oasis_assessment.none_of_above = False
-            claim.oasis_assessment.weight_loss = False
+            claim.oasis_assessment.fall_risk = 1
+            claim.oasis_assessment.multiple_hospital_stays = 1
+            claim.oasis_assessment.multiple_ed_visits = 1
+            claim.oasis_assessment.mental_behavior_risk = 0
+            claim.oasis_assessment.compliance_risk = 1
+            claim.oasis_assessment.five_or_more_meds = 1
+            claim.oasis_assessment.exhaustion = 0
+            claim.oasis_assessment.other_risk = 0
+            claim.oasis_assessment.none_of_above = 0
+            claim.oasis_assessment.weight_loss = 0
             claim.oasis_assessment.grooming = "1"
             claim.oasis_assessment.dress_upper = "2"
             claim.oasis_assessment.dress_lower = "2"
@@ -154,6 +154,7 @@ if __name__ == "__main__":
             claim.oasis_assessment.ambulation = "3"
             hhag_output = pypps.hhag_client.process(claim)
             hha_pricer = pypps.hha_client.process(claim, hhag_output)
+            print(hhag_output.model_dump_json(indent=2))
             print(hha_pricer.model_dump_json(indent=2))
             print("=== End of HHA Pricer Example ===")
 
