@@ -52,7 +52,7 @@ from .pricers.ipf import IpfClient, IpfOutput
 # HHA Grouper
 from .hhag import HhagClient, HhagOutput, HhagEdit
 
-#CMG Grouper
+# CMG Grouper
 from .irfg.irfg_client import IrfgClient
 from .irfg.irfg_output import IrfgOutput
 

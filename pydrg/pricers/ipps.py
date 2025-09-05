@@ -769,7 +769,9 @@ class IppsClient:
                 drg = claim.additional_data["drg"]
                 claim_object.setDiagnosisRelatedGroup(str(drg))
             else:
-                raise ValueError("Either MS DRG Grouper output or DRG code in additional data is required.")
+                raise ValueError(
+                    "Either MS DRG Grouper output or DRG code in additional data is required."
+                )
         pricing_request.setClaimData(claim_object)
 
         if claim.billing_provider is not None:

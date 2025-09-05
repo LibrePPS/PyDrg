@@ -56,6 +56,7 @@ class OppsOutput(BaseModel):
     """
     Represents the output of the OPPS pricer.
     """
+
     ioce_output: Optional[IoceOutput] = None
     blood_deductible: Optional[float] = None
     final_cbsa: Optional[str] = None

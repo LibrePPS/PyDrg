@@ -33,8 +33,6 @@ dependencies = [
     "urllib3>=2.5.0",
     "pluggy>=1.5.0",
     "sqlalchemy>=2.0.43",
-    "aiohttp>=3.12.15",
-    "aiofiles>=24.1.0",
 ]
 
 [dependency-groups]

@@ -80,14 +80,16 @@ class Pypps:
             if flat_data_path is None:
                 self.logger.warning("Could not find flat_data_path for zip code loader")
             else:
-                #remote filename from flat_data_path
+                # remote filename from flat_data_path
                 flat_data_path = os.path.dirname(flat_data_path)
                 flat_data_path = os.path.join(flat_data_path, "zipCL-data")
                 if os.path.exists(flat_data_path):
                     self.logger.info(f"Loading zip code data from {flat_data_path}")
                     zipCL_loader.load_records(flat_data_path, db_path)
                 else:
-                    self.logger.warning(f"Zip code data files does not exist: {flat_data_path}")
+                    self.logger.warning(
+                        f"Zip code data files does not exist: {flat_data_path}"
+                    )
         else:
             # check if ipsf and opsf tables exist
             with (
