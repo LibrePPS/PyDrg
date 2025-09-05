@@ -30,10 +30,18 @@ class Address(BaseModel):
     city: str = ""
     state: str = ""
     zip: str = ""
+    zip4: str = ""
     country: str = ""
     phone: str = ""
     fax: str = ""
     additional_data: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("zip4")
+    @classmethod
+    def validate_zip4(cls, v):
+        if len(v) != 4:
+            raise ValueError("ZIP+4 code must be 4 digits")
+        return v
 
 
 class Patient(BaseModel):
@@ -59,6 +67,8 @@ class Provider(BaseModel):
     last_name: str = ""
     contract_id: int = 0
     address: Address = Field(default_factory=Address)
+    carrier: str = ""
+    locality: str = ""
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
 

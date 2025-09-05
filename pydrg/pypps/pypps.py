@@ -1,7 +1,6 @@
 import logging
 import os
 from typing import Optional
-
 import jpype
 
 from pydrg.helpers.cms_downloader import CMSDownloader
@@ -22,6 +21,7 @@ from pydrg.pricers.opps import OppsClient
 from pydrg.pricers.opsf import OPSFDatabase
 from pydrg.converter import ICDConverter
 from pydrg.irfg.irfg_client import IrfgClient
+import pydrg.helpers.zipCL_loader as zipCL_loader
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -76,6 +76,18 @@ class Pypps:
             self.opsf_db.to_sqlite()
             self.ipsf_db.to_sqlite()
             self.icd10_converter.download_icd_conversion_file()
+            flat_data_path = os.path.abspath(zipCL_loader.__file__)
+            if flat_data_path is None:
+                self.logger.warning("Could not find flat_data_path for zip code loader")
+            else:
+                #remote filename from flat_data_path
+                flat_data_path = os.path.dirname(flat_data_path)
+                flat_data_path = os.path.join(flat_data_path, "zipCL-data")
+                if os.path.exists(flat_data_path):
+                    self.logger.info(f"Loading zip code data from {flat_data_path}")
+                    zipCL_loader.load_records(flat_data_path, db_path)
+                else:
+                    self.logger.warning(f"Zip code data files does not exist: {flat_data_path}")
         else:
             # check if ipsf and opsf tables exist
             with (

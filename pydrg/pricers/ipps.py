@@ -765,8 +765,11 @@ class IppsClient:
                 str(drg_output.final_severity)
             )
         else:
-            # @TODO need to add the ability to pass a DRG without a MsdrgOutput object
-            raise ValueError("DRG output is required for IPPS pricing.")
+            if "drg" in claim.additional_data:
+                drg = claim.additional_data["drg"]
+                claim_object.setDiagnosisRelatedGroup(str(drg))
+            else:
+                raise ValueError("Either MS DRG Grouper output or DRG code in additional data is required.")
         pricing_request.setClaimData(claim_object)
 
         if claim.billing_provider is not None:
