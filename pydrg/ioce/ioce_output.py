@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
-
+from datetime import datetime
 
 class ReturnCode(BaseModel):
     """Return code information"""
@@ -23,6 +23,29 @@ class IoceOutputFlag(BaseModel):
     flag: str = ""
     description: str = ""
 
+def datestr_to_datetime(date_str: str) -> datetime:
+    """Convert a date string to a datetime object."""
+    try:
+        return datetime.strptime(date_str, "%Y%m%d")
+    except ValueError:
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"Invalid date format: {date_str}")
+
+def java_string_to_int(java_string: str) -> int | None:
+    """Convert a Java-style string to an integer."""
+    try:
+        return int(java_string)
+    except (ValueError, TypeError):
+        return None
+
+def java_string_to_float(java_string: str) -> float | None:
+    """Convert a Java-style string to a float."""
+    try:
+        return float(java_string)
+    except (ValueError, TypeError):
+        return None
 
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
@@ -126,12 +149,12 @@ class IoceOutputValueCode(BaseModel):
 class IoceOutputLineItem(BaseModel):
     """Output for line items with all OPPS processing results"""
 
-    service_date: str = ""
+    service_date: Optional[datetime] = None
     revenue_code: str = ""
     hcpcs: str = ""
     hcpcs_description: str = ""
-    units_input: str = ""
-    charge: str = ""
+    units_input: Optional[int] = None
+    charge: Optional[float] = None
     action_flag_input: str = ""
 
     action_flag_output: str = ""
@@ -141,14 +164,14 @@ class IoceOutputLineItem(BaseModel):
     hcpcs_apc_description: str = ""
     payment_apc: str = ""
     payment_apc_description: str = ""
-    units_output: str = ""
+    units_output: Optional[int] = None
     status_indicator: str = ""
     status_indicator_description: str = ""
     payment_indicator: str = ""
     packaging_flag: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     payment_adjustment_flag01: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
     payment_adjustment_flag02: IoceOutputFlag = Field(default_factory=IoceOutputFlag)
-    discounting_formula: str = ""
+    discounting_formula: Optional[int] = None
     composite_adjustment_flag: str = ""
 
     hcpcs_modifier_input_list: List[IoceOutputHcpcsModifier] = Field(
@@ -165,16 +188,20 @@ class IoceOutputLineItem(BaseModel):
     def from_java(self, java_obj):
         if java_obj is not None:
             self.service_date = (
-                str(java_obj.getServiceDate()) if java_obj.getServiceDate() else ""
+                datestr_to_datetime(str(java_obj.getServiceDate()))
+                if java_obj.getServiceDate()
+                else None
             )
             self.revenue_code = (
                 str(java_obj.getRevenueCode()) if java_obj.getRevenueCode() else ""
             )
             self.hcpcs = str(java_obj.getHcpcs()) if java_obj.getHcpcs() else ""
-            self.units_input = (
+            self.units_input = java_string_to_int(
                 str(java_obj.getUnitsInput()) if java_obj.getUnitsInput() else ""
             )
-            self.charge = str(java_obj.getCharge()) if java_obj.getCharge() else ""
+            self.charge = java_string_to_float(
+                str(java_obj.getCharge()) if java_obj.getCharge() else ""
+            )
             self.action_flag_input = (
                 str(java_obj.getActionFlagInput())
                 if java_obj.getActionFlagInput()
@@ -203,7 +230,9 @@ class IoceOutputLineItem(BaseModel):
                 str(java_obj.getPaymentApc()) if java_obj.getPaymentApc() else ""
             )
             self.units_output = (
-                str(java_obj.getUnitsOutput()) if java_obj.getUnitsOutput() else ""
+                java_string_to_int(
+                    str(java_obj.getUnitsOutput()) if java_obj.getUnitsOutput() else ""
+                )
             )
             self.status_indicator = (
                 str(java_obj.getStatusIndicator())
@@ -216,9 +245,9 @@ class IoceOutputLineItem(BaseModel):
                 else ""
             )
             self.discounting_formula = (
-                str(java_obj.getDiscountingFormula())
-                if java_obj.getDiscountingFormula()
-                else ""
+                java_string_to_int(
+                    str(java_obj.getDiscountingFormula()) if java_obj.getDiscountingFormula() else ""
+                )
             )
             self.composite_adjustment_flag = (
                 str(java_obj.getCompositeAdjustmentFlag())

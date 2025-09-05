@@ -69,6 +69,7 @@ from .pricers.hha import HhaClient, HhaOutput
 from .pricers.url_loader import UrlLoader
 from .pricers.irf import IrfClient, IrfOutput
 from .pricers.esrd import EsrdClient, EsrdOutput
+from .pricers.fqhc import FqhcClient, FqhcOutput
 
 from .converter import (
     create_database,
@@ -139,6 +140,8 @@ __all__ = [
     "IrfOutput",
     "EsrdClient",
     "EsrdOutput",
+    "FqhcClient",
+    "FqhcOutput",
     # Helpers and utilities
     "CMSDownloader",
     "IPSFDatabase",

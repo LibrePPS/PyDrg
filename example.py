@@ -211,3 +211,42 @@ if __name__ == "__main__":
         esrd_output = pypps.esrd_client.process(claim)
         print(esrd_output.model_dump_json(indent=2))
         print("=== End ESRD Pricer Example ===")
+        print("=== FQHC Pricer Example ===")
+        claim = opps_claim_example()
+        claim.lines.clear()
+        claim.lines.append(
+            LineItem(
+                hcpcs="G0466",
+                revenue_code="0521",
+                service_date=datetime(2025, 7, 1),
+                units=1,
+                charges=300.00,
+            )
+        )
+        claim.lines.append(
+            LineItem(
+                hcpcs="36415",
+                revenue_code="0300",
+                service_date=datetime(2025, 7, 1),
+                units=1,
+                charges=250.00,
+            )
+        )
+        claim.lines.append(
+            LineItem(
+                hcpcs="99203",
+                revenue_code="0521",
+                service_date=datetime(2025, 7, 1),
+                units=1,
+                charges=350.00,
+            )
+        )
+        claim.from_date = datetime(2025, 7, 1)
+        claim.thru_date = datetime(2025, 7, 1)
+        claim.bill_type = "771"
+        claim.billing_provider = Provider()
+        claim.billing_provider.address.zip = "06040"
+        ioce_output = pypps.ioce_client.process(claim)
+        fqhc_output = pypps.fqhc_client.process(claim, ioce_output)
+        print(fqhc_output.model_dump_json(indent=2))
+        print("=== End FQHC Pricer Example ===")

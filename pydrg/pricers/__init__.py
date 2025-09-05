@@ -9,6 +9,7 @@ from .snf import SnfClient, SnfOutput
 from .hha import HhaClient, HhaOutput
 from .irf import IrfClient, IrfOutput
 from .esrd import EsrdClient, EsrdOutput
+from .fqhc import FqhcClient, FqhcOutput
 from .url_loader import UrlLoader
 
 __all__ = [
@@ -35,4 +36,6 @@ __all__ = [
     "IrfOutput",
     "EsrdClient",
     "EsrdOutput",
+    "FqhcClient",
+    "FqhcOutput",
 ]
