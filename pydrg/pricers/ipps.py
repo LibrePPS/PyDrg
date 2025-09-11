@@ -344,7 +344,7 @@ class IppsOutput(BaseModel):
     """
     Represents the output of the IPPS pricer.
     """
-
+    claim_id: str = ""
     ms_drg_output: Optional[MsdrgOutput] = None
     return_code: Optional[ReturnCode] = None
     calculation_version: Optional[str] = None
@@ -820,6 +820,7 @@ class IppsClient:
         pricing_request = self.create_input_claim(claim, drg_output)
         pricing_response = self.process_claim(claim, pricing_request)
         ipps_output = IppsOutput()
+        ipps_output.claim_id = claim.claimid
         ipps_output.from_java(pricing_response)
         if drg_output is not None:
             ipps_output.ms_drg_output = drg_output

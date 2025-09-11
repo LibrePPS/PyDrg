@@ -78,6 +78,7 @@ class MsdrgOutputPrCode(BaseModel):
 
 
 class MsdrgOutput(BaseModel):
+    claim_id: str = ""
     drg_version: str = ""
     grouper_flags: MsdrgGrouperFlags = Field(default_factory=MsdrgGrouperFlags)
     initial_grc: str = ""

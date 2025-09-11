@@ -29,16 +29,20 @@ if __name__ == "__main__":
     opps_claim = opps_claim_example()
 
     print("=== MCE Claim Example ===")
+    test_claim_1.claimid = "MCE_CLAIM_001"
     mce_output = pypps.mce_client.process(test_claim_1)
     print(mce_output.model_dump_json(indent=2))
     print("=== End of MCE Claim Example ===")
 
     print("=== MS-DRG Claim Example ===")
-    drg_output = pypps.drg_client.process(test_claim_2)
+    drg_claim = test_claim_2
+    drg_claim.claimid = "DRG_CLAIM_001"
+    drg_output = pypps.drg_client.process(drg_claim)
     print(drg_output.model_dump_json(indent=2))
     print("=== End of MS-DRG Claim Example ===")
 
     print("=== IOCE Claim Example ===")
+    opps_claim.claimid = "IOCE_CLAIM_001"
     ioce_output = pypps.ioce_client.process(opps_claim)
     print(ioce_output.model_dump_json(indent=2))
     print("=== End of IOCE Claim Example ===")
@@ -46,16 +50,19 @@ if __name__ == "__main__":
     # Example of using a pricer client
     if pypps.ipps_client is not None:
         print("=== IPPS Pricer Example ===")
+        test_claim_1.claimid = "IPPS_CLAIM_001"
         ipps_output = pypps.ipps_client.process(test_claim_1, drg_output)
         print(ipps_output.model_dump_json(indent=2))
         print("=== End of IPPS Pricer Example ===")
     if pypps.opps_client is not None:
         print("=== OPPS Pricer Example ===")
+        opps_claim.claimid = "OPPS_CLAIM_001"
         opps_output = pypps.opps_client.process(opps_claim, ioce_output)
         print(opps_output.model_dump_json(indent=2))
         print("=== End of OPPS Pricer Example ===")
     if pypps.ipf_client is not None:
         print("=== IPF Pricer Example ===")
+        test_claim_1.claimid = "IPF_CLAIM_001"
         ipf_output = pypps.ipf_client.process(test_claim_1, drg_output)
         print(ipf_output.model_dump_json(indent=2))
         print("=== End of IPF Pricer Example ===")
@@ -63,6 +70,7 @@ if __name__ == "__main__":
         print("=== LTCH Pricer Example ===")
         if test_claim_1.billing_provider is None:
             test_claim_1.billing_provider = Provider()
+        test_claim_1.claimid = "LTCH_CLAIM_001"
         test_claim_1.billing_provider.other_id = "012006"
         ltch_output = pypps.ltch_client.process(test_claim_1, drg_output)
         print(ltch_output.model_dump_json(indent=2))
@@ -70,6 +78,7 @@ if __name__ == "__main__":
     if pypps.hospice_client is not None:
         print("=== Hospice Pricer Example ===")
         hospice_claim = claim_example()
+        hospice_claim.claimid = "HOSPICE_CLAIM_001"
         hospice_claim.bill_type = "812"
         hospice_claim.patient_status = "40"
         hospice_claim.value_codes.append(ValueCode(code="61", amount=35300.00))
@@ -100,6 +109,7 @@ if __name__ == "__main__":
         print("=== HHA Pricer Example ===")
         if pypps.hha_client is not None:
             claim = claim_example()
+            claim.claimid = "HHA_CLAIM_001"
             claim.patient.age = 65
             claim.patient.address.zip = "35300"
             claim.from_date = datetime(2025, 1, 1)
@@ -159,6 +169,7 @@ if __name__ == "__main__":
             print("=== End of HHA Pricer Example ===")
 
         print("===IRF Grouper ===")
+        claim.claimid = "IRF_CLAIM_001"
         claim.oasis_assessment = None
         claim.billing_provider.other_id = "013025"
         claim.irf_pai = IrfPai()
@@ -192,6 +203,7 @@ if __name__ == "__main__":
         print(irf_pricer.model_dump_json(indent=2))
         print("=== End of IRF Pricer Example ===")
         print("=== ESRD Pricer Example ===")
+        claim.claimid = "ESRD_CLAIM_001"
         claim.billing_provider.other_id = "012525"
         claim.irf_pai = None
         claim.cond_codes.clear()
@@ -213,6 +225,7 @@ if __name__ == "__main__":
         print("=== End ESRD Pricer Example ===")
         print("=== FQHC Pricer Example ===")
         claim = opps_claim_example()
+        claim.claimid = "FQHC_CLAIM_001"
         claim.lines.clear()
         claim.lines.append(
             LineItem(

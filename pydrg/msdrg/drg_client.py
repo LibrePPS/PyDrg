@@ -537,6 +537,7 @@ class DrgClient:
         drg_result = drg_output.get()
 
         output = self.extract_msdrg_output(drg_result)
+        output.claim_id = claim.claimid
         output.drg_version = drg_version
         if mappings is not None:
             output.icd10_conversion_output = mappings

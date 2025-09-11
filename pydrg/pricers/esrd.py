@@ -569,6 +569,7 @@ class EsrdAdditionalPayment(BaseModel):
 
 
 class EsrdOutput(BaseModel):
+    claim_id: str = ""
     return_code: Optional[ReturnCode] = None
     calculation_version: Optional[str] = None
     total_payment: Optional[float] = None
@@ -929,5 +930,6 @@ class EsrdClient:
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.process_claim(claim, pricing_request)
         esrd_output = EsrdOutput()
+        esrd_output.claim_id = claim.claimid
         esrd_output.from_java(pricing_response)
         return esrd_output

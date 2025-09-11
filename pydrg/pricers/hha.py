@@ -64,6 +64,7 @@ class RevenuePaymentData(BaseModel):
 
 
 class HhaOutput(BaseModel):
+    claim_id: str = ""
     return_code: Optional[ReturnCode] = None
     hhrg_weight: Optional[float] = None
     hhrg_payment: Optional[float] = None
@@ -391,6 +392,7 @@ class HhaClient:
         pricing_request = self.create_input_claim(claim, hhag_output)
         pricing_response = self.process_claim(claim, pricing_request)
         hha_output = HhaOutput()
+        hha_output.claim_id = claim.claimid
         hha_output.from_java(pricing_response)
         hha_output.hhrg_code = str(pricing_request.getClaimData().getHhrgInputCode())
         return hha_output

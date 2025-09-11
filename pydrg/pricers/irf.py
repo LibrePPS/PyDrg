@@ -20,6 +20,7 @@ from pydrg.irfg.irfg_output import IrfgOutput
 
 
 class IrfOutput(BaseModel):
+    claim_id: str = ""
     return_code: Optional[ReturnCode] = None
     calculation_version: Optional[str] = None
     total_payment: Optional[float] = None
@@ -332,5 +333,6 @@ class IrfClient:
         pricing_request = self.create_input_claim(claim, irfg)
         pricing_response = self.process_claim(claim, pricing_request)
         irf_output = IrfOutput()
+        irf_output.claim_id = claim.claimid
         irf_output.from_java(pricing_response)
         return irf_output

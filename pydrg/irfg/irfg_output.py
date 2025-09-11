@@ -4,6 +4,7 @@ import jpype
 
 
 class IrfgOutput(BaseModel):
+    claim_id: str = ""
     irf_version: Optional[int] = None
     motor_score: Optional[float] = None
     ric: Optional[int] = None

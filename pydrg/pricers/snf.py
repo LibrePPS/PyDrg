@@ -19,6 +19,7 @@ from pydrg.pricers.url_loader import UrlLoader
 
 
 class SnfOutput(BaseModel):
+    claim_id: str = ""
     return_code: Optional[ReturnCode] = None
     calculation_version: Optional[str] = None
     aids_indicator: Optional[str] = None
@@ -248,5 +249,6 @@ class SnfClient:
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.process_claim(claim, pricing_request)
         snf_output = SnfOutput()
+        snf_output.claim_id = claim.claimid
         snf_output.from_java(pricing_response)
         return snf_output

@@ -49,6 +49,7 @@ class EolaOutput(BaseModel):
 
 
 class HospiceOutput(BaseModel):
+    claim_id: str = ""
     calculation_version: Optional[str] = None
     return_code: Optional[ReturnCode] = None
     high_routine_home_care_days: Optional[int] = None
@@ -409,5 +410,6 @@ class HospiceClient:
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.dispatch_obj.process(pricing_request)
         hospice_output = HospiceOutput()
+        hospice_output.claim_id = claim.claimid
         hospice_output.from_java(pricing_response)
         return hospice_output

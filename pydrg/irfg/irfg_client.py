@@ -143,5 +143,6 @@ class IrfgClient:
                 f"Java exception during IRF Grouper processing: {str(ex)}"
             )
         output = IrfgOutput()
+        output.claim_id = claim.claimid
         output.from_java(claim_input)
         return output

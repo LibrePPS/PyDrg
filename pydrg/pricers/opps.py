@@ -56,7 +56,7 @@ class OppsOutput(BaseModel):
     """
     Represents the output of the OPPS pricer.
     """
-
+    claim_id: str = ""
     ioce_output: Optional[IoceOutput] = None
     blood_deductible: Optional[float] = None
     final_cbsa: Optional[str] = None
@@ -374,6 +374,7 @@ class OppsClient:
         pricing_request.setProviderData(provider_data)
         pricing_response = self.dispatch_obj.process(pricing_request)
         opps_output = OppsOutput()
+        opps_output.claim_id = claim.claimid
         opps_output.from_java(pricing_response)
         if ioce_output is not None:
             opps_output.ioce_output = ioce_output

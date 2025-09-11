@@ -84,6 +84,7 @@ class IpfAdditionalVariables(BaseModel):
 
 
 class IpfOutput(BaseModel):
+    claim_id: str = ""
     ms_drg_output: Optional[MsdrgOutput] = None
     calculation_version: Optional[str] = None
     return_code: Optional[ReturnCode] = None
@@ -397,6 +398,7 @@ class IpfClient:
         pricing_request = self.create_input_claim(claim, drg_output)
         pricing_response = self.dispatch_obj.process(pricing_request)
         ipf_output = IpfOutput()
+        ipf_output.claim_id = claim.claimid
         ipf_output.from_java(pricing_response)
         if drg_output is not None:
             ipf_output.ms_drg_output = drg_output
