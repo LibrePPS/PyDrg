@@ -94,11 +94,41 @@ DATATYPES = {
 class IPSFDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.engine = sqlalchemy.create_engine(f"sqlite:///{db_path}")
+        self._engine = None
+        self._initialize_connection()
+
+    def _initialize_connection(self):
+        """Initialize database connection with proper pooling"""
+        if self._engine is None:
+            # Configure connection pool settings for better resource management
+            self._engine = sqlalchemy.create_engine(
+                f"sqlite:///{self.db_path}",
+                pool_pre_ping=True,  # Validate connections before use
+                pool_recycle=3600,   # Recycle connections after 1 hour
+                echo=False
+            )
+
+    @property
+    def engine(self):
+        """Get the database engine, ensuring it's initialized"""
+        if self._engine is None:
+            self._initialize_connection()
+        return self._engine
+
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with proper cleanup"""
+        self.close()
+        return False  # Don't suppress exceptions
 
     def close(self):
-        if self.engine:
-            self.engine.dispose()
+        """Properly close database connections"""
+        if self._engine:
+            self._engine.dispose()
+            self._engine = None
 
     def create_table(self):
         columns = ", ".join(
