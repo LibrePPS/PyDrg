@@ -129,42 +129,47 @@ class DrgClient:
             return str(int(version) + 1)
         return version
 
-    def load_drg_groupers(self):
-        end_version = self.determine_end_version()
-        curr_version = MSDRG_VSTART
-        # Initialize the DRG Runtime options Java object
+    def create_drg_options(self, poa_exempt: bool):
         try:
-            self.runtime_options = jpype.JClass(
+            runtime_options = jpype.JClass(
                 "gov.agency.msdrg.model.v2.RuntimeOptions"
             )()
-            self.drg_options = jpype.JClass(
+            drg_options = jpype.JClass(
                 "gov.agency.msdrg.model.v2.MsdrgRuntimeOption"
             )()
-            self.msdrg_option_flags = jpype.JClass(
+            msdrg_option_flags = jpype.JClass(
                 "gov.agency.msdrg.model.v2.MsdrgOption"
             )
         except Exception as e:
             raise RuntimeError(f"Failed to initialize RuntimeOptions: {e}")
-
-        # Set the 3 enum values on the RuntimeOptions object
-        # default to non-exempt hospital status
-        self.runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
-        self.runtime_options.setComputeAffectDrg(self.affect_drg_option.COMPUTE)
-        self.runtime_options.setMarkingLogicTieBreaker(
+        runtime_options.setComputeAffectDrg(self.affect_drg_option.COMPUTE)
+        runtime_options.setMarkingLogicTieBreaker(
             self.logic_tiebreaker.CLINICAL_SIGNIFICANCE
         )
-
-        self.drg_options.put(
-            self.msdrg_option_flags.RUNTIME_OPTION_FLAGS, self.runtime_options
+        if poa_exempt:
+            runtime_options.setPoaReportingExempt(self.hospital_status.EXEMPT)
+        else:
+            runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
+        drg_options.put(
+            msdrg_option_flags.RUNTIME_OPTION_FLAGS, runtime_options
         )
+        return drg_options
 
+    def load_drg_groupers(self):
+        end_version = self.determine_end_version()
+        curr_version = MSDRG_VSTART
+        # Initialize the DRG Runtime options Java object
+        exempt_drg_options = self.create_drg_options(poa_exempt=True)
+        non_exempt_drg_options = self.create_drg_options(poa_exempt=False)
         self.drg_versions = {}
         while True:
             try:
                 drg_component = jpype.JClass(
                     f"gov.agency.msdrg.v{curr_version}.MsdrgComponent"
                 )
-                self.drg_versions[curr_version] = drg_component(self.drg_options)
+                self.drg_versions[curr_version] = {}
+                self.drg_versions[curr_version]["exempt"] = drg_component(exempt_drg_options)
+                self.drg_versions[curr_version]["non_exempt"] = drg_component(non_exempt_drg_options)
                 print(f"Loaded DRG version: {curr_version}")
             except Exception as e:
                 print(f"Failed to load DRG version {curr_version}: {e}")
@@ -193,13 +198,6 @@ class DrgClient:
                 raise ValueError("Invalid logic tie breaker option")
 
             runtime_options = self.runtime_options_class()
-            match hospital_status:
-                case MsdrgHospitalStatusOptionFlag.NON_EXEMPT:
-                    runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
-                case MsdrgHospitalStatusOptionFlag.EXEMPT:
-                    runtime_options.setPoaReportingExempt(self.hospital_status.EXEMPT)
-                case MsdrgHospitalStatusOptionFlag.UNKNOWN:
-                    runtime_options.setPoaReportingExempt(self.hospital_status.UNKNOWN)
             match affect_drg:
                 case MsdrgAffectDrgOptionFlag.COMPUTE:
                     runtime_options.setComputeAffectDrg(self.affect_drg_option.COMPUTE)
@@ -218,7 +216,12 @@ class DrgClient:
                     )
             if drg_version not in self.drg_versions:
                 raise ValueError(f"DRG version {drg_version} is not loaded")
-            drg_component = self.drg_versions[drg_version]
+            if hospital_status == MsdrgHospitalStatusOptionFlag.EXEMPT:
+                drg_component = self.drg_versions[drg_version]["exempt"]
+                runtime_options.setPoaReportingExempt(self.hospital_status.EXEMPT)
+            else:
+                drg_component = self.drg_versions[drg_version]["non_exempt"]
+                runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
             msdrg_runtime_option = self.drg_options_class()
             msdrg_runtime_option.put(
                 self.msdrg_option_flags_class.RUNTIME_OPTION_FLAGS, runtime_options
@@ -496,7 +499,8 @@ class DrgClient:
         self,
         claim: Claim,
         drg_version=None,
-        icd_converter: Optional[ICDConverter] = None
+        icd_converter: Optional[ICDConverter] = None,
+        poa_exempt: bool = False,
     ):
         """
         Processes the claim through the DRG system.
@@ -524,7 +528,11 @@ class DrgClient:
         if drg_version not in self.drg_versions:
             raise ValueError(f"DRG version {drg_version} is not loaded")
         #Get the DRG component for the specified version
-        drg_component = self.drg_versions[drg_version]
+        if poa_exempt:
+            drg_component = self.drg_versions[drg_version]["exempt"]
+        else:
+            drg_component = self.drg_versions[drg_version]["non_exempt"]
+
         if claim.thru_date is None:
             raise ValueError("Claim thru_date must be provided")
         if claim.principal_dx is None:

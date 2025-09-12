@@ -72,6 +72,7 @@ if __name__ == "__main__":
             test_claim_1.billing_provider = Provider()
         test_claim_1.claimid = "LTCH_CLAIM_001"
         test_claim_1.billing_provider.other_id = "012006"
+        drg_output = pypps.drg_client.process(test_claim_1,poa_exempt=True)
         ltch_output = pypps.ltch_client.process(test_claim_1, drg_output)
         print(ltch_output.model_dump_json(indent=2))
         print("=== End of LTCH Pricer Example ===")
