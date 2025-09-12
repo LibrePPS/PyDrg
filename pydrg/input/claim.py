@@ -42,6 +42,18 @@ class Address(BaseModel):
         if len(v) != 4:
             raise ValueError("ZIP+4 code must be 4 digits")
         return v
+    @field_validator("zip")
+    @classmethod
+    def validate_zip(cls, v):
+        if len(v) != 5:
+            raise ValueError("ZIP code must be 5 digits")
+        return v
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v):
+        if len(v) != 2:
+            raise ValueError("State code must be 2 characters")
+        return v
 
 
 class Patient(BaseModel):
@@ -54,8 +66,6 @@ class Patient(BaseModel):
     address: Address = Field(default_factory=Address)
     additional_data: Dict[str, Any] = Field(default_factory=dict)
     age: int = 0
-    age_days_admit: int = 0
-    age_days_discharge: int = 0
     sex: Optional[str] = None
 
 
@@ -111,6 +121,17 @@ class Claim(BaseModel):
     esrd_initial_date: Optional[datetime] = None
     demo_codes: List[str] = Field(default_factory=list)
 
+    @field_validator("biil_type", mode="after")
+    @classmethod
+    def validate_bill_type(cls, v):
+        if len(v) == 4:
+            if v[0] != "0":
+                raise ValueError("A 4 digit bill type must start with a 0")
+        elif len(v) == 3:
+            if v[0] not in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                raise ValueError(
+                    "A 3 digit bill type must start with 1, 2, 3, 4, 5, 6, 7, 8, or 9"
+                )
     @field_validator("los", mode="after")
     @classmethod
     def validate_los(cls, v):
