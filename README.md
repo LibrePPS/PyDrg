@@ -4,14 +4,19 @@ PyDrg is a comprehensive Python toolkit for interacting with key components of t
 
 - **MS-DRG Grouper:** Assigns inpatient claims to Diagnosis-Related Groups (DRGs) for payment determination.
 - **HHA Grouper (HHAG):** Groups home health claims based on clinical and functional status, using OASIS data.
+- **IRF Grouper (IRFG):** Groups inpatient rehabilitation facility claims.
 - **MCE Editor:** Validates inpatient claims against the Medicare Code Editor (MCE) to ensure clinical coherence.
 - **IOCE Editor:** Processes outpatient claims through the Integrated Outpatient Code Editor (IOCE) to assign Ambulatory Payment Classifications (APCs).
 - **IPPS Pricer:** Calculates reimbursement for inpatient claims under the Inpatient Prospective Payment System (IPPS).
 - **OPPS Pricer:** Calculates reimbursement for outpatient claims under the Outpatient Prospective Payment System (OPPS).
 - **IPF Pricer:** Calculates reimbursement for inpatient claims under the Inpatient Psychiatric Facility Prospective Payment System (IPF PPS).
+- **IRF Pricer:** Calculates reimbursement for inpatient rehabilitation facility claims.
 - **LTCH Pricer:** Calculates reimbursement for long-term care hospital claims.
 - **SNF Pricer:** Calculates reimbursement for skilled nursing facility claims.
+- **HHA Pricer:** Calculates reimbursement for home health claims.
 - **Hospice Pricer:** Calculates reimbursement for hospice claims.
+- **ESRD Pricer:** Calculates reimbursement for End-Stage Renal Disease claims.
+- **FQHC Pricer:** Calculates reimbursement for Federally Qualified Health Center claims.
 
 Built on top of the official Java-based CMS tools, PyDrg uses `jpype` to create a seamless bridge to Python, allowing developers, analysts, and researchers to integrate these critical healthcare components into their workflows for automation, analytics, and research.
 
@@ -29,10 +34,10 @@ By wrapping the official CMS software, PyDrg ensures that you are using the same
 
 - **Unified Interface:** A single, consistent API for interacting with multiple CMS tools.
 - **Flexible Claim Construction:** Easily create and modify claims using Pydantic data models.
-- **Support for Multiple Editors and Groupers:** Includes interfaces for the MCE (inpatient), IOCE (outpatient), and HHA (home health) grouper/editors.
-- **Comprehensive Pricer Suite:** Full-featured pricers for IPPS, OPPS, IPF, LTCH, SNF, and Hospice.
+- **Support for Multiple Editors and Groupers:** Includes interfaces for the MCE (inpatient), IOCE (outpatient), HHA (home health), and IRF (inpatient rehabilitation) grouper/editors.
+- **Comprehensive Pricer Suite:** Full-featured pricers for IPPS, OPPS, IPF, IRF, LTCH, SNF, HHA, Hospice, ESRD, and FQHC.
 - **Extensible:** The underlying architecture makes it easy to add new components or customize existing ones.
-- **Example Scripts:** Get up and running quickly with a comprehensive set of examples in `pypps.py`.
+- **Example Scripts:** Get up and running quickly with a comprehensive set of examples in the `example.py` file.
 
 ## Requirements
 
@@ -86,7 +91,7 @@ ruff format
 
 ## Setup
 
-The `Pypps` class in `pypps.py` is designed to handle the setup and configuration of the environment for you. By default, it will:
+The `Pypps` class in `pydrg/pypps` is designed to handle the setup and configuration of the environment for you. By default, it will:
 - Create the `jars/` and `data/` directories if they don't exist.
 - Download the latest CMS grouper and editor JARs.
 - Download the latest CMS pricer JARs.
@@ -94,7 +99,7 @@ The `Pypps` class in `pypps.py` is designed to handle the setup and configuratio
 
 To get started, simply instantiate the `Pypps` class:
 ```python
-from pypps import Pypps
+from pydrg.pypps import Pypps
 
 pypps = Pypps(build_jar_dirs=True, build_db=True)
 pypps.setup_clients()
@@ -102,15 +107,15 @@ pypps.setup_clients()
 
 ## Usage
 
-The `pypps.py` script provides a comprehensive set of examples for using all the features of PyDrg. Here's a brief overview of how to use each component through the `Pypps` class:
+The `example.py` script provides a comprehensive set of examples for using all the features of PyDrg. Here's a brief overview of how to use each component through the `Pypps` class:
 
 ### MS-DRG Grouper
 
 The `DrgClient` is used to process inpatient claims and assign a DRG.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
 
 pypps = Pypps()
 pypps.setup_clients()
@@ -122,17 +127,17 @@ print(drg_output.model_dump_json(indent=2))
 
 ### HHA Grouper (HHAG)
 
-The `HhagClient` is used to process home health claims. This grouper has a special requirement for OASIS assessment data, which must be passed in the `additional_data` dictionary of a `Claim` object under the key `"oasis"`.
+The `HhagClient` is used to process home health claims. This grouper has a special requirement for OASIS assessment data, which can be provided in `oasis` object class on the `Claim` object.
 
-The following keys are supported within the `oasis` dictionary:
+The following variables are supported within the `oasis` class:
 - **Risk flags (boolean/int):** `fall_risk`, `weight_loss`, `multiple_hospital_stays`, `multiple_ed_visits`, `mental_behavior_risk`, `compliance_risk`, `five_or_more_meds`, `exhaustion`, `other_risk`, `none_of_above`.
 - **Functional status (string codes):** `grooming`, `dress_upper`, `dress_lower`, `bathing`, `toileting`, `transferring`, `ambulation`.
 
 If the `"oasis"` key is not provided, a set of defaults will be used.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
 from datetime import datetime
 
 pypps = Pypps()
@@ -143,20 +148,29 @@ claim.from_date = datetime(2025, 1, 1)
 claim.thru_date = datetime(2025, 1, 31)
 
 # Add OASIS data
-claim.additional_data["oasis"] = {
-    "fall_risk": True,
-    "multiple_hospital_stays": True,
-    "grooming": "1",
-    "dress_upper": "2",
-    "dress_lower": "2",
-    "bathing": "0",
-    "toileting": "1",
-    "transferring": "2",
-    "ambulation": "3",
-}
+claim.oasis_assessment = OasisAssessment()
+claim.oasis_assessment.fall_risk = 1
+claim.oasis_assessment.multiple_hospital_stays = 1
+claim.oasis_assessment.grooming = "1"
 
 hhag_output = pypps.hhag_client.process(claim)
 print(hhag_output.model_dump_json(indent=2))
+```
+
+### IRF Grouper (IRFG)
+
+The `IrfgClient` is used to process inpatient rehabilitation facility claims.
+
+```python
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
+
+pypps = Pypps()
+pypps.setup_clients()
+
+claim = claim_example()
+irfg_output = pypps.irfg_client.process(claim)
+print(irfg_output.model_dump_json(indent=2))
 ```
 
 ### MCE Editor
@@ -164,8 +178,8 @@ print(hhag_output.model_dump_json(indent=2))
 The `MceClient` is used to validate inpatient claims against the MCE edits.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
 
 pypps = Pypps()
 pypps.setup_clients()
@@ -180,8 +194,8 @@ print(mce_output.model_dump_json(indent=2))
 The `IoceClient` is used to process outpatient claims through the IOCE editor.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import opps_claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import opps_claim_example
 
 pypps = Pypps()
 pypps.setup_clients()
@@ -199,10 +213,11 @@ This suite of pricers calculates reimbursement for various inpatient and long-te
 - **`IpfClient`:** For inpatient psychiatric facility (IPF) claims.
 - **`LtchClient`:** For long-term care hospital (LTCH) claims.
 - **`SnfClient`:** For skilled nursing facility (SNF) claims.
+- **`IrfClient`:** For inpatient rehabilitation facility (IRF) claims.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
 from datetime import datetime
 
 pypps = Pypps()
@@ -210,6 +225,7 @@ pypps.setup_clients()
 
 claim = claim_example()
 drg_output = pypps.drg_client.process(claim)
+irfg_output = pypps.irfg_client.process(claim)
 
 # IPPS Pricer
 ipps_output = pypps.ipps_client.process(claim, drg_output)
@@ -237,15 +253,26 @@ snf_claim.bill_type = "327"
 snf_claim.principal_dx.code = "B20"
 snf_output = pypps.snf_client.process(snf_claim)
 print("SNF Output:", snf_output.model_dump_json(indent=2))
+
+# IRF Pricer
+irf_output = pypps.irf_client.process(claim, irfg_output)
+print("IRF Output:", irf_output.model_dump_json(indent=2))
 ```
+
+### Outpatient Pricers
+
+- **`OppsClient`:** For standard outpatient claims (OPPS).
+- **`HhaClient`:** For home health agency (HHA) claims.
+- **`EsrdClient`:** For end-stage renal disease (ESRD) claims.
+- **`FqhcClient`:** For federally qualified health center (FQHC) claims.
 
 ### OPPS Pricer
 
 The `OppsClient` is used to calculate the reimbursement for an outpatient claim. It requires the output from the `IoceClient`.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import opps_claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import opps_claim_example
 
 pypps = Pypps()
 pypps.setup_clients()
@@ -261,8 +288,8 @@ print(opps_output.model_dump_json(indent=2))
 The `HospiceClient` calculates reimbursement for hospice claims. It operates directly on the claim object.
 
 ```python
-from pypps import Pypps
-from helpers.test_examples import claim_example
+from pydrg.pypps import Pypps
+from pydrg.helpers.test_examples import claim_example
 from pydrg.input import LineItem, ValueCode
 from datetime import datetime
 
@@ -289,12 +316,13 @@ print(hospice_output.model_dump_json(indent=2))
 
 ## Project Structure
 
-- `pypps.py` – Main class for interacting with the CMS tools and example usage.
+- `pydrg/pypps/` – Main class for interacting with the CMS tools and example usage.
 - `msdrg/` – MS-DRG Grouper client and output models
 - `hhag/` – HHA Grouper client and output models
+- `irfg/` – IRF Grouper client and output models
 - `mce/` – MCE Editor client and output models
 - `ioce/` – IOCE Editor client and output models
-- `pricers/` – Clients for all pricers (IPPS, OPPS, IPF, LTCH, SNF, Hospice)
+- `pricers/` – Clients for all pricers (IPPS, OPPS, IPF, IRF, LTCH, SNF, HHA, Hospice, ESRD, FQHC)
 - `input/` – Pydantic models for claims and related data
 - `helpers/` – Utility scripts, including the CMS downloader
 - `jars/` – Directory for Java JAR files (not tracked in git)

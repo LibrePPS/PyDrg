@@ -290,7 +290,7 @@ class HhaClient:
         else:
             # Need to find Hipps code on rev_code 0023 line
             for line in claim.lines:
-                if line.revenue_code == "0023" and line.hcpcs:
+                if line.revenue_code == "0023" and line.hcpcs is not None:
                     claim_object.setHhrgInputCode(line.hcpcs)
                     hipps_set = True
         if not hipps_set:

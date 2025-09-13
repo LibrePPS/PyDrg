@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import pytest
 
-from pydrg.helpers import claim_example, json_claim_example, opps_claim_example
+from pydrg.helpers.claim_examples import claim_example, json_claim_example, opps_claim_example
 from pydrg.input import (
     LineItem,
     ValueCode,

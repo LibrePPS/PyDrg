@@ -121,17 +121,6 @@ class Claim(BaseModel):
     esrd_initial_date: Optional[datetime] = None
     demo_codes: List[str] = Field(default_factory=list)
 
-    @field_validator("biil_type", mode="after")
-    @classmethod
-    def validate_bill_type(cls, v):
-        if len(v) == 4:
-            if v[0] != "0":
-                raise ValueError("A 4 digit bill type must start with a 0")
-        elif len(v) == 3:
-            if v[0] not in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-                raise ValueError(
-                    "A 3 digit bill type must start with 1, 2, 3, 4, 5, 6, 7, 8, or 9"
-                )
     @field_validator("los", mode="after")
     @classmethod
     def validate_los(cls, v):
