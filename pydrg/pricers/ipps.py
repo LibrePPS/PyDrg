@@ -462,6 +462,27 @@ class IppsClient:
         except Exception:
             pass
 
+    def extract_resource_file(self, resource_file_name: str):
+        """
+        Extracts a resource file from the IPPS pricer JAR file.
+        Mainly used to extract the drgstable-YYYY.csv files but other resource files can be extracted as well.
+
+        Args:
+            resource_file_name: Name of the resource file to extract
+        """
+        ins = self.ipps_csv_ingest_class.class_.getResourceAsStream(f"/{resource_file_name}")
+        if ins is None:
+            raise FileNotFoundError(f"{resource_file_name} not found in that JAR")
+
+        Files = jpype.JClass("java.nio.file.Files")
+        Paths = jpype.JClass("java.nio.file.Paths")
+        StandardCopyOption = jpype.JClass("java.nio.file.StandardCopyOption")
+
+        Files.copy(ins, Paths.get(resource_file_name),
+                StandardCopyOption.REPLACE_EXISTING)
+        ins.close()
+
+
     def add_hmo(self, jar_path):
         """
         Adds HMO functionality to the IPPS pricer by dynamically modifying Java classes.
