@@ -1,7 +1,20 @@
 import os
-import sqlalchemy
+import csv
 import requests
+from typing import Literal, Dict, Any, Iterable, List
 from pydantic import BaseModel
+import sqlalchemy
+from sqlalchemy import (
+    Column,
+    Integer,
+    Float,
+    String,
+    Index,
+    create_engine,
+    select,
+    bindparam,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 from pydrg.input.claim import Provider
 
@@ -90,134 +103,242 @@ DATATYPES = {
     "pass_through_amount_for_supply_chain": {"type": "REAL", "position": 67},
 }
 
+INT_FIELDS = {k for k, v in DATATYPES.items() if v["type"] == "INT"}
+REAL_FIELDS = {k for k, v in DATATYPES.items() if v["type"] == "REAL"}
+
+Base = declarative_base()
+
+# Simple session factory cache to avoid recreating sessionmaker repeatedly
+_SESSION_FACTORY_CACHE: dict[int, sessionmaker] = {}
+
+
+class IPSF(Base):
+    __tablename__ = "ipsf"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider_ccn = Column(String, index=True)
+    effective_date = Column(Integer, index=True)
+    fiscal_year_begin_date = Column(Integer)
+    export_date = Column(Integer)
+    termination_date = Column(Integer)
+    waiver_indicator = Column(String)
+    intermediary_number = Column(String)
+    provider_type = Column(String)
+    census_division = Column(String)
+    msa_actual_geographic_location = Column(String)
+    msa_wage_index_location = Column(String)
+    msa_standardized_amount_location = Column(String)
+    sole_community_or_medicare_dependent_hospital_base_year = Column(String)
+    change_code_for_lugar_reclassification = Column(String)
+    temporary_relief_indicator = Column(String)
+    federal_pps_blend = Column(String)
+    state_code = Column(String)
+    pps_facility_specific_rate = Column(Float)
+    cost_of_living_adjustment = Column(Float)
+    interns_to_beds_ratio = Column(Float)
+    bed_size = Column(Integer)
+    operating_cost_to_charge_ratio = Column(Float)
+    case_mix_index = Column(Float)
+    supplemental_security_income_ratio = Column(Float)
+    medicaid_ratio = Column(Float)
+    special_provider_update_factor = Column(Float)
+    operating_dsh = Column(Float)
+    fiscal_year_end_date = Column(Integer)
+    special_payment_indicator = Column(String)
+    hosp_quality_indicator = Column(String)
+    cbsa_actual_geographic_location = Column(String)
+    cbsa_wi_location = Column(String)
+    cbsa_standardized_amount_location = Column(String)
+    special_wage_index = Column(Float)
+    pass_through_amount_for_capital = Column(Float)
+    pass_through_amount_for_direct_medical_education = Column(Float)
+    pass_through_amount_for_organ_acquisition = Column(Float)
+    pass_through_total_amount = Column(Float)
+    capital_pps_payment_code = Column(String)
+    hospital_specific_capital_rate = Column(Float)
+    old_capital_hold_harmless_rate = Column(Float)
+    old_capital_hold_harmless_rate_effective_date = Column(String)
+    capital_cost_to_charge_ratio = Column(Float)
+    new_hospital = Column(String)
+    capital_indirect_medical_education_ratio = Column(Float)
+    capital_exception_payment_rate = Column(Float)
+    vpb_participant_indicator = Column(String)
+    vbp_adjustment = Column(Float)
+    hrr_participant_indicator = Column(Integer)
+    hrr_adjustment = Column(Float)
+    bundle_model_discount = Column(Float)
+    hac_reduction_participant_indicator = Column(String)
+    uncompensated_care_amount = Column(Float)
+    ehr_reduction_indicator = Column(String)
+    low_volume_adjustment_factor = Column(Float)
+    county_code = Column(String)
+    medicare_performance_adjustment = Column(Float)
+    ltch_dpp_indicator = Column(String)
+    supplemental_wage_index = Column(Float)
+    supplemental_wage_index_indicator = Column(String)
+    change_code_wage_index_reclassification = Column(String)
+    national_provider_identifier = Column(String, index=True)
+    pass_through_amount_for_allogenic_stem_cell_acquisition = Column(Float)
+    pps_blend_year_indicator = Column(String)
+    last_updated = Column(String)
+    pass_through_amount_for_direct_graduate_medical_education = Column(Float)
+    pass_through_amount_for_kidney_acquisition = Column(Float)
+    pass_through_amount_for_supply_chain = Column(Float)
+
+    __table_args__ = (
+        Index("idx_ipsf_ccn_effective", "provider_ccn", "effective_date"),
+        Index("idx_ipsf_npi_effective", "national_provider_identifier", "effective_date"),
+    )
+
+    def to_provider_model(self) -> "IPSFProvider":
+        data = {k: getattr(self, k) for k in DATATYPES.keys() if hasattr(self, k)}
+        return IPSFProvider(**data)
+
+
+# Prepared statements (defined after IPSF is declared)
+IPSF_BY_CCN = (
+    select(IPSF)
+    .where(IPSF.provider_ccn == bindparam("ccn"), IPSF.effective_date <= bindparam("date_int"))
+    .order_by(IPSF.effective_date.desc())
+    .limit(1)
+)
+
+IPSF_BY_NPI = (
+    select(IPSF)
+    .where(IPSF.national_provider_identifier == bindparam("npi"), IPSF.effective_date <= bindparam("date_int"))
+    .order_by(IPSF.effective_date.desc())
+    .limit(1)
+)
+
 
 class IPSFDatabase:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self._engine = None
-        self._initialize_connection()
+    """Unified IPSF database helper supporting sqlite & postgres via SQLAlchemy ORM."""
 
-    def _initialize_connection(self):
-        """Initialize database connection with proper pooling"""
-        if self._engine is None:
-            # Configure connection pool settings for better resource management
-            self._engine = sqlalchemy.create_engine(
-                f"sqlite:///{self.db_path}",
-                pool_pre_ping=True,  # Validate connections before use
-                pool_recycle=3600,   # Recycle connections after 1 hour
-                echo=False
+    def __init__(self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"):
+        self.db_path = db_path
+        self.db_backend = db_backend
+        self._engine: sqlalchemy.Engine | None = None
+        self._Session: sessionmaker | None = None
+        self._init_engine()
+
+    def _init_engine(self):
+        if self._engine is not None:
+            return
+        if self.db_backend == "sqlite":
+            engine_str = f"sqlite:///{self.db_path}"
+            self._engine = create_engine(
+                engine_str, future=True, pool_pre_ping=True, echo=False
             )
+        else:
+            host = os.getenv("PYPPS_PG_HOST", "localhost")
+            port = os.getenv("PYPPS_PG_PORT", "5432")
+            user = os.getenv("PYPPS_PG_USER", "user")
+            password = os.getenv("PYPPS_PG_PASSWORD", "password")
+            database = os.getenv("PYPPS_PG_DATABASE", "database")
+            engine_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            self._engine = create_engine(
+                engine_str,
+                future=True,
+                pool_pre_ping=True,
+                echo=False,
+            )
+        self._Session = sessionmaker(bind=self._engine, expire_on_commit=False, future=True)
+        Base.metadata.create_all(self._engine)
 
     @property
-    def engine(self):
-        """Get the database engine, ensuring it's initialized"""
+    def engine(self) -> sqlalchemy.Engine:
         if self._engine is None:
-            self._initialize_connection()
-        return self._engine
+            self._init_engine()
+        return self._engine  # type: ignore
 
-    def __enter__(self):
-        """Context manager entry"""
-        return self
+    def session(self) -> Session:
+        if self._Session is None:
+            self._init_engine()
+        return self._Session()  # type: ignore
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit with proper cleanup"""
-        self.close()
-        return False  # Don't suppress exceptions
+    def download(self, url: str = IPSF_URL, download_dir: str | None = None) -> str:
+        download_dir = download_dir or os.path.dirname(self.db_path) or "."
+        os.makedirs(download_dir, exist_ok=True)
+        filename = os.path.join(download_dir, "ipsf_data.csv")
+        response = requests.get(url, stream=True, timeout=120)
+        response.raise_for_status()
+        with open(filename, "wb") as fh:
+            for chunk in response.iter_content(chunk_size=1 << 15):
+                if chunk:
+                    fh.write(chunk)
+        return filename
+
+    def _row_iter(self, csv_path: str) -> Iterable[Dict[str, Any]]:
+        with open(csv_path, "r", newline="") as fh:
+            reader = csv.reader(fh)
+            next(reader, None)  # Skip header
+            for row in reader:
+                if not row or len(row) < len(DATATYPES):
+                    continue
+                rec: Dict[str, Any] = {}
+                for name, meta in DATATYPES.items():
+                    pos = meta["position"]
+                    val = row[pos] if pos < len(row) else None
+                    if val == "":
+                        val = None
+                    if name in INT_FIELDS and val is not None:
+                        try:
+                            val = int(val)
+                        except ValueError:
+                            val = None
+                    elif name in REAL_FIELDS and val is not None:
+                        try:
+                            val = float(val)
+                        except ValueError:
+                            val = None
+                    rec[name] = val
+                yield rec
+
+    def populate(self, download: bool = True, batch_size: int = 4000, truncate: bool = True) -> int:
+        csv_path = self.download() if download else os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv")
+        total = 0
+        from sqlalchemy import insert as sql_insert
+        insert_stmt = sql_insert(IPSF)
+        with self.session() as sess:
+            if truncate:
+                sess.query(IPSF).delete()
+                sess.commit()
+            batch: List[Dict[str, Any]] = []
+            for rec in self._row_iter(csv_path):
+                batch.append(rec)
+                if len(batch) >= batch_size:
+                    sess.execute(insert_stmt, batch)
+                    sess.commit()
+                    total += len(batch)
+                    batch.clear()
+            if batch:
+                sess.execute(insert_stmt, batch)
+                sess.commit()
+                total += len(batch)
+        if download and os.path.exists(csv_path):
+            try:
+                os.remove(csv_path)
+            except OSError:
+                pass
+        return total
+
+    # Backwards compatibility convenience
+    def to_sqlite(self, create_table: bool = True):  # type: ignore
+        if create_table:
+            Base.metadata.create_all(self.engine)
+        self.populate(download=True, truncate=True)
 
     def close(self):
-        """Properly close database connections"""
         if self._engine:
             self._engine.dispose()
             self._engine = None
+            self._Session = None
 
-    def create_table(self):
-        columns = ", ".join(
-            [f"{name} {info['type']}" for name, info in DATATYPES.items()]
-        )
-        create_table_sql = f"CREATE TABLE IF NOT EXISTS ipsf ({columns})"
-        with self.engine.connect() as connection:
-            connection.exec_driver_sql(create_table_sql)
-            # Create Index on provider_ccn, national_provider_identifier, and effective_date
-            connection.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS idx_provider_ccn ON ipsf(provider_ccn, effective_date)"
-            )
-            connection.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS idx_national_provider_identifier ON ipsf(national_provider_identifier, effective_date)"
-            )
+    def __enter__(self):
+        return self
 
-    def download(self, url, download_dir: str = "./"):
-        """
-        Downloads a file from a URL and extracts it if it's a zip file.
-
-        Args:
-            url: The URL of the file to download.
-        """
-        try:
-            if not os.path.exists(download_dir):
-                print(
-                    f"Download directory {download_dir} does not exist, attempting to create"
-                )
-                os.makedirs(download_dir, exist_ok=True)
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-
-            filename = os.path.join(download_dir, "ipsf_data.csv")
-            with open(filename, "wb") as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
-            print(f"Downloaded {filename}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading {url}: {e}")
-
-    def to_sqlite(self, create_table=True):
-        """
-        Converts the downloaded IPSF data to SQLite format.
-        """
-        if not os.path.exists(self.db_path):
-            raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
-
-        if create_table:
-            self.create_table()
-
-        with self.engine.connect() as connection:
-            rs = connection.exec_driver_sql(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
-            )
-            if not rs.fetchone():
-                raise ValueError(
-                    "IPSF table does not exist. Please run build_db=True to create the database."
-                )
-            # truncate the table if it exists
-            connection.exec_driver_sql("DELETE FROM ipsf")
-            connection.commit()
-            self.download(IPSF_URL, download_dir=os.path.dirname(self.db_path))
-            # Prepare the query string once
-            placeholders = ", ".join(["?"] * len(DATATYPES))
-            query = f"INSERT INTO ipsf VALUES ({placeholders})"
-            # Batch through the data and insert 1000 rows at a time
-            with open(
-                os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"), "r"
-            ) as file:
-                file.readline()  # Skip header line
-                row_count = 0
-                for line in file:
-                    values = line.strip().split(",")
-                    if len(values) != len(DATATYPES):
-                        print(
-                            f"Skipping line with incorrect number of values: {line.strip()}"
-                        )
-                        continue
-                    try:
-                        connection.exec_driver_sql(query, tuple(values))
-                    except Exception as e:
-                        print(f"Error inserting values into ipsf: {e}")
-                    row_count += 1
-                    if row_count % 1000 == 0:
-                        connection.commit()
-                # Commit any remaining rows
-                connection.commit()
-        if os.path.exists(os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv")):
-            os.remove(os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv"))
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
 
 
 class IPSFProvider(BaseModel):
@@ -304,45 +425,41 @@ class IPSFProvider(BaseModel):
         0.0  # Default to 0.0 if not provided in data.
     )
 
-    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):
-        if provider.other_id:
-            lookup_query = "SELECT * FROM ipsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-            lookup_value = provider.other_id
-        elif provider.npi:
-            lookup_query = "SELECT * FROM ipsf WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-            lookup_value = provider.npi
-        else:
-            raise ValueError(
-                "Provider must have either an NPI or other_id set to lookup IPSF data."
-            )
-        with conn.connect() as connection:
-            row = connection.exec_driver_sql(lookup_query, (lookup_value, date_int))
-            row = row.fetchone()
-            if row:
-                for key, value in DATATYPES.items():
-                    if value["type"] in ["INT", "REAL"]:
-                        val = (
-                            row[value["position"]]
-                            if row[value["position"]] is not None
-                            and row[value["position"]] != ""
-                            else 0
-                        )
-                        setattr(self, key, val)
-                    else:
-                        setattr(self, key, row[value["position"]])
-                if self.termination_date == 19000101 or self.termination_date == 0:
-                    self.termination_date = 20991231
-                # Allow for request level overrides of provider variables
-                if "ipsf" in provider.additional_data:
-                    if isinstance(provider.additional_data["ipsf"], dict):
-                        for key, value in provider.additional_data["ipsf"].items():
-                            if hasattr(self, key):
-                                setattr(self, key, value)
-                return
+    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
+        eng_id = id(engine)
+        sess_factory = _SESSION_FACTORY_CACHE.get(eng_id)
+        if sess_factory is None:
+            sess_factory = sessionmaker(bind=engine, future=True)
+            _SESSION_FACTORY_CACHE[eng_id] = sess_factory
+        with sess_factory() as session:
+            params: dict[str, int | str] = {"date_int": date_int}
+            if provider.other_id:
+                params["ccn"] = provider.other_id
+                query = IPSF_BY_CCN
+            elif provider.npi:
+                params["npi"] = provider.npi
+                query = IPSF_BY_NPI
             else:
+                raise ValueError("Provider must have either an NPI or other_id")
+            row = session.execute(query, params).scalar_one_or_none()
+            if row is None:
                 raise ValueError(
                     f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
                 )
+            for field in DATATYPES.keys():
+                if hasattr(row, field):
+                    setattr(self, field, getattr(row, field))
+            if self.termination_date in (19000101, 0, None):
+                self.termination_date = 20991231
+            extra = provider.additional_data.get("ipsf") if hasattr(provider, "additional_data") else None
+            if isinstance(extra, dict):
+                for k, v in extra.items():
+                    if hasattr(self, k):
+                        setattr(self, k, v)
+            return self
+
+    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):  # backward compat
+        return self.from_db(conn, provider, date_int)
 
     def set_java_values(self, java_provider, client):
         if not hasattr(client, "java_integer_class") or not hasattr(
@@ -352,111 +469,113 @@ class IPSFProvider(BaseModel):
                 "Client must have java_integer_class and java_big_decimal_class attributes."
             )
 
-        java_provider.setBedSize(client.java_integer_class(self.bed_size))
+        java_provider.setBedSize(client.java_integer_class(self.bed_size) if self.bed_size else client.java_integer_class(0))
         java_provider.setBundleModel1Discount(
-            client.java_big_decimal_class(self.bundle_model_discount)
+            client.java_big_decimal_class(self.bundle_model_discount) if self.bundle_model_discount else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalCostToChargeRatio(
-            client.java_big_decimal_class(self.capital_cost_to_charge_ratio)
+            client.java_big_decimal_class(self.capital_cost_to_charge_ratio) if self.capital_cost_to_charge_ratio else client.java_big_decimal_class(0)
         )
         java_provider.setOperatingCostToChargeRatio(
-            client.java_big_decimal_class(self.operating_cost_to_charge_ratio)
+            client.java_big_decimal_class(self.operating_cost_to_charge_ratio) if self.operating_cost_to_charge_ratio else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalExceptionPaymentRate(
-            client.java_big_decimal_class(self.capital_exception_payment_rate)
+            client.java_big_decimal_class(self.capital_exception_payment_rate) if self.capital_exception_payment_rate else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalIndirectMedicalEducationRatio(
-            client.java_big_decimal_class(self.capital_indirect_medical_education_ratio)
+            client.java_big_decimal_class(self.capital_indirect_medical_education_ratio) if self.capital_indirect_medical_education_ratio else client.java_big_decimal_class(0)
         )
-        java_provider.setCapitalPpsPaymentCode(self.capital_pps_payment_code)
+        java_provider.setCapitalPpsPaymentCode(self.capital_pps_payment_code if self.capital_pps_payment_code else "")
         java_provider.setCbsaActualGeographicLocation(
-            str(self.cbsa_actual_geographic_location)
+            str(self.cbsa_actual_geographic_location) if self.cbsa_actual_geographic_location else ""
         )
-        java_provider.setCbsaWageIndexLocation(str(self.cbsa_wi_location))
+        java_provider.setCbsaWageIndexLocation(str(self.cbsa_wi_location) if self.cbsa_wi_location else "")
         java_provider.setCbsaStandardizedAmountLocation(
-            str(self.cbsa_standardized_amount_location)
+            str(self.cbsa_standardized_amount_location) if self.cbsa_standardized_amount_location else ""
         )
-        java_provider.setEhrReductionIndicator(str(self.ehr_reduction_indicator))
-        java_provider.setFederalPpsBlend(str(self.federal_pps_blend))
+        java_provider.setEhrReductionIndicator(str(self.ehr_reduction_indicator) if self.ehr_reduction_indicator else "")
+        java_provider.setFederalPpsBlend(str(self.federal_pps_blend) if self.federal_pps_blend else "")
         java_provider.setHacReductionParticipantIndicator(
-            str(self.hac_reduction_participant_indicator)
+            str(self.hac_reduction_participant_indicator) if self.hac_reduction_participant_indicator else ""
         )
         java_provider.setHrrAdjustment(
-            client.java_big_decimal_class(self.hrr_adjustment)
+            client.java_big_decimal_class(self.hrr_adjustment) if self.hrr_adjustment else client.java_big_decimal_class(0)
         )
-        java_provider.setHrrParticipantIndicator(str(self.hrr_participant_indicator))
+        java_provider.setHrrParticipantIndicator(str(self.hrr_participant_indicator) if self.hrr_participant_indicator else "")
         java_provider.setInternsToBedsRatio(
-            client.java_big_decimal_class(self.interns_to_beds_ratio)
+            client.java_big_decimal_class(self.interns_to_beds_ratio) if self.interns_to_beds_ratio else client.java_big_decimal_class(0)
         )
         java_provider.setLowVolumeAdjustmentFactor(
-            client.java_big_decimal_class(self.low_volume_adjustment_factor)
+            client.java_big_decimal_class(self.low_volume_adjustment_factor) if self.low_volume_adjustment_factor else client.java_big_decimal_class(0)
         )
-        java_provider.setLtchDppIndicator(str(self.ltch_dpp_indicator))
+        java_provider.setLtchDppIndicator(str(self.ltch_dpp_indicator) if self.ltch_dpp_indicator else "")
         java_provider.setMedicaidRatio(
-            client.java_big_decimal_class(self.medicaid_ratio)
+            client.java_big_decimal_class(self.medicaid_ratio) if self.medicaid_ratio else client.java_big_decimal_class(0)
         )
-        java_provider.setNewHospital(str(self.new_hospital))
+        java_provider.setNewHospital(str(self.new_hospital) if self.new_hospital else "")
         java_provider.setOldCapitalHoldHarmlessRate(
-            client.java_big_decimal_class(self.old_capital_hold_harmless_rate)
+            client.java_big_decimal_class(self.old_capital_hold_harmless_rate) if self.old_capital_hold_harmless_rate else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForAllogenicStemCellAcquisition(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_allogenic_stem_cell_acquisition
+                self.pass_through_amount_for_allogenic_stem_cell_acquisition if self.pass_through_amount_for_allogenic_stem_cell_acquisition else 0
             )
         )
         java_provider.setPassThroughAmountForCapital(
-            client.java_big_decimal_class(self.pass_through_amount_for_capital)
+            client.java_big_decimal_class(self.pass_through_amount_for_capital) if self.pass_through_amount_for_capital else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForDirectMedicalEducation(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_direct_medical_education
+                self.pass_through_amount_for_direct_medical_education if self.pass_through_amount_for_direct_medical_education else 0
             )
         )
         java_provider.setPassThroughAmountForSupplyChainCosts(
-            client.java_big_decimal_class(self.pass_through_amount_for_supply_chain)
+            client.java_big_decimal_class(self.pass_through_amount_for_supply_chain) if self.pass_through_amount_for_supply_chain else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForOrganAcquisition(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_organ_acquisition
+                self.pass_through_amount_for_organ_acquisition if self.pass_through_amount_for_organ_acquisition else 0
             )
         )
         java_provider.setPassThroughTotalAmount(
-            client.java_big_decimal_class(self.pass_through_total_amount)
+            client.java_big_decimal_class(self.pass_through_total_amount) if self.pass_through_total_amount else client.java_big_decimal_class(0)
         )
         java_provider.setPpsFacilitySpecificRate(
-            client.java_big_decimal_class(self.pps_facility_specific_rate)
+            client.java_big_decimal_class(self.pps_facility_specific_rate) if self.pps_facility_specific_rate else client.java_big_decimal_class(0)
         )
         java_provider.setSupplementalSecurityIncomeRatio(
-            client.java_big_decimal_class(self.supplemental_security_income_ratio)
+            client.java_big_decimal_class(self.supplemental_security_income_ratio) if self.supplemental_security_income_ratio else client.java_big_decimal_class(0)
         )
-        java_provider.setTemporaryReliefIndicator(str(self.temporary_relief_indicator))
+        java_provider.setTemporaryReliefIndicator(str(self.temporary_relief_indicator) if self.temporary_relief_indicator else "")
         java_provider.setUncompensatedCareAmount(
-            client.java_big_decimal_class(self.uncompensated_care_amount)
+            client.java_big_decimal_class(self.uncompensated_care_amount) if self.uncompensated_care_amount else client.java_big_decimal_class(0)
         )
         java_provider.setVbpAdjustment(
-            client.java_big_decimal_class(self.vbp_adjustment)
+            client.java_big_decimal_class(self.vbp_adjustment) if self.vbp_adjustment else client.java_big_decimal_class(0)
         )
-        java_provider.setVbpParticipantIndicator(str(self.vpb_participant_indicator))
-        java_provider.setStateCode(self.state_code)
-        java_provider.setCountyCode(self.county_code)
+        java_provider.setVbpParticipantIndicator(str(self.vpb_participant_indicator) if self.vpb_participant_indicator else "")
+        java_provider.setStateCode(self.state_code if self.state_code else "")
+        java_provider.setCountyCode(self.county_code if self.county_code else "")
         java_provider.setSpecialWageIndex(
-            client.java_big_decimal_class(self.special_wage_index)
+            client.java_big_decimal_class(self.special_wage_index) if self.special_wage_index else client.java_big_decimal_class(0)
         )
-        java_provider.setProviderType(self.provider_type)
-        java_provider.setHospitalQualityIndicator(self.hosp_quality_indicator)
-        java_provider.setSpecialPaymentIndicator(self.special_payment_indicator)
+        java_provider.setProviderType(self.provider_type if self.provider_type else "")
+        java_provider.setHospitalQualityIndicator(self.hosp_quality_indicator if self.hosp_quality_indicator else "")
+        java_provider.setSpecialPaymentIndicator(self.special_payment_indicator if self.special_payment_indicator else "")
         java_provider.setMedicarePerformanceAdjustment(
-            client.java_big_decimal_class(self.medicare_performance_adjustment)
+            client.java_big_decimal_class(self.medicare_performance_adjustment) if self.medicare_performance_adjustment else client.java_big_decimal_class(0)
         )
-        java_provider.setWaiverIndicator(self.waiver_indicator)
+        java_provider.setWaiverIndicator(self.waiver_indicator if self.waiver_indicator else "")
         java_provider.setCostOfLivingAdjustment(
-            client.java_big_decimal_class(self.cost_of_living_adjustment)
+            client.java_big_decimal_class(self.cost_of_living_adjustment) if self.cost_of_living_adjustment else client.java_big_decimal_class(0)
         )
-        java_provider.setEffectiveDate(client.py_date_to_java_date(self.effective_date))
+        java_provider.setEffectiveDate(client.py_date_to_java_date(self.effective_date) if self.effective_date else client.py_date_to_java_date(19000101))
         java_provider.setTerminationDate(
-            client.py_date_to_java_date(self.termination_date)
+            client.py_date_to_java_date(self.termination_date) if self.termination_date else client.py_date_to_java_date(19000101)
         )
         java_provider.setFiscalYearBeginDate(
-            client.py_date_to_java_date(self.fiscal_year_begin_date)
+            client.py_date_to_java_date(self.fiscal_year_begin_date) if self.fiscal_year_begin_date else client.py_date_to_java_date(19000101)
         )
-        java_provider.setProviderCcn(self.provider_ccn)
+        java_provider.setProviderCcn(self.provider_ccn if self.provider_ccn else "")
+
+__all__ = ["IPSFDatabase", "IPSFProvider", "IPSF"]

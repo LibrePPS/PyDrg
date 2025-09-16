@@ -1,5 +1,6 @@
 import os
 from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List
 from logging import Logger, getLogger
@@ -13,6 +14,7 @@ from pydrg.helpers.utils import (
     py_date_to_java_date,
     create_supported_years,
 )
+from pydrg.helpers import Zip9Data
 from pydrg.input.claim import Claim
 from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.pricers.url_loader import UrlLoader
@@ -226,27 +228,40 @@ class FqhcClient:
 
         if self.db is not None and found_carrier_locality == False:
             try:
-                with self.db.connect() as conn:
-                    q = "Select zip_code, carrier, pricing_locality, plus_four from zip9_data where zip_code = ? and (effective_date <= ? and end_date >= ? ) order by plus_four desc"
-                    result = conn.exec_driver_sql(q, (zip_code, claim.from_date, claim.thru_date)).fetchall()
-                    if result and len(result) > 0:
+                with Session(self.db) as session:
+                    result = (
+                        session.query(
+                            Zip9Data.zip_code,
+                            Zip9Data.carrier,
+                            Zip9Data.pricing_locality,
+                            Zip9Data.plus_four,
+                        )
+                        .filter(
+                            Zip9Data.zip_code == zip_code,
+                            Zip9Data.effective_date <= claim.from_date,
+                            Zip9Data.end_date >= claim.thru_date,
+                        )
+                        .order_by(Zip9Data.plus_four.desc())
+                        .all()
+                    )
+                    if result:
                         for row in result:
-                            if row[3] is None or row[3].strip() == "":
-                                #There's no plus_four for this zip so take the first and presumably only entry
-                                claim_object.setCarrierCode(row[1])
-                                claim_object.setLocalityCode(row[2])
+                            zip_code_val, carrier_val, loc_val, plus_four_val = row
+                            if plus_four_val is None or str(plus_four_val).strip() == "":
+                                claim_object.setCarrierCode(carrier_val)
+                                claim_object.setLocalityCode(loc_val)
                                 found_carrier_locality = True
                                 break
-                            elif plus4 != "" and plus4 == row[3].strip():
-                                claim_object.setCarrierCode(row[1])
-                                claim_object.setLocalityCode(row[2])
+                            elif plus4 != "" and plus4 == str(plus_four_val).strip():
+                                claim_object.setCarrierCode(carrier_val)
+                                claim_object.setLocalityCode(loc_val)
                                 found_carrier_locality = True
-                                break                           
-                    else:
+                                break
+                    if not found_carrier_locality:
                         raise ValueError(
                             f"Failed to find carrier and locality for zip code: {zip_code}"
                         )
-            except Exception as e:
+            except Exception:
                 raise ValueError("Failed to lookup carrier and locality from zip code.")
         else:
             raise ValueError(

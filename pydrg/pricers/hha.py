@@ -358,6 +358,7 @@ class HhaClient:
         pricing_request.setClaimData(claim_object)
         # HHA Uses the special provider update factor as vbp adjustment
         if (
+            ipsf_provider.special_provider_update_factor is not None and
             ipsf_provider.special_provider_update_factor > 0
             and ipsf_provider.vbp_adjustment == 0
         ):

@@ -316,60 +316,7 @@ class OppsClient:
             raise ValueError(
                 "Either billing or servicing provider must be provided for IPPS pricing."
             )
-
-        provider_data.setCbsaActualGeographicLocation(
-            opsf_provider.cbsa_actual_geographic_location
-        )
-        provider_data.setCbsaWageIndexLocation(opsf_provider.cbsa_wage_index_location)
-        provider_data.setCostOfLivingAdjustment(
-            self.java_big_decimal_class(opsf_provider.cost_of_living_adjustment)
-        )
-        provider_data.setCountyCode(opsf_provider.county_code)
-        provider_data.setHospitalQualityIndicator(
-            opsf_provider.hospital_quality_indicator
-        )
-        provider_data.setIntermediaryNumber(opsf_provider.intermediary_number)
-        provider_data.setMedicarePerformanceAdjustment(
-            self.java_big_decimal_class(opsf_provider.medicare_performance_adjustment)
-        )
-        provider_data.setOperatingCostToChargeRatio(
-            self.java_big_decimal_class(opsf_provider.operating_cost_to_charge_ratio)
-        )
-        provider_data.setProviderCcn(opsf_provider.provider_ccn)
-        provider_data.setProviderType(opsf_provider.provider_type)
-        provider_data.setSpecialPaymentIndicator(
-            opsf_provider.special_payment_indicator
-        )
-        provider_data.setPaymentModelAdjustment(
-            self.java_big_decimal_class(opsf_provider.payment_model_adjustment)
-        )
-        provider_data.setSpecialLocalityIndicator(
-            opsf_provider.special_locality_indicator
-        )
-        provider_data.setPaymentCbsa(opsf_provider.payment_cbsa)
-        provider_data.setDeviceCostToChargeRatio(
-            self.java_big_decimal_class(opsf_provider.device_cost_to_charge_ratio)
-        )
-        provider_data.setSpecialWageIndex(
-            self.java_big_decimal_class(opsf_provider.special_wage_index)
-        )
-        provider_data.setStateCode(opsf_provider.state_code)
-        provider_data.setSupplementalWageIndex(
-            self.java_big_decimal_class(opsf_provider.supplemental_wage_index)
-        )
-        provider_data.setSupplementalWageIndexIndicator(
-            opsf_provider.supplemental_wage_index_indicator
-        )
-        provider_data.setWaiverIndicator(opsf_provider.waiver_indicator)
-        provider_data.setEffectiveDate(
-            self.py_date_to_java_date(opsf_provider.effective_date)
-        )
-        provider_data.setTerminationDate(
-            self.py_date_to_java_date(opsf_provider.termination_date)
-        )
-        provider_data.setFiscalYearBeginDate(
-            self.py_date_to_java_date(opsf_provider.fiscal_year_begin_date)
-        )
+        opsf_provider.set_java_values(provider_data, self)
 
         pricing_request.setProviderData(provider_data)
         pricing_response = self.dispatch_obj.process(pricing_request)

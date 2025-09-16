@@ -1,10 +1,11 @@
 import logging
 import os
-from typing import Optional
+from typing import Optional, Literal
 import jpype
 from contextlib import ExitStack
 from threading import RLock
 import atexit
+from sqlalchemy import inspect
 
 from pydrg.helpers.cms_downloader import CMSDownloader
 from pydrg.ioce.ioce_client import IoceClient
@@ -56,6 +57,7 @@ class Pypps:
         log_level: int = logging.INFO,
         extra_classpaths: list[str] = [],
         auto_cleanup: bool = True,
+        db_backend: Literal["sqlite", "postgresql"] = "sqlite"
     ):
         # Store configuration
         self.extra_classpaths = extra_classpaths or []
@@ -91,7 +93,7 @@ class Pypps:
         self._ensure_directories()
         
         # Setup databases with resource management
-        self._setup_databases()
+        self._setup_databases(db_backend)
         
         # Setup JVM with thread safety
         self._setup_jvm()
@@ -151,15 +153,15 @@ class Pypps:
                 except Exception as e:
                     self.logger.warning(f"Error shutting down JVM: {e}")
 
-    def _setup_databases(self):
+    def _setup_databases(self, db_backend: Literal["sqlite", "postgresql"]):
         """Setup databases with proper resource management"""
         try:
             # Create database instances and register cleanup
             self.opsf_db = self._exit_stack.enter_context(
-                OPSFDatabase(self.db_path)
+                OPSFDatabase(self.db_path, db_backend)
             )
             self.ipsf_db = self._exit_stack.enter_context(
-                IPSFDatabase(self.db_path)
+                IPSFDatabase(self.db_path, db_backend)
             )
             self.icd10_converter = ICDConverter(self.ipsf_db.engine)
             
@@ -187,7 +189,7 @@ class Pypps:
             flat_data_path = os.path.join(flat_data_path, "zipCL-data")
             if os.path.exists(flat_data_path):
                 self.logger.info(f"Loading zip code data from {flat_data_path}")
-                zipCL_loader.load_records(flat_data_path, self.db_path)
+                zipCL_loader.load_records(flat_data_path, self.opsf_db.engine)
             else:
                 self.logger.warning(f"Zip code data files does not exist: {flat_data_path}")
 
@@ -201,24 +203,28 @@ class Pypps:
     def _validate_databases(self):
         """Validate that required database tables exist"""
         try:
-            with (
-                self.opsf_db.engine.connect() as opsf_connection,
-                self.ipsf_db.engine.connect() as ipsf_connection,
-            ):
-                rs = opsf_connection.exec_driver_sql(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
+            opsf_exists = False
+            ipsf_exists = False
+            # Use inspectors so this works across sqlite, postgres, etc.
+            try:
+                opsf_inspector = inspect(self.opsf_db.engine)
+                opsf_exists = "opsf" in opsf_inspector.get_table_names()
+            except Exception as e:  # pragma: no cover - defensive
+                self.logger.debug(f"Inspector failed for OPSF DB: {e}")
+            try:
+                ipsf_inspector = inspect(self.ipsf_db.engine)
+                ipsf_exists = "ipsf" in ipsf_inspector.get_table_names()
+            except Exception as e:  # pragma: no cover
+                self.logger.debug(f"Inspector failed for IPSF DB: {e}")
+
+            if not opsf_exists:
+                self.logger.warning(
+                    "OPSF table does not exist. Please run build_db=True to create the database."
                 )
-                if not rs.fetchone():
-                    self.logger.warning(
-                        "OPSF table does not exist. Please run build_db=True to create the database."
-                    )
-                rs = ipsf_connection.exec_driver_sql(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='ipsf'"
+            if not ipsf_exists:
+                self.logger.warning(
+                    "IPSF table does not exist. Please run build_db=True to create the database."
                 )
-                if not rs.fetchone():
-                    self.logger.warning(
-                        "IPSF table does not exist. Please run build_db=True to create the database."
-                    )
         except Exception as e:
             self.logger.warning(f"Database validation failed: {e}")
 

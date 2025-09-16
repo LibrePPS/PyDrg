@@ -1,15 +1,29 @@
 import os
-from typing import Optional
-import sqlalchemy
+import csv
 import requests
-from pydantic import BaseModel
+from typing import Optional, Literal, List, Dict, Any, Iterable
 from multiprocessing import cpu_count
+
+import sqlalchemy
+from sqlalchemy import (
+    Column,
+    Integer,
+    Float,
+    String,
+    Index,
+    create_engine,
+    select,
+    bindparam,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from pydantic import BaseModel
 import jpype
 
 from pydrg.input.claim import Provider
 
 OPSF_URL = "https://pds.mps.cms.gov/fiss/v2/outpatient/export?fromDate=2023-01-01&toDate=2030-12-31"
 
+# Column definitions and positional index for CSV parsing.
 DATATYPES = {
     "provider_ccn": {"type": "TEXT", "position": 0},
     "effective_date": {"type": "INT", "position": 1},
@@ -41,147 +55,84 @@ DATATYPES = {
     "medicare_performance_adjustment": {"type": "REAL", "position": 27},
     "supplemental_wage_index_indicator": {"type": "TEXT", "position": 28},
     "supplemental_wage_index": {"type": "REAL", "position": 29},
-    "last_updated": {"type": "DATE", "position": 30},
+    "last_updated": {"type": "TEXT", "position": 30},  # store as TEXT for portability
     "carrier_code": {"type": "TEXT", "position": 31},
     "locality_code": {"type": "TEXT", "position": 32},
 }
 
+INT_FIELDS = {
+    k for k, v in DATATYPES.items() if v["type"] == "INT"
+}
+REAL_FIELDS = {
+    k for k, v in DATATYPES.items() if v["type"] == "REAL"
+}
 
-class OPSFDatabase:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self._engine = None
-        self._initialize_connection()
+Base = declarative_base()
 
-    def _initialize_connection(self):
-        """Initialize database connection with proper pooling"""
-        if self._engine is None:
-            # Configure connection pool settings for better resource management
-            self._engine = sqlalchemy.create_engine(
-                f"sqlite:///{self.db_path}",
-                pool_pre_ping=True,  # Validate connections before use
-                pool_recycle=3600,   # Recycle connections after 1 hour
-                echo=False,
-                pool_size=cpu_count()
-            )
-            # Test connection
-            with self._engine.connect():
-                pass
+# Simple session factory cache (keyed by engine id) to avoid recreating sessionmaker
+_SESSION_FACTORY_CACHE: dict[int, sessionmaker] = {}
 
-    @property
-    def engine(self):
-        """Get the database engine, ensuring it's initialized"""
-        if self._engine is None:
-            self._initialize_connection()
-        return self._engine
 
-    def __enter__(self):
-        """Context manager entry"""
-        return self
+class OPSF(Base):
+    __tablename__ = "opsf"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider_ccn = Column(String)
+    effective_date = Column(Integer, index=True)
+    national_provider_identifier = Column(String, index=True)
+    fiscal_year_begin_date = Column(Integer)
+    export_date = Column(Integer)
+    termination_date = Column(Integer)
+    waiver_indicator = Column(String)
+    intermediary_number = Column(String)
+    provider_type = Column(String)
+    special_locality_indicator = Column(String)
+    change_code_wage_index_reclassification = Column(String)
+    msa_actual_geographic_location = Column(String)
+    msa_wage_index_location = Column(String)
+    cost_of_living_adjustment = Column(Float)
+    state_code = Column(String)
+    tops_indicator = Column(String)
+    hospital_quality_indicator = Column(String)
+    operating_cost_to_charge_ratio = Column(Float)
+    cbsa_actual_geographic_location = Column(String)
+    cbsa_wage_index_location = Column(String)
+    special_wage_index = Column(Float)
+    special_payment_indicator = Column(String)
+    esrd_children_quality_indicator = Column(String)
+    device_cost_to_charge_ratio = Column(Float)
+    county_code = Column(String)
+    payment_cbsa = Column(String)
+    payment_model_adjustment = Column(Float)
+    medicare_performance_adjustment = Column(Float)
+    supplemental_wage_index_indicator = Column(String)
+    supplemental_wage_index = Column(Float)
+    last_updated = Column(String)
+    carrier_code = Column(String)
+    locality_code = Column(String)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit with proper cleanup"""
-        self.close()
-        return False  # Don't suppress exceptions
+    __table_args__ = (
+        Index("idx_opsf_ccn_effective", "provider_ccn", "effective_date"),
+        Index("idx_opsf_npi_effective", "national_provider_identifier", "effective_date"),
+    )
 
-    def close(self):
-        """Properly close database connections"""
-        if self._engine:
-            self._engine.dispose()
-            self._engine = None
+    def to_provider_model(self) -> "OPSFProvider":
+        data = {k: getattr(self, k) for k in DATATYPES.keys() if hasattr(self, k)}
+        return OPSFProvider(**data)
 
-    def create_table(self):
-        columns = ", ".join(
-            [f"{key} {value['type']}" for key, value in DATATYPES.items()]
-        )
-        with self.engine.connect() as connection:
-            create_table_sql = f"CREATE TABLE IF NOT EXISTS opsf ({columns})"
-            connection.exec_driver_sql(create_table_sql)
-            connection.commit()
-            # Create index on provider_ccn and effective_date for faster lookups
-            connection.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS idx_self_effective ON opsf (provider_ccn, effective_date)"
-            )
-            # Create index on national_provider_identifier for faster lookups
-            connection.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS idx_opsf_npi ON opsf (national_provider_identifier, effective_date)"
-            )
+# Prepared statements (defined after model) reused in provider lookups
+OPSF_BY_CCN = (
+    select(OPSF)
+    .where(OPSF.provider_ccn == bindparam("ccn"), OPSF.effective_date <= bindparam("date_int"))
+    .order_by(OPSF.effective_date.desc())
+    .limit(1)
+)
 
-    def download(self, url, download_dir: str = "./"):
-        """
-        Downloads a file from a URL and extracts it if it's a zip file.
-
-        Args:
-            url: The URL of the file to download.
-        """
-        try:
-            if not os.path.exists(download_dir):
-                print(
-                    f"Download directory {download_dir} does not exist, attempting to create"
-                )
-                os.makedirs(download_dir, exist_ok=True)
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-
-            filename = os.path.join(download_dir, "opsf_data.csv")
-            with open(filename, "wb") as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
-            print(f"Downloaded {filename}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading {url}: {e}")
-
-    def to_sqlite(self, create_table=True):
-        """
-        Converts the downloaded IPSF data to SQLite format.
-        """
-        if not os.path.exists(self.db_path):
-            raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
-        if create_table:
-            self.create_table()
-
-        with self.engine.connect() as connection:
-            # Check if the table already exists
-            rs = connection.exec_driver_sql(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='opsf'"
-            )
-            if not rs.fetchone():
-                raise ValueError(
-                    "Table 'opsf' does not exist. Please run create_table=True to create the database."
-                )
-            # Truncate the table if it exists
-            connection.exec_driver_sql("DELETE FROM opsf")
-            connection.commit()
-
-            self.download(OPSF_URL, download_dir=os.path.dirname(self.db_path))
-            # Prepare the query string once
-            placeholders = ", ".join(["?"] * len(DATATYPES))
-            query = f"INSERT INTO opsf VALUES ({placeholders})"
-            # Batch through the data and insert 1000 rows at a time
-            with open(
-                os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"), "r"
-            ) as file:
-                file.readline()  # Skip header line
-                row_count = 0
-                for line in file:
-                    values = line.strip().split(",")
-                    if len(values) != len(DATATYPES):
-                        print(
-                            f"Skipping line with incorrect number of values: {line.strip()}"
-                        )
-                        continue
-                    try:
-                        connection.exec_driver_sql(query, tuple(values))
-                    except Exception as e:
-                        print(f"Error inserting values into opsf: {e}")
-                    row_count += 1
-                    if row_count % 1000 == 0:
-                        connection.commit()
-                # Commit any remaining rows
-                connection.commit()
-        if os.path.exists(os.path.join(os.path.dirname(self.db_path), "opsf_data.csv")):
-            os.remove(os.path.join(os.path.dirname(self.db_path), "opsf_data.csv"))
-
+OPSF_BY_NPI = (
+    select(OPSF)
+    .where(OPSF.national_provider_identifier == bindparam("npi"), OPSF.effective_date <= bindparam("date_int"))
+    .order_by(OPSF.effective_date.desc())
+    .limit(1)
+)
 
 class OPSFProvider(BaseModel):
     provider_ccn: Optional[str] = None
@@ -218,44 +169,43 @@ class OPSFProvider(BaseModel):
     carrier_code: Optional[str] = None
     locality_code: Optional[str] = None
 
-    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):
-        with conn.connect() as connection:
+    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
+        """Populate this model using prepared statements + cached sessionmaker."""
+        eng_id = id(engine)
+        sess_factory = _SESSION_FACTORY_CACHE.get(eng_id)
+        if sess_factory is None:
+            sess_factory = sessionmaker(bind=engine, future=True)
+            _SESSION_FACTORY_CACHE[eng_id] = sess_factory
+        with sess_factory() as session:
+            params: dict[str, int | str] = {"date_int": date_int}
             if provider.other_id:
-                lookup_query = "SELECT * FROM opsf WHERE provider_ccn = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-                lookup_value = provider.other_id
+                params["ccn"] = provider.other_id
+                query = OPSF_BY_CCN
             elif provider.npi:
-                lookup_query = "SELECT * FROM opsf WHERE national_provider_identifier = ? AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1"
-                lookup_value = provider.npi
+                params["npi"] = provider.npi
+                query = OPSF_BY_NPI
             else:
-                raise ValueError(
-                    "Provider must have either an NPI or other_id set to lookup IPSF data."
-                )
-            row = connection.exec_driver_sql(lookup_query, (lookup_value, date_int))
-            row = row.fetchone()
-            if row:
-                for key, value in DATATYPES.items():
-                    if value["type"] in ["INT", "REAL"]:
-                        val = (
-                            row[value["position"]]
-                            if row[value["position"]] is not None
-                            and row[value["position"]] != ""
-                            else 0
-                        )
-                        setattr(self, key, val)
-                    else:
-                        setattr(self, key, row[value["position"]])
-                if self.termination_date == 19000101 or self.termination_date == 0:
-                    self.termination_date = 20991231
-                if "opsf" in provider.additional_data:
-                    if isinstance(provider.additional_data["opsf"], dict):
-                        for key, value in provider.additional_data["opsf"].items():
-                            if hasattr(self, key):
-                                setattr(self, key, value)
-                return
-            else:
+                raise ValueError("Provider must have either an NPI or other_id")
+            result = session.execute(query, params).scalar_one_or_none()
+            if result is None:
                 raise ValueError(
                     f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
                 )
+            for field in DATATYPES.keys():
+                if hasattr(result, field):
+                    setattr(self, field, getattr(result, field))
+            if self.termination_date in (19000101, 0, None):
+                self.termination_date = 20991231
+            extra = provider.additional_data.get("opsf") if hasattr(provider, "additional_data") else None
+            if isinstance(extra, dict):
+                for k, v in extra.items():
+                    if hasattr(self, k):
+                        setattr(self, k, v)
+            return self
+
+    # Backwards compatibility alias
+    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):  # type: ignore
+        return self.from_db(conn, provider, date_int)
 
     def set_java_values(self, java_obj: jpype.JObject, client):
         if (
@@ -266,44 +216,201 @@ class OPSFProvider(BaseModel):
             raise AttributeError(
                 "Client must have java_integer_class,java_big_decimal_class and py_date_to_java_date attributes."
             )
-        java_obj.setCbsaActualGeographicLocation(self.cbsa_actual_geographic_location)
-        java_obj.setCbsaWageIndexLocation(self.cbsa_wage_index_location)
+        java_obj.setCbsaActualGeographicLocation(self.cbsa_actual_geographic_location if self.cbsa_actual_geographic_location else "")
+        java_obj.setCbsaWageIndexLocation(self.cbsa_wage_index_location if self.cbsa_wage_index_location else "")
         java_obj.setCostOfLivingAdjustment(
-            client.java_big_decimal_class(self.cost_of_living_adjustment)
+            client.java_big_decimal_class(self.cost_of_living_adjustment) if self.cost_of_living_adjustment is not None else client.java_big_decimal_class(0)
         )
-        java_obj.setCountyCode(self.county_code)
-        java_obj.setHospitalQualityIndicator(self.hospital_quality_indicator)
-        java_obj.setIntermediaryNumber(self.intermediary_number)
+        java_obj.setCountyCode(self.county_code if self.county_code else "")
+        java_obj.setHospitalQualityIndicator(self.hospital_quality_indicator if self.hospital_quality_indicator else "")
+        java_obj.setIntermediaryNumber(self.intermediary_number if self.intermediary_number else "")
         java_obj.setMedicarePerformanceAdjustment(
-            client.java_big_decimal_class(self.medicare_performance_adjustment)
+            client.java_big_decimal_class(self.medicare_performance_adjustment) if self.medicare_performance_adjustment is not None else client.java_big_decimal_class(0)
         )
         java_obj.setOperatingCostToChargeRatio(
-            client.java_big_decimal_class(self.operating_cost_to_charge_ratio)
+            client.java_big_decimal_class(self.operating_cost_to_charge_ratio) if self.operating_cost_to_charge_ratio is not None else client.java_big_decimal_class(0)
         )
-        java_obj.setProviderCcn(self.provider_ccn)
-        java_obj.setProviderType(self.provider_type)
-        java_obj.setSpecialPaymentIndicator(self.special_payment_indicator)
+        java_obj.setProviderCcn(self.provider_ccn if self.provider_ccn else "")
+        java_obj.setProviderType(self.provider_type if self.provider_type else "")
+        java_obj.setSpecialPaymentIndicator(self.special_payment_indicator if self.special_payment_indicator else "")
         java_obj.setPaymentModelAdjustment(
-            client.java_big_decimal_class(self.payment_model_adjustment)
+            client.java_big_decimal_class(self.payment_model_adjustment) if self.payment_model_adjustment is not None else client.java_big_decimal_class(0)
         )
-        java_obj.setSpecialLocalityIndicator(self.special_locality_indicator)
-        java_obj.setPaymentCbsa(self.payment_cbsa)
+        java_obj.setSpecialLocalityIndicator(self.special_locality_indicator if self.special_locality_indicator else "")
+        java_obj.setPaymentCbsa(self.payment_cbsa if self.payment_cbsa else "")
         java_obj.setDeviceCostToChargeRatio(
-            client.java_big_decimal_class(self.device_cost_to_charge_ratio)
+            client.java_big_decimal_class(self.device_cost_to_charge_ratio) if self.device_cost_to_charge_ratio is not None else client.java_big_decimal_class(0)
         )
         java_obj.setSpecialWageIndex(
-            client.java_big_decimal_class(self.special_wage_index)
+            client.java_big_decimal_class(self.special_wage_index) if self.special_wage_index is not None else client.java_big_decimal_class(0)
         )
-        java_obj.setStateCode(self.state_code)
+        java_obj.setStateCode(self.state_code if self.state_code else "")
         java_obj.setSupplementalWageIndex(
-            client.java_big_decimal_class(self.supplemental_wage_index)
+            client.java_big_decimal_class(self.supplemental_wage_index) if self.supplemental_wage_index is not None else client.java_big_decimal_class(0)
         )
         java_obj.setSupplementalWageIndexIndicator(
-            self.supplemental_wage_index_indicator
+            self.supplemental_wage_index_indicator if self.supplemental_wage_index_indicator else ""
         )
-        java_obj.setWaiverIndicator(self.waiver_indicator)
+        java_obj.setWaiverIndicator(self.waiver_indicator if self.waiver_indicator else "")
         java_obj.setEffectiveDate(client.py_date_to_java_date(self.effective_date))
         java_obj.setTerminationDate(client.py_date_to_java_date(self.termination_date))
         java_obj.setFiscalYearBeginDate(
             client.py_date_to_java_date(self.fiscal_year_begin_date)
         )
+
+class OPSFDatabase:
+    """Unified OPSF database helper supporting sqlite & postgres via SQLAlchemy ORM."""
+
+    def __init__(self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"):
+        self.db_path = db_path
+        self.db_backend = db_backend
+        self._engine: sqlalchemy.Engine | None = None
+        self._Session: sessionmaker | None = None
+        self._init_engine()
+
+    # -----------------------------------------------------
+    # Engine / Session Management
+    # -----------------------------------------------------
+    def _init_engine(self):
+        if self._engine is not None:
+            return
+        if self.db_backend == "sqlite":
+            engine_str = f"sqlite:///{self.db_path}"
+            self._engine = create_engine(
+                engine_str,
+                future=True,
+                pool_pre_ping=True,
+                echo=False,
+            )
+        else:
+            host = os.getenv("PYPPS_PG_HOST", "localhost")
+            port = os.getenv("PYPPS_PG_PORT", "5432")
+            user = os.getenv("PYPPS_PG_USER", "user")
+            password = os.getenv("PYPPS_PG_PASSWORD", "password")
+            database = os.getenv("PYPPS_PG_DATABASE", "database")
+            engine_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            self._engine = create_engine(
+                engine_str,
+                future=True,
+                pool_pre_ping=True,
+                echo=False,
+                pool_size=min(cpu_count(), 8),
+                max_overflow=8,
+            )
+        self._Session = sessionmaker(bind=self._engine, expire_on_commit=False, future=True)
+        Base.metadata.create_all(self._engine)
+
+    @property
+    def engine(self) -> sqlalchemy.Engine:
+        if self._engine is None:
+            self._init_engine()
+        return self._engine  # type: ignore
+
+    def session(self) -> Session:
+        if self._Session is None:
+            self._init_engine()
+        return self._Session()  # type: ignore
+
+    # -----------------------------------------------------
+    # Data Acquisition
+    # -----------------------------------------------------
+    def download(self, url: str = OPSF_URL, download_dir: str | None = None) -> str:
+        download_dir = download_dir or os.path.dirname(self.db_path) or "."
+        os.makedirs(download_dir, exist_ok=True)
+        filename = os.path.join(download_dir, "opsf_data.csv")
+        response = requests.get(url, stream=True, timeout=120)
+        response.raise_for_status()
+        with open(filename, "wb") as fh:
+            for chunk in response.iter_content(chunk_size=1 << 15):
+                if chunk:
+                    fh.write(chunk)
+        return filename
+
+    # -----------------------------------------------------
+    # Loading Logic (stream + bulk_insert_mappings)
+    # -----------------------------------------------------
+    def _row_iter(self, csv_path: str) -> Iterable[Dict[str, Any]]:
+        with open(csv_path, "r", newline="") as fh:
+            reader = csv.reader(fh)
+            header = next(reader, None)  # discard header
+            for row in reader:
+                if not row or len(row) < len(DATATYPES):
+                    continue
+                record: Dict[str, Any] = {}
+                for name, meta in DATATYPES.items():
+                    pos = meta["position"]
+                    val = row[pos] if pos < len(row) else None
+                    if val == "":
+                        val = None
+                    if name in INT_FIELDS and val is not None:
+                        try:
+                            val = int(val)
+                        except ValueError:
+                            val = None
+                    elif name in REAL_FIELDS and val is not None:
+                        try:
+                            val = float(val)
+                        except ValueError:
+                            val = None
+                    record[name] = val
+                yield record
+
+    def populate(self, download: bool = True, batch_size: int = 5000, truncate: bool = True) -> int:
+        """Populate (or refresh) the OPSF table.
+
+        Parameters:
+            download: if True, fetch latest CSV before loading
+            batch_size: number of rows per bulk insert
+            truncate: delete existing rows first
+
+        Returns: total inserted rows.
+        """
+        csv_path = self.download() if download else os.path.join(os.path.dirname(self.db_path), "opsf_data.csv")
+        total = 0
+        with self.session() as sess:
+            if truncate:
+                sess.query(OPSF).delete()
+                sess.commit()
+            batch: List[Dict[str, Any]] = []
+            from sqlalchemy import insert as sql_insert
+            insert_stmt = sql_insert(OPSF)
+            for rec in self._row_iter(csv_path):
+                batch.append(rec)
+                if len(batch) >= batch_size:
+                    sess.execute(insert_stmt, batch)
+                    sess.commit()
+                    total += len(batch)
+                    batch.clear()
+            if batch:
+                sess.execute(insert_stmt, batch)
+                sess.commit()
+                total += len(batch)
+        # Cleanup downloaded file if we initiated it
+        if download and os.path.exists(csv_path):
+            try:
+                os.remove(csv_path)
+            except OSError:
+                pass
+        return total
+
+    # Backwards compatibility name
+    def to_sqlite(self, create_table: bool = True):  # type: ignore
+        if create_table:
+            Base.metadata.create_all(self.engine)
+        self.populate(download=True, truncate=True)
+
+    def close(self):
+        if self._engine:
+            self._engine.dispose()
+            self._engine = None
+            self._Session = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
+
+
