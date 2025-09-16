@@ -234,7 +234,7 @@ class IPSFDatabase:
             user = os.getenv("PYPPS_PG_USER", "user")
             password = os.getenv("PYPPS_PG_PASSWORD", "password")
             database = os.getenv("PYPPS_PG_DATABASE", "database")
-            engine_str = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            engine_str = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
             self._engine = create_engine(
                 engine_str,
                 future=True,
