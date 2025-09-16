@@ -36,25 +36,6 @@ class Address(BaseModel):
     fax: str = ""
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("zip4")
-    @classmethod
-    def validate_zip4(cls, v):
-        if len(v) != 4:
-            raise ValueError("ZIP+4 code must be 4 digits")
-        return v
-    @field_validator("zip")
-    @classmethod
-    def validate_zip(cls, v):
-        if len(v) != 5:
-            raise ValueError("ZIP code must be 5 digits")
-        return v
-    @field_validator("state")
-    @classmethod
-    def validate_state(cls, v):
-        if len(v) != 2:
-            raise ValueError("State code must be 2 characters")
-        return v
-
 
 class Patient(BaseModel):
     patient_id: str = ""
