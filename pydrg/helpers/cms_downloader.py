@@ -866,15 +866,15 @@ class CMSDownloader:
 
             # Find the link to the CMG Grouper ZIP file
             cmg_link = None
-            #example /files/zip/cmg-version-530-final.zip
-            for link in soup.find_all("a", href=re.compile(r"/files/zip/cmg-version-\d+-final\.zip")):
+            # example /files/zip/cmg-version-530-final.zip
+            for link in soup.find_all(
+                "a", href=re.compile(r"/files/zip/cmg-version-\d+-final\.zip")
+            ):
                 cmg_link = link["href"]
                 break
 
             if not cmg_link:
-                self.logger.error(
-                    "Could not find 'cmg-grouper' link on the CMS page"
-                )
+                self.logger.error("Could not find 'cmg-grouper' link on the CMS page")
                 return None
 
             # Download the CMG Grouper ZIP file
@@ -893,10 +893,10 @@ class CMSDownloader:
          2.) CMG_v{version}_LIB.zip
 
          from CMG JAR.zip we'll extract the CMG_<version>.jar
-         from CMG_v{version}_LIB.zip we'll extract all jars, compare them 
+         from CMG_v{version}_LIB.zip we'll extract all jars, compare them
          to what's already in the jars directory, if a jar does not exist we'll
          place that into the jars directory, otherwise we'll skip it.
-         """
+        """
 
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(self.download_dir)
@@ -904,8 +904,9 @@ class CMSDownloader:
         # Process the extracted ZIP files
         zip_files = glob.glob(os.path.join(self.download_dir, "*.zip"))
         for zip_file in zip_files:
-            self.process_zip_for_jars(zip_file, "cmg", self.jars_dir, self.REQUIRED_JARS["cmg"])
-
+            self.process_zip_for_jars(
+                zip_file, "cmg", self.jars_dir, self.REQUIRED_JARS["cmg"]
+            )
 
     def extract_jar_files(self, dest_dir=None):
         """Extract JAR files from downloaded ZIP files and move them to jars directory."""
@@ -1233,7 +1234,6 @@ class CMSDownloader:
                 self.logger.info(
                     "HHAGrouper components already exist, skipping download"
                 )
-            
 
             # Process individual JAR components
             self.process_gfc_jar(force_download=force_all_downloads)

@@ -148,6 +148,7 @@ def load_records(
             sess.commit()
         batch: List[Dict[str, Any]] = []
         from sqlalchemy import insert as sql_insert
+
         insert_stmt = sql_insert(Zip9Data)
         for rec in _iter_rows(root, carriers, localities):
             batch.append(rec)

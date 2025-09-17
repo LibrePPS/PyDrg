@@ -47,7 +47,7 @@ class Pypps:
     _jvm_lock = RLock()  # Thread-safe JVM operations
     _jvm_started = False  # Track if we started the JVM
     _active_instances = set()  # Track active instances for cleanup
-    
+
     def __init__(
         self,
         build_jar_dirs: bool = True,
@@ -57,7 +57,7 @@ class Pypps:
         log_level: int = logging.INFO,
         extra_classpaths: list[str] = [],
         auto_cleanup: bool = True,
-        db_backend: Literal["sqlite", "postgresql"] = "sqlite"
+        db_backend: Literal["sqlite", "postgresql"] = "sqlite",
     ):
         # Store configuration
         self.extra_classpaths = extra_classpaths or []
@@ -66,11 +66,11 @@ class Pypps:
         self.auto_cleanup = auto_cleanup
         self.build_jar_dirs = build_jar_dirs
         self.build_db = build_db
-        
+
         # Initialize resource management
         self._exit_stack = ExitStack()
         self._initialized = False
-        
+
         # Pricer Clients @TODO: Add more pricer clients as needed
         self.ipps_client: Optional[IppsClient] = None
         self.opps_client: Optional[OppsClient] = None
@@ -81,26 +81,26 @@ class Pypps:
         self.snf_client: Optional[SnfClient] = None
         self.hha_client: Optional[HhaClient] = None
         self.esrd_client: Optional[EsrdClient] = None
-        self.fqhc_client: Optional[FqhcClient] = None 
+        self.fqhc_client: Optional[FqhcClient] = None
         self.irfg_client: Optional[IrfgClient] = None
         # End of Pricer Clients
-        
+
         # Initialize logger first
         self.logger = logging.getLogger("Pypps")
         self.logger.setLevel(log_level)
-        
+
         # Setup directories
         self._ensure_directories()
-        
+
         # Setup databases with resource management
         self._setup_databases(db_backend)
-        
+
         # Setup JVM with thread safety
         self._setup_jvm()
-        
+
         # Track active instances for cleanup
         Pypps._active_instances.add(self)
-        
+
         # Register automatic cleanup
         if auto_cleanup:
             atexit.register(self.cleanup)
@@ -133,7 +133,7 @@ class Pypps:
                     jpype.startJVM(classpath=classpath)
                     Pypps._jvm_started = True
                     self.logger.info("JVM started successfully")
-                    
+
                     # Register JVM shutdown with exit stack
                     self._exit_stack.callback(self._shutdown_jvm)
                 except Exception as e:
@@ -164,12 +164,12 @@ class Pypps:
                 IPSFDatabase(self.db_path, db_backend)
             )
             self.icd10_converter = ICDConverter(self.ipsf_db.engine)
-            
+
             if self.build_db:
                 self._build_databases()
             else:
                 self._validate_databases()
-                
+
         except Exception as e:
             self.logger.error(f"Database setup failed: {e}")
             raise RuntimeError(f"Database initialization failed: {e}") from e
@@ -179,7 +179,7 @@ class Pypps:
         self.opsf_db.to_sqlite()
         self.ipsf_db.to_sqlite()
         self.icd10_converter.download_icd_conversion_file()
-        
+
         # Setup zip code loader
         flat_data_path = os.path.abspath(zipCL_loader.__file__)
         if flat_data_path is None:
@@ -191,7 +191,9 @@ class Pypps:
                 self.logger.info(f"Loading zip code data from {flat_data_path}")
                 zipCL_loader.load_records(flat_data_path, self.opsf_db.engine)
             else:
-                self.logger.warning(f"Zip code data files does not exist: {flat_data_path}")
+                self.logger.warning(
+                    f"Zip code data files does not exist: {flat_data_path}"
+                )
 
         # Setup CMS downloader if requested
         if self.build_jar_dirs:
@@ -230,7 +232,7 @@ class Pypps:
 
     def cleanup(self):
         """Comprehensive cleanup of all resources"""
-        if hasattr(self, '_exit_stack'):
+        if hasattr(self, "_exit_stack"):
             try:
                 self._exit_stack.close()
                 self.logger.info("Resources cleaned up successfully")
@@ -303,9 +305,10 @@ class Pypps:
     def shutdown(self):
         """Deprecated: Use cleanup() method or context manager pattern instead"""
         import warnings
+
         warnings.warn(
             "shutdown() is deprecated. Use cleanup() method or context manager pattern instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         self.cleanup()

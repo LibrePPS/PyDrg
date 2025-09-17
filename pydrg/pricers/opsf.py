@@ -60,12 +60,8 @@ DATATYPES = {
     "locality_code": {"type": "TEXT", "position": 32},
 }
 
-INT_FIELDS = {
-    k for k, v in DATATYPES.items() if v["type"] == "INT"
-}
-REAL_FIELDS = {
-    k for k, v in DATATYPES.items() if v["type"] == "REAL"
-}
+INT_FIELDS = {k for k, v in DATATYPES.items() if v["type"] == "INT"}
+REAL_FIELDS = {k for k, v in DATATYPES.items() if v["type"] == "REAL"}
 
 Base = declarative_base()
 
@@ -112,27 +108,37 @@ class OPSF(Base):
 
     __table_args__ = (
         Index("idx_opsf_ccn_effective", "provider_ccn", "effective_date"),
-        Index("idx_opsf_npi_effective", "national_provider_identifier", "effective_date"),
+        Index(
+            "idx_opsf_npi_effective", "national_provider_identifier", "effective_date"
+        ),
     )
 
     def to_provider_model(self) -> "OPSFProvider":
         data = {k: getattr(self, k) for k in DATATYPES.keys() if hasattr(self, k)}
         return OPSFProvider(**data)
 
+
 # Prepared statements (defined after model) reused in provider lookups
 OPSF_BY_CCN = (
     select(OPSF)
-    .where(OPSF.provider_ccn == bindparam("ccn"), OPSF.effective_date <= bindparam("date_int"))
+    .where(
+        OPSF.provider_ccn == bindparam("ccn"),
+        OPSF.effective_date <= bindparam("date_int"),
+    )
     .order_by(OPSF.effective_date.desc())
     .limit(1)
 )
 
 OPSF_BY_NPI = (
     select(OPSF)
-    .where(OPSF.national_provider_identifier == bindparam("npi"), OPSF.effective_date <= bindparam("date_int"))
+    .where(
+        OPSF.national_provider_identifier == bindparam("npi"),
+        OPSF.effective_date <= bindparam("date_int"),
+    )
     .order_by(OPSF.effective_date.desc())
     .limit(1)
 )
+
 
 class OPSFProvider(BaseModel):
     provider_ccn: Optional[str] = None
@@ -196,7 +202,11 @@ class OPSFProvider(BaseModel):
                     setattr(self, field, getattr(result, field))
             if self.termination_date in (19000101, 0, None):
                 self.termination_date = 20991231
-            extra = provider.additional_data.get("opsf") if hasattr(provider, "additional_data") else None
+            extra = (
+                provider.additional_data.get("opsf")
+                if hasattr(provider, "additional_data")
+                else None
+            )
             if isinstance(extra, dict):
                 for k, v in extra.items():
                     if hasattr(self, k):
@@ -216,52 +226,87 @@ class OPSFProvider(BaseModel):
             raise AttributeError(
                 "Client must have java_integer_class,java_big_decimal_class and py_date_to_java_date attributes."
             )
-        java_obj.setCbsaActualGeographicLocation(self.cbsa_actual_geographic_location if self.cbsa_actual_geographic_location else "")
-        java_obj.setCbsaWageIndexLocation(self.cbsa_wage_index_location if self.cbsa_wage_index_location else "")
+        java_obj.setCbsaActualGeographicLocation(
+            self.cbsa_actual_geographic_location
+            if self.cbsa_actual_geographic_location
+            else ""
+        )
+        java_obj.setCbsaWageIndexLocation(
+            self.cbsa_wage_index_location if self.cbsa_wage_index_location else ""
+        )
         java_obj.setCostOfLivingAdjustment(
-            client.java_big_decimal_class(self.cost_of_living_adjustment) if self.cost_of_living_adjustment is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.cost_of_living_adjustment)
+            if self.cost_of_living_adjustment is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setCountyCode(self.county_code if self.county_code else "")
-        java_obj.setHospitalQualityIndicator(self.hospital_quality_indicator if self.hospital_quality_indicator else "")
-        java_obj.setIntermediaryNumber(self.intermediary_number if self.intermediary_number else "")
+        java_obj.setHospitalQualityIndicator(
+            self.hospital_quality_indicator if self.hospital_quality_indicator else ""
+        )
+        java_obj.setIntermediaryNumber(
+            self.intermediary_number if self.intermediary_number else ""
+        )
         java_obj.setMedicarePerformanceAdjustment(
-            client.java_big_decimal_class(self.medicare_performance_adjustment) if self.medicare_performance_adjustment is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.medicare_performance_adjustment)
+            if self.medicare_performance_adjustment is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setOperatingCostToChargeRatio(
-            client.java_big_decimal_class(self.operating_cost_to_charge_ratio) if self.operating_cost_to_charge_ratio is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.operating_cost_to_charge_ratio)
+            if self.operating_cost_to_charge_ratio is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setProviderCcn(self.provider_ccn if self.provider_ccn else "")
         java_obj.setProviderType(self.provider_type if self.provider_type else "")
-        java_obj.setSpecialPaymentIndicator(self.special_payment_indicator if self.special_payment_indicator else "")
-        java_obj.setPaymentModelAdjustment(
-            client.java_big_decimal_class(self.payment_model_adjustment) if self.payment_model_adjustment is not None else client.java_big_decimal_class(0)
+        java_obj.setSpecialPaymentIndicator(
+            self.special_payment_indicator if self.special_payment_indicator else ""
         )
-        java_obj.setSpecialLocalityIndicator(self.special_locality_indicator if self.special_locality_indicator else "")
+        java_obj.setPaymentModelAdjustment(
+            client.java_big_decimal_class(self.payment_model_adjustment)
+            if self.payment_model_adjustment is not None
+            else client.java_big_decimal_class(0)
+        )
+        java_obj.setSpecialLocalityIndicator(
+            self.special_locality_indicator if self.special_locality_indicator else ""
+        )
         java_obj.setPaymentCbsa(self.payment_cbsa if self.payment_cbsa else "")
         java_obj.setDeviceCostToChargeRatio(
-            client.java_big_decimal_class(self.device_cost_to_charge_ratio) if self.device_cost_to_charge_ratio is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.device_cost_to_charge_ratio)
+            if self.device_cost_to_charge_ratio is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setSpecialWageIndex(
-            client.java_big_decimal_class(self.special_wage_index) if self.special_wage_index is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.special_wage_index)
+            if self.special_wage_index is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setStateCode(self.state_code if self.state_code else "")
         java_obj.setSupplementalWageIndex(
-            client.java_big_decimal_class(self.supplemental_wage_index) if self.supplemental_wage_index is not None else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.supplemental_wage_index)
+            if self.supplemental_wage_index is not None
+            else client.java_big_decimal_class(0)
         )
         java_obj.setSupplementalWageIndexIndicator(
-            self.supplemental_wage_index_indicator if self.supplemental_wage_index_indicator else ""
+            self.supplemental_wage_index_indicator
+            if self.supplemental_wage_index_indicator
+            else ""
         )
-        java_obj.setWaiverIndicator(self.waiver_indicator if self.waiver_indicator else "")
+        java_obj.setWaiverIndicator(
+            self.waiver_indicator if self.waiver_indicator else ""
+        )
         java_obj.setEffectiveDate(client.py_date_to_java_date(self.effective_date))
         java_obj.setTerminationDate(client.py_date_to_java_date(self.termination_date))
         java_obj.setFiscalYearBeginDate(
             client.py_date_to_java_date(self.fiscal_year_begin_date)
         )
 
+
 class OPSFDatabase:
     """Unified OPSF database helper supporting sqlite & postgres via SQLAlchemy ORM."""
 
-    def __init__(self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"):
+    def __init__(
+        self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"
+    ):
         self.db_path = db_path
         self.db_backend = db_backend
         self._engine: sqlalchemy.Engine | None = None
@@ -288,7 +333,9 @@ class OPSFDatabase:
             user = os.getenv("PYPPS_PG_USER", "user")
             password = os.getenv("PYPPS_PG_PASSWORD", "password")
             database = os.getenv("PYPPS_PG_DATABASE", "database")
-            engine_str = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+            engine_str = (
+                f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+            )
             self._engine = create_engine(
                 engine_str,
                 future=True,
@@ -297,7 +344,9 @@ class OPSFDatabase:
                 pool_size=min(cpu_count(), 8),
                 max_overflow=8,
             )
-        self._Session = sessionmaker(bind=self._engine, expire_on_commit=False, future=True)
+        self._Session = sessionmaker(
+            bind=self._engine, expire_on_commit=False, future=True
+        )
         Base.metadata.create_all(self._engine)
 
     @property
@@ -355,7 +404,9 @@ class OPSFDatabase:
                     record[name] = val
                 yield record
 
-    def populate(self, download: bool = True, batch_size: int = 5000, truncate: bool = True) -> int:
+    def populate(
+        self, download: bool = True, batch_size: int = 5000, truncate: bool = True
+    ) -> int:
         """Populate (or refresh) the OPSF table.
 
         Parameters:
@@ -365,7 +416,11 @@ class OPSFDatabase:
 
         Returns: total inserted rows.
         """
-        csv_path = self.download() if download else os.path.join(os.path.dirname(self.db_path), "opsf_data.csv")
+        csv_path = (
+            self.download()
+            if download
+            else os.path.join(os.path.dirname(self.db_path), "opsf_data.csv")
+        )
         total = 0
         with self.session() as sess:
             if truncate:
@@ -373,6 +428,7 @@ class OPSFDatabase:
                 sess.commit()
             batch: List[Dict[str, Any]] = []
             from sqlalchemy import insert as sql_insert
+
             insert_stmt = sql_insert(OPSF)
             for rec in self._row_iter(csv_path):
                 batch.append(rec)
@@ -411,6 +467,3 @@ class OPSFDatabase:
     def __exit__(self, exc_type, exc, tb):
         self.close()
         return False
-
-
-

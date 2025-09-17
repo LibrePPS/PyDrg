@@ -1,7 +1,11 @@
 import os
 from datetime import datetime, timedelta
 
-from pydrg.helpers.claim_examples import claim_example, json_claim_example, opps_claim_example
+from pydrg.helpers.claim_examples import (
+    claim_example,
+    json_claim_example,
+    opps_claim_example,
+)
 from pydrg.input import (
     Claim,
     DiagnosisCode,
@@ -11,7 +15,10 @@ from pydrg.input import (
     ValueCode,
     OasisAssessment,
     IrfPai,
-    OccurrenceCode
+    OccurrenceCode,
+    ProcedureCode,
+    ICDConvertOptions,
+    ICDConvertOption,
 )
 from pydrg.pypps import Pypps
 
@@ -120,7 +127,17 @@ def run_pricers(pypps: Pypps):
             ltch_claim.billing_provider = Provider()
         ltch_claim.claimid = "LTCH_CLAIM_001"
         ltch_claim.billing_provider.other_id = "012006"
-        drg_output = pypps.drg_client.process(ltch_claim, poa_exempt=True)
+        ltch_claim.inpatient_pxs.append(ProcedureCode(code="XW033H4"))
+        ltch_claim.from_date = datetime(2023, 10, 1)
+        ltch_claim.thru_date = datetime(2023, 10, 10)
+        ltch_claim.admit_date = datetime(2023, 10, 1)
+        ltch_claim.icd_convert = ICDConvertOptions(option=ICDConvertOption.AUTO)
+        drg_output = pypps.drg_client.process(
+            ltch_claim,
+            drg_version="430",
+            icd_converter=pypps.icd10_converter,
+            poa_exempt=True,
+        )
         ltch_output = pypps.ltch_client.process(ltch_claim, drg_output)
         print(ltch_output.model_dump_json(indent=2))
 
@@ -174,28 +191,20 @@ def run_pricers(pypps: Pypps):
         hha_claim.billing_provider.other_id = "047127"
         hha_claim.lines.clear()
         hha_claim.lines.append(
-            LineItem(
-                service_date=datetime(2025, 1, 30), revenue_code="0420", units=20
-            )
+            LineItem(service_date=datetime(2025, 1, 30), revenue_code="0420", units=20)
         )
         hha_claim.lines.append(
-            LineItem(
-                service_date=datetime(2025, 1, 29), revenue_code="0430", units=20
-            )
+            LineItem(service_date=datetime(2025, 1, 29), revenue_code="0430", units=20)
         )
         hha_claim.lines.append(
-            LineItem(
-                service_date=datetime(2025, 1, 28), revenue_code="0440", units=20
-            )
+            LineItem(service_date=datetime(2025, 1, 28), revenue_code="0440", units=20)
         )
         hha_claim.lines.append(
-            LineItem(
-                service_date=datetime(2025, 1, 27), revenue_code="0550", units=20
-            )
+            LineItem(service_date=datetime(2025, 1, 27), revenue_code="0550", units=20)
         )
         hha_claim.occurrence_codes.append(
-                OccurrenceCode(code="61", date=datetime(2024, 12, 15))
-            )
+            OccurrenceCode(code="61", date=datetime(2024, 12, 15))
+        )
         hha_claim.oasis_assessment = OasisAssessment()
         hha_claim.oasis_assessment.fall_risk = 1
         hha_claim.oasis_assessment.multiple_hospital_stays = 1

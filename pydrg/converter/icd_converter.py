@@ -1,6 +1,16 @@
 import json
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Date, asc, desc, Engine
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Date,
+    asc,
+    desc,
+    Engine,
+    Integer,
+)
 from sqlalchemy.orm import sessionmaker, declarative_base
 import requests
 import pydrg.converter.parse_icd_table as parse_icd_table
@@ -11,6 +21,7 @@ from typing import Optional
 from pydrg.input.claim import Claim, ICDConvertOption
 
 CMS_URL = "https://www.cms.gov/files/zip/{year}-conversion-table.zip"
+CMS_PCS_URL = "https://www.cms.gov/files/zip/{year}-icd-10-pcs-conversion-table.zip"
 
 Base = declarative_base()
 
@@ -32,6 +43,9 @@ class ICD10Conversion(Base):
     previous_code = Column(String, index=True)
     current_code = Column(String, index=True)
     effective_date = Column(Date, index=True)
+    code_type = Column(
+        Integer, index=True, default=0
+    )  # 0 for ICD-10-CM, 1 for ICD-10-PCS
 
     def __repr__(self):
         return f"<ICD10Conversion(previous_code='{self.previous_code}', current_code='{self.current_code}', effective_date='{self.effective_date}')>"
@@ -69,6 +83,52 @@ def populate_database(db: Engine, json_path: str):
     session.close()
 
 
+def populate_database_pcs(db: Engine, txt_path: str):
+    """Populates the database from the parsed PCS text file."""
+    Session = sessionmaker(bind=db)
+    session = Session()
+
+    with open(txt_path, "r") as f:
+        # File Header as of 9/2025
+        # Current code(s) assignment	Code title	Effective year	Previous code(s) assignment	Predecessor code title	Change type	Comment	Effective month/day [MM.DD]
+        next(f)  # Skip header line
+        for line in f:
+            parts = line.strip().split("\t")
+            if len(parts) < 8:
+                continue  # Skip malformed lines
+
+            current_code = parts[0]
+            effective_year = parts[2]
+            previous_codes = parts[3].split(",") if parts[3] else []
+            effective_month_day = parts[7]
+            if (
+                current_code.lower() == "nopcs"
+                or previous_codes[0].lower() == "nopcs"
+                or current_code == previous_codes[0]
+            ):
+                continue  # Skip invalid codes
+
+            if effective_year.isdigit() and len(effective_year) == 4:
+                year = int(effective_year)
+                if effective_month_day and "." in effective_month_day:
+                    month, day = map(int, effective_month_day.split("."))
+                else:
+                    month, day = 1, 1  # Default to January 1st if not provided
+
+                effective_date = datetime(year, month, day).date()
+
+                for prev_code in previous_codes:
+                    conversion_record = ICD10Conversion(
+                        previous_code=prev_code.replace(".", ""),
+                        current_code=current_code.replace(".", ""),
+                        effective_date=effective_date,
+                        code_type=1,  # Indicate this is an ICD-10-PCS code
+                    )
+                    session.add(conversion_record)
+    session.commit()
+    session.close()
+
+
 class ICDConverter:
     def __init__(self, db: Engine):
         """
@@ -92,18 +152,37 @@ class ICDConverter:
         year = now.year + 1
         # first check if a new conversion for next fiscal year is released
         response = requests.head(CMS_URL.format(year=str(year)))
-        if response.status_code == 200:
+        pcs_response = requests.head(CMS_PCS_URL.format(year=str(year)))
+        if response.status_code != 200 and pcs_response.status_code != 200:
+            year -= 1  # fallback to current fiscal year
+            response = requests.head(CMS_URL.format(year=str(year)))
+            pcs_response = requests.head(CMS_PCS_URL.format(year=str(year)))
+            if response.status_code != 200 and pcs_response.status_code != 200:
+                raise Exception(
+                    "No ICD-10 conversion file found for current or next fiscal year."
+                )
+        if response.status_code == 200 and pcs_response.status_code == 200:
             # Download the file
             response = requests.get(CMS_URL.format(year=str(year)))
             with open(f"icd_conversion_{year}.zip", "wb") as f:
                 f.write(response.content)
+            pcs_response = requests.get(CMS_PCS_URL.format(year=str(year)))
+            with open(f"icd_pcs_conversion_{year}.zip", "wb") as f:
+                f.write(pcs_response.content)
             # find the .txt in the .zip and extract it, ignore all else
             txt_file = None
+            pcs_txt_file = None
             with zipfile.ZipFile(f"icd_conversion_{year}.zip", "r") as zip_ref:
                 for file in zip_ref.namelist():
                     if file.endswith(".txt"):
                         zip_ref.extract(file, f"icd_conversion_{year}")
                         txt_file = file
+                        break
+            with zipfile.ZipFile(f"icd_pcs_conversion_{year}.zip", "r") as zip_ref:
+                for file in zip_ref.namelist():
+                    if file.endswith(".txt"):
+                        zip_ref.extract(file, f"icd_pcs_conversion_{year}")
+                        pcs_txt_file = file
                         break
             if txt_file:
                 parsed_data = parse_icd_table.parse_icd_conversion_table(
@@ -118,8 +197,18 @@ class ICDConverter:
                 os.remove(f"icd_conversion_{year}/{txt_file}")
                 os.remove("./parsed_data.json")
                 os.rmdir(f"icd_conversion_{year}")
+            if pcs_txt_file:
+                populate_database_pcs(
+                    self.engine, f"./icd_pcs_conversion_{year}/{pcs_txt_file}"
+                )
+                # Optionally, you can remove the zip file after extraction
+                os.remove(f"icd_pcs_conversion_{year}.zip")
+                os.remove(f"icd_pcs_conversion_{year}/{pcs_txt_file}")
+                os.rmdir(f"icd_pcs_conversion_{year}")
 
-    def convert_backward(self, code, as_of_date) -> Optional[ICD10CodeOutput]:
+    def convert_backward(
+        self, code, as_of_date, code_type: int = 0
+    ) -> Optional[ICD10CodeOutput]:
         """
         Converts a current ICD code to its previous version based on a given date.
         """
@@ -134,6 +223,7 @@ class ICDConverter:
             .filter(
                 ICD10Conversion.current_code == code.replace(".", ""),
                 ICD10Conversion.effective_date > query_date,
+                ICD10Conversion.code_type == code_type,
             )
             .order_by(desc(ICD10Conversion.effective_date))
             .first()
@@ -147,7 +237,9 @@ class ICDConverter:
             )
         return None
 
-    def convert_forward(self, code, as_of_date) -> Optional[ICD10CodeOutput]:
+    def convert_forward(
+        self, code, as_of_date, code_type: int = 0
+    ) -> Optional[ICD10CodeOutput]:
         """
         Converts a previous ICD code to its current version(s) based on a given date.
         """
@@ -162,6 +254,7 @@ class ICDConverter:
             .filter(
                 ICD10Conversion.previous_code == code.replace(".", ""),
                 ICD10Conversion.effective_date <= query_date,
+                ICD10Conversion.code_type == code_type,
             )
             .order_by(asc(ICD10Conversion.effective_date))
             .all()
@@ -252,30 +345,40 @@ class ICDConverter:
         if target_version_int < billed_version:  # type: ignore
             # We're mapping backwards
             mappings[claim.principal_dx.code] = self.convert_backward(
-                claim.principal_dx.code, target_eff_date
+                claim.principal_dx.code, target_eff_date, 0
             )
             if claim.admit_dx is not None:
                 mappings[claim.admit_dx.code] = self.convert_backward(
-                    claim.admit_dx.code, target_eff_date
+                    claim.admit_dx.code, target_eff_date, 0
                 )
             for dx in claim.secondary_dxs:
                 if dx.code not in mappings:
-                    mapping = self.convert_backward(dx.code, target_eff_date)
+                    mapping = self.convert_backward(dx.code, target_eff_date, 0)
                     if mapping is not None and mapping.conversion_choices is not None:
                         mappings[dx.code] = mapping
+            for op in claim.inpatient_pxs:
+                if op.code not in mappings:
+                    mapping = self.convert_backward(op.code, target_eff_date, 1)
+                    if mapping is not None and mapping.conversion_choices is not None:
+                        mappings[op.code] = mapping
         elif target_version_int > billed_version:  # type: ignore
             mappings[claim.principal_dx.code] = self.convert_forward(
-                claim.principal_dx.code, target_eff_date
+                claim.principal_dx.code, target_eff_date, 0
             )
             if claim.admit_dx is not None:
                 mappings[claim.admit_dx.code] = self.convert_forward(
-                    claim.admit_dx.code, target_eff_date
+                    claim.admit_dx.code, target_eff_date, 0
                 )
             # We're mapping forwards
             for dx in claim.secondary_dxs:
                 if dx.code not in mappings:
-                    mapping = self.convert_forward(dx.code, target_eff_date)
+                    mapping = self.convert_forward(dx.code, target_eff_date, 0)
                     if mapping is not None and mapping is not None:
                         mappings[dx.code] = mapping
+            for op in claim.inpatient_pxs:
+                if op.code not in mappings:
+                    mapping = self.convert_forward(op.code, target_eff_date, 1)
+                    if mapping is not None and mapping.conversion_choices is not None:
+                        mappings[op.code] = mapping
         output.mappings = mappings
         return output

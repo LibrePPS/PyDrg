@@ -345,6 +345,7 @@ class IppsOutput(BaseModel):
     """
     Represents the output of the IPPS pricer.
     """
+
     claim_id: str = ""
     ms_drg_output: Optional[MsdrgOutput] = None
     return_code: Optional[ReturnCode] = None
@@ -475,7 +476,9 @@ class IppsClient:
         BufferedInputStream = jpype.JClass("java.io.BufferedInputStream")
         ByteArrayOutputStream = jpype.JClass("java.io.ByteArrayOutputStream")
 
-        stream = self.ipps_csv_ingest_class.class_.getResourceAsStream(f"/{resource_file_name}")
+        stream = self.ipps_csv_ingest_class.class_.getResourceAsStream(
+            f"/{resource_file_name}"
+        )
         if stream is None:
             raise FileNotFoundError(f"{resource_file_name} not found in that JAR")
 
@@ -493,7 +496,9 @@ class IppsClient:
         bis.close()
         return data
 
-    def extract_resource_file(self, resource_file_name: str, extract_dir: str | None = None):
+    def extract_resource_file(
+        self, resource_file_name: str, extract_dir: str | None = None
+    ):
         """
         Extracts a resource file from the IPPS pricer JAR file.
 
@@ -501,7 +506,9 @@ class IppsClient:
             resource_file_name: Name of the resource file to extract
             extract_dir: Directory to extract the resource file to
         """
-        ins = self.ipps_csv_ingest_class.class_.getResourceAsStream(f"/{resource_file_name}")
+        ins = self.ipps_csv_ingest_class.class_.getResourceAsStream(
+            f"/{resource_file_name}"
+        )
         if ins is None:
             raise FileNotFoundError(f"{resource_file_name} not found in that JAR")
 
@@ -509,11 +516,14 @@ class IppsClient:
         Paths = jpype.JClass("java.nio.file.Paths")
         StandardCopyOption = jpype.JClass("java.nio.file.StandardCopyOption")
 
-        Files.copy(ins, Paths.get(resource_file_name),
-                StandardCopyOption.REPLACE_EXISTING)
+        Files.copy(
+            ins, Paths.get(resource_file_name), StandardCopyOption.REPLACE_EXISTING
+        )
         if extract_dir:
             os.makedirs(extract_dir, exist_ok=True)
-            shutil.move(resource_file_name, os.path.join(extract_dir, resource_file_name))
+            shutil.move(
+                resource_file_name, os.path.join(extract_dir, resource_file_name)
+            )
         ins.close()
 
     def add_hmo(self, jar_path):

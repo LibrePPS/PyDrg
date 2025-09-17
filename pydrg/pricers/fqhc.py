@@ -247,7 +247,10 @@ class FqhcClient:
                     if result:
                         for row in result:
                             zip_code_val, carrier_val, loc_val, plus_four_val = row
-                            if plus_four_val is None or str(plus_four_val).strip() == "":
+                            if (
+                                plus_four_val is None
+                                or str(plus_four_val).strip() == ""
+                            ):
                                 claim_object.setCarrierCode(carrier_val)
                                 claim_object.setLocalityCode(loc_val)
                                 found_carrier_locality = True
@@ -301,7 +304,9 @@ class FqhcClient:
             ioce_service_line.setActionFlag(line.action_flag_output)
             ioce_service_line.setBilledUnits(line.units_input)
             ioce_service_line.setCompositeAdjustmentFlag(line.composite_adjustment_flag)
-            ioce_service_line.setCoveredCharges(self.java_big_decimal_class(line.charge))
+            ioce_service_line.setCoveredCharges(
+                self.java_big_decimal_class(line.charge)
+            )
             ioce_service_line.setDateOfService(
                 self.py_date_to_java_date(line.service_date)
             )

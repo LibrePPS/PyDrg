@@ -131,15 +131,9 @@ class DrgClient:
 
     def create_drg_options(self, poa_exempt: bool):
         try:
-            runtime_options = jpype.JClass(
-                "gov.agency.msdrg.model.v2.RuntimeOptions"
-            )()
-            drg_options = jpype.JClass(
-                "gov.agency.msdrg.model.v2.MsdrgRuntimeOption"
-            )()
-            msdrg_option_flags = jpype.JClass(
-                "gov.agency.msdrg.model.v2.MsdrgOption"
-            )
+            runtime_options = jpype.JClass("gov.agency.msdrg.model.v2.RuntimeOptions")()
+            drg_options = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgRuntimeOption")()
+            msdrg_option_flags = jpype.JClass("gov.agency.msdrg.model.v2.MsdrgOption")
         except Exception as e:
             raise RuntimeError(f"Failed to initialize RuntimeOptions: {e}")
         runtime_options.setComputeAffectDrg(self.affect_drg_option.COMPUTE)
@@ -150,9 +144,7 @@ class DrgClient:
             runtime_options.setPoaReportingExempt(self.hospital_status.EXEMPT)
         else:
             runtime_options.setPoaReportingExempt(self.hospital_status.NON_EXEMPT)
-        drg_options.put(
-            msdrg_option_flags.RUNTIME_OPTION_FLAGS, runtime_options
-        )
+        drg_options.put(msdrg_option_flags.RUNTIME_OPTION_FLAGS, runtime_options)
         return drg_options
 
     def load_drg_groupers(self):
@@ -168,8 +160,12 @@ class DrgClient:
                     f"gov.agency.msdrg.v{curr_version}.MsdrgComponent"
                 )
                 self.drg_versions[curr_version] = {}
-                self.drg_versions[curr_version]["exempt"] = drg_component(exempt_drg_options)
-                self.drg_versions[curr_version]["non_exempt"] = drg_component(non_exempt_drg_options)
+                self.drg_versions[curr_version]["exempt"] = drg_component(
+                    exempt_drg_options
+                )
+                self.drg_versions[curr_version]["non_exempt"] = drg_component(
+                    non_exempt_drg_options
+                )
                 print(f"Loaded DRG version: {curr_version}")
             except Exception as e:
                 print(f"Failed to load DRG version {curr_version}: {e}")
@@ -289,6 +285,25 @@ class DrgClient:
         age_in_days = (from_date - dob).days
         return age_in_days if age_in_days > 0 else 0
 
+    def mapped_op_or_self(
+        self, op, mappings: Optional[ICD10ConvertOutput] = None
+    ) -> str:
+        """
+        Maps the procedure code to its converted value if available, else returns self
+        """
+        if mappings is None:
+            return op
+        mapped = mappings.mappings.get(op)
+        if (
+            mapped is None
+            or mapped.conversion_choices is None
+            or len(mapped.conversion_choices) == 0
+        ):
+            return op
+        return mapped.conversion_choices[
+            0
+        ]  # <---- We always return the first conversion choice
+
     def mapped_dx_or_self(
         self, dx, mappings: Optional[ICD10ConvertOutput] = None
     ) -> str:
@@ -398,7 +413,11 @@ class DrgClient:
         java_pxs = self.array_list_class()
         for px in claim.inpatient_pxs:
             if isinstance(px, ProcedureCode):
-                java_pxs.add(self.drg_px_class(px.code))
+                java_pxs.add(
+                    self.drg_px_class(
+                        self.mapped_op_or_self(px.code.replace(".", ""), mappings)
+                    )
+                )
             else:
                 raise ValueError(
                     "Inpatient procedure codes must be ProcedureCode objects"
@@ -514,7 +533,9 @@ class DrgClient:
                 retries -= 1
                 time.sleep(0.01)  # short sleep to avoid busy-wait
         if retries == 0:
-            raise RuntimeError("DRG client is busy reconfiguring, please try again later")
+            raise RuntimeError(
+                "DRG client is busy reconfiguring, please try again later"
+            )
 
         if drg_version is None:
             """Determine the DRG version based on the claim date"""
@@ -527,7 +548,7 @@ class DrgClient:
             drg_version = self.determine_drg_version(claim_date)
         if drg_version not in self.drg_versions:
             raise ValueError(f"DRG version {drg_version} is not loaded")
-        #Get the DRG component for the specified version
+        # Get the DRG component for the specified version
         if poa_exempt:
             drg_component = self.drg_versions[drg_version]["exempt"]
         else:
@@ -583,11 +604,7 @@ class DrgClient:
         with open(output_file_path, "w") as f:
             for claim in claims:
                 try:
-                    result = self.process(
-                        claim,
-                        drg_version,
-                        None
-                    )
+                    result = self.process(claim, drg_version, None)
                     f.write(json.dumps(result.model_dump_json(indent=2)) + "\n")
                 except Exception as e:
                     print(f"Error processing claim {claim.claimid}: {e}")
@@ -629,11 +646,7 @@ class DrgClient:
             for claim in claims:
                 claim_start = time.time()
                 try:
-                    result = self.process(
-                        claim,
-                        drg_version,
-                        None
-                    )
+                    result = self.process(claim, drg_version, None)
                     claim_time = time.time() - claim_start
 
                     f.write(result.model_dump_json(indent=2) + "\n")

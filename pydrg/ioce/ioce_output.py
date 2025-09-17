@@ -3,6 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
+
 class ReturnCode(BaseModel):
     """Return code information"""
 
@@ -23,6 +24,7 @@ class IoceOutputFlag(BaseModel):
     flag: str = ""
     description: str = ""
 
+
 def datestr_to_datetime(date_str: str) -> datetime:
     """Convert a date string to a datetime object."""
     try:
@@ -33,6 +35,7 @@ def datestr_to_datetime(date_str: str) -> datetime:
         except ValueError:
             raise ValueError(f"Invalid date format: {date_str}")
 
+
 def java_string_to_int(java_string: str) -> int | None:
     """Convert a Java-style string to an integer."""
     try:
@@ -40,12 +43,14 @@ def java_string_to_int(java_string: str) -> int | None:
     except (ValueError, TypeError):
         return None
 
+
 def java_string_to_float(java_string: str) -> float | None:
     """Convert a Java-style string to a float."""
     try:
         return float(java_string)
     except (ValueError, TypeError):
         return None
+
 
 class IoceProcessingInformation(BaseModel):
     """Processing information from IOCE output"""
@@ -229,10 +234,8 @@ class IoceOutputLineItem(BaseModel):
             self.payment_apc = (
                 str(java_obj.getPaymentApc()) if java_obj.getPaymentApc() else ""
             )
-            self.units_output = (
-                java_string_to_int(
-                    str(java_obj.getUnitsOutput()) if java_obj.getUnitsOutput() else ""
-                )
+            self.units_output = java_string_to_int(
+                str(java_obj.getUnitsOutput()) if java_obj.getUnitsOutput() else ""
             )
             self.status_indicator = (
                 str(java_obj.getStatusIndicator())
@@ -244,10 +247,10 @@ class IoceOutputLineItem(BaseModel):
                 if java_obj.getPaymentIndicator()
                 else ""
             )
-            self.discounting_formula = (
-                java_string_to_int(
-                    str(java_obj.getDiscountingFormula()) if java_obj.getDiscountingFormula() else ""
-                )
+            self.discounting_formula = java_string_to_int(
+                str(java_obj.getDiscountingFormula())
+                if java_obj.getDiscountingFormula()
+                else ""
             )
             self.composite_adjustment_flag = (
                 str(java_obj.getCompositeAdjustmentFlag())

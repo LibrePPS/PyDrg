@@ -186,7 +186,9 @@ class IPSF(Base):
 
     __table_args__ = (
         Index("idx_ipsf_ccn_effective", "provider_ccn", "effective_date"),
-        Index("idx_ipsf_npi_effective", "national_provider_identifier", "effective_date"),
+        Index(
+            "idx_ipsf_npi_effective", "national_provider_identifier", "effective_date"
+        ),
     )
 
     def to_provider_model(self) -> "IPSFProvider":
@@ -197,14 +199,20 @@ class IPSF(Base):
 # Prepared statements (defined after IPSF is declared)
 IPSF_BY_CCN = (
     select(IPSF)
-    .where(IPSF.provider_ccn == bindparam("ccn"), IPSF.effective_date <= bindparam("date_int"))
+    .where(
+        IPSF.provider_ccn == bindparam("ccn"),
+        IPSF.effective_date <= bindparam("date_int"),
+    )
     .order_by(IPSF.effective_date.desc())
     .limit(1)
 )
 
 IPSF_BY_NPI = (
     select(IPSF)
-    .where(IPSF.national_provider_identifier == bindparam("npi"), IPSF.effective_date <= bindparam("date_int"))
+    .where(
+        IPSF.national_provider_identifier == bindparam("npi"),
+        IPSF.effective_date <= bindparam("date_int"),
+    )
     .order_by(IPSF.effective_date.desc())
     .limit(1)
 )
@@ -213,7 +221,9 @@ IPSF_BY_NPI = (
 class IPSFDatabase:
     """Unified IPSF database helper supporting sqlite & postgres via SQLAlchemy ORM."""
 
-    def __init__(self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"):
+    def __init__(
+        self, db_path: str, db_backend: Literal["sqlite", "postgres"] = "sqlite"
+    ):
         self.db_path = db_path
         self.db_backend = db_backend
         self._engine: sqlalchemy.Engine | None = None
@@ -234,14 +244,18 @@ class IPSFDatabase:
             user = os.getenv("PYPPS_PG_USER", "user")
             password = os.getenv("PYPPS_PG_PASSWORD", "password")
             database = os.getenv("PYPPS_PG_DATABASE", "database")
-            engine_str = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+            engine_str = (
+                f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+            )
             self._engine = create_engine(
                 engine_str,
                 future=True,
                 pool_pre_ping=True,
                 echo=False,
             )
-        self._Session = sessionmaker(bind=self._engine, expire_on_commit=False, future=True)
+        self._Session = sessionmaker(
+            bind=self._engine, expire_on_commit=False, future=True
+        )
         Base.metadata.create_all(self._engine)
 
     @property
@@ -293,10 +307,17 @@ class IPSFDatabase:
                     rec[name] = val
                 yield rec
 
-    def populate(self, download: bool = True, batch_size: int = 4000, truncate: bool = True) -> int:
-        csv_path = self.download() if download else os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv")
+    def populate(
+        self, download: bool = True, batch_size: int = 4000, truncate: bool = True
+    ) -> int:
+        csv_path = (
+            self.download()
+            if download
+            else os.path.join(os.path.dirname(self.db_path), "ipsf_data.csv")
+        )
         total = 0
         from sqlalchemy import insert as sql_insert
+
         insert_stmt = sql_insert(IPSF)
         with self.session() as sess:
             if truncate:
@@ -451,14 +472,20 @@ class IPSFProvider(BaseModel):
                     setattr(self, field, getattr(row, field))
             if self.termination_date in (19000101, 0, None):
                 self.termination_date = 20991231
-            extra = provider.additional_data.get("ipsf") if hasattr(provider, "additional_data") else None
+            extra = (
+                provider.additional_data.get("ipsf")
+                if hasattr(provider, "additional_data")
+                else None
+            )
             if isinstance(extra, dict):
                 for k, v in extra.items():
                     if hasattr(self, k):
                         setattr(self, k, v)
             return self
 
-    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):  # backward compat
+    def from_sqlite(
+        self, conn: sqlalchemy.Engine, provider: Provider, date_int: int
+    ):  # backward compat
         return self.from_db(conn, provider, date_int)
 
     def set_java_values(self, java_provider, client):
@@ -469,113 +496,208 @@ class IPSFProvider(BaseModel):
                 "Client must have java_integer_class and java_big_decimal_class attributes."
             )
 
-        java_provider.setBedSize(client.java_integer_class(self.bed_size) if self.bed_size else client.java_integer_class(0))
+        java_provider.setBedSize(
+            client.java_integer_class(self.bed_size)
+            if self.bed_size
+            else client.java_integer_class(0)
+        )
         java_provider.setBundleModel1Discount(
-            client.java_big_decimal_class(self.bundle_model_discount) if self.bundle_model_discount else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.bundle_model_discount)
+            if self.bundle_model_discount
+            else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalCostToChargeRatio(
-            client.java_big_decimal_class(self.capital_cost_to_charge_ratio) if self.capital_cost_to_charge_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.capital_cost_to_charge_ratio)
+            if self.capital_cost_to_charge_ratio
+            else client.java_big_decimal_class(0)
         )
         java_provider.setOperatingCostToChargeRatio(
-            client.java_big_decimal_class(self.operating_cost_to_charge_ratio) if self.operating_cost_to_charge_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.operating_cost_to_charge_ratio)
+            if self.operating_cost_to_charge_ratio
+            else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalExceptionPaymentRate(
-            client.java_big_decimal_class(self.capital_exception_payment_rate) if self.capital_exception_payment_rate else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.capital_exception_payment_rate)
+            if self.capital_exception_payment_rate
+            else client.java_big_decimal_class(0)
         )
         java_provider.setCapitalIndirectMedicalEducationRatio(
-            client.java_big_decimal_class(self.capital_indirect_medical_education_ratio) if self.capital_indirect_medical_education_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.capital_indirect_medical_education_ratio)
+            if self.capital_indirect_medical_education_ratio
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setCapitalPpsPaymentCode(self.capital_pps_payment_code if self.capital_pps_payment_code else "")
+        java_provider.setCapitalPpsPaymentCode(
+            self.capital_pps_payment_code if self.capital_pps_payment_code else ""
+        )
         java_provider.setCbsaActualGeographicLocation(
-            str(self.cbsa_actual_geographic_location) if self.cbsa_actual_geographic_location else ""
+            str(self.cbsa_actual_geographic_location)
+            if self.cbsa_actual_geographic_location
+            else ""
         )
-        java_provider.setCbsaWageIndexLocation(str(self.cbsa_wi_location) if self.cbsa_wi_location else "")
+        java_provider.setCbsaWageIndexLocation(
+            str(self.cbsa_wi_location) if self.cbsa_wi_location else ""
+        )
         java_provider.setCbsaStandardizedAmountLocation(
-            str(self.cbsa_standardized_amount_location) if self.cbsa_standardized_amount_location else ""
+            str(self.cbsa_standardized_amount_location)
+            if self.cbsa_standardized_amount_location
+            else ""
         )
-        java_provider.setEhrReductionIndicator(str(self.ehr_reduction_indicator) if self.ehr_reduction_indicator else "")
-        java_provider.setFederalPpsBlend(str(self.federal_pps_blend) if self.federal_pps_blend else "")
+        java_provider.setEhrReductionIndicator(
+            str(self.ehr_reduction_indicator) if self.ehr_reduction_indicator else ""
+        )
+        java_provider.setFederalPpsBlend(
+            str(self.federal_pps_blend) if self.federal_pps_blend else ""
+        )
         java_provider.setHacReductionParticipantIndicator(
-            str(self.hac_reduction_participant_indicator) if self.hac_reduction_participant_indicator else ""
+            str(self.hac_reduction_participant_indicator)
+            if self.hac_reduction_participant_indicator
+            else ""
         )
         java_provider.setHrrAdjustment(
-            client.java_big_decimal_class(self.hrr_adjustment) if self.hrr_adjustment else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.hrr_adjustment)
+            if self.hrr_adjustment
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setHrrParticipantIndicator(str(self.hrr_participant_indicator) if self.hrr_participant_indicator else "")
+        java_provider.setHrrParticipantIndicator(
+            str(self.hrr_participant_indicator)
+            if self.hrr_participant_indicator
+            else ""
+        )
         java_provider.setInternsToBedsRatio(
-            client.java_big_decimal_class(self.interns_to_beds_ratio) if self.interns_to_beds_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.interns_to_beds_ratio)
+            if self.interns_to_beds_ratio
+            else client.java_big_decimal_class(0)
         )
         java_provider.setLowVolumeAdjustmentFactor(
-            client.java_big_decimal_class(self.low_volume_adjustment_factor) if self.low_volume_adjustment_factor else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.low_volume_adjustment_factor)
+            if self.low_volume_adjustment_factor
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setLtchDppIndicator(str(self.ltch_dpp_indicator) if self.ltch_dpp_indicator else "")
+        java_provider.setLtchDppIndicator(
+            str(self.ltch_dpp_indicator) if self.ltch_dpp_indicator else ""
+        )
         java_provider.setMedicaidRatio(
-            client.java_big_decimal_class(self.medicaid_ratio) if self.medicaid_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.medicaid_ratio)
+            if self.medicaid_ratio
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setNewHospital(str(self.new_hospital) if self.new_hospital else "")
+        java_provider.setNewHospital(
+            str(self.new_hospital) if self.new_hospital else ""
+        )
         java_provider.setOldCapitalHoldHarmlessRate(
-            client.java_big_decimal_class(self.old_capital_hold_harmless_rate) if self.old_capital_hold_harmless_rate else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.old_capital_hold_harmless_rate)
+            if self.old_capital_hold_harmless_rate
+            else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForAllogenicStemCellAcquisition(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_allogenic_stem_cell_acquisition if self.pass_through_amount_for_allogenic_stem_cell_acquisition else 0
+                self.pass_through_amount_for_allogenic_stem_cell_acquisition
+                if self.pass_through_amount_for_allogenic_stem_cell_acquisition
+                else 0
             )
         )
         java_provider.setPassThroughAmountForCapital(
-            client.java_big_decimal_class(self.pass_through_amount_for_capital) if self.pass_through_amount_for_capital else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.pass_through_amount_for_capital)
+            if self.pass_through_amount_for_capital
+            else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForDirectMedicalEducation(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_direct_medical_education if self.pass_through_amount_for_direct_medical_education else 0
+                self.pass_through_amount_for_direct_medical_education
+                if self.pass_through_amount_for_direct_medical_education
+                else 0
             )
         )
         java_provider.setPassThroughAmountForSupplyChainCosts(
-            client.java_big_decimal_class(self.pass_through_amount_for_supply_chain) if self.pass_through_amount_for_supply_chain else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.pass_through_amount_for_supply_chain)
+            if self.pass_through_amount_for_supply_chain
+            else client.java_big_decimal_class(0)
         )
         java_provider.setPassThroughAmountForOrganAcquisition(
             client.java_big_decimal_class(
-                self.pass_through_amount_for_organ_acquisition if self.pass_through_amount_for_organ_acquisition else 0
+                self.pass_through_amount_for_organ_acquisition
+                if self.pass_through_amount_for_organ_acquisition
+                else 0
             )
         )
         java_provider.setPassThroughTotalAmount(
-            client.java_big_decimal_class(self.pass_through_total_amount) if self.pass_through_total_amount else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.pass_through_total_amount)
+            if self.pass_through_total_amount
+            else client.java_big_decimal_class(0)
         )
         java_provider.setPpsFacilitySpecificRate(
-            client.java_big_decimal_class(self.pps_facility_specific_rate) if self.pps_facility_specific_rate else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.pps_facility_specific_rate)
+            if self.pps_facility_specific_rate
+            else client.java_big_decimal_class(0)
         )
         java_provider.setSupplementalSecurityIncomeRatio(
-            client.java_big_decimal_class(self.supplemental_security_income_ratio) if self.supplemental_security_income_ratio else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.supplemental_security_income_ratio)
+            if self.supplemental_security_income_ratio
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setTemporaryReliefIndicator(str(self.temporary_relief_indicator) if self.temporary_relief_indicator else "")
+        java_provider.setTemporaryReliefIndicator(
+            str(self.temporary_relief_indicator)
+            if self.temporary_relief_indicator
+            else ""
+        )
         java_provider.setUncompensatedCareAmount(
-            client.java_big_decimal_class(self.uncompensated_care_amount) if self.uncompensated_care_amount else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.uncompensated_care_amount)
+            if self.uncompensated_care_amount
+            else client.java_big_decimal_class(0)
         )
         java_provider.setVbpAdjustment(
-            client.java_big_decimal_class(self.vbp_adjustment) if self.vbp_adjustment else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.vbp_adjustment)
+            if self.vbp_adjustment
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setVbpParticipantIndicator(str(self.vpb_participant_indicator) if self.vpb_participant_indicator else "")
+        java_provider.setVbpParticipantIndicator(
+            str(self.vpb_participant_indicator)
+            if self.vpb_participant_indicator
+            else ""
+        )
         java_provider.setStateCode(self.state_code if self.state_code else "")
         java_provider.setCountyCode(self.county_code if self.county_code else "")
         java_provider.setSpecialWageIndex(
-            client.java_big_decimal_class(self.special_wage_index) if self.special_wage_index else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.special_wage_index)
+            if self.special_wage_index
+            else client.java_big_decimal_class(0)
         )
         java_provider.setProviderType(self.provider_type if self.provider_type else "")
-        java_provider.setHospitalQualityIndicator(self.hosp_quality_indicator if self.hosp_quality_indicator else "")
-        java_provider.setSpecialPaymentIndicator(self.special_payment_indicator if self.special_payment_indicator else "")
+        java_provider.setHospitalQualityIndicator(
+            self.hosp_quality_indicator if self.hosp_quality_indicator else ""
+        )
+        java_provider.setSpecialPaymentIndicator(
+            self.special_payment_indicator if self.special_payment_indicator else ""
+        )
         java_provider.setMedicarePerformanceAdjustment(
-            client.java_big_decimal_class(self.medicare_performance_adjustment) if self.medicare_performance_adjustment else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.medicare_performance_adjustment)
+            if self.medicare_performance_adjustment
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setWaiverIndicator(self.waiver_indicator if self.waiver_indicator else "")
+        java_provider.setWaiverIndicator(
+            self.waiver_indicator if self.waiver_indicator else ""
+        )
         java_provider.setCostOfLivingAdjustment(
-            client.java_big_decimal_class(self.cost_of_living_adjustment) if self.cost_of_living_adjustment else client.java_big_decimal_class(0)
+            client.java_big_decimal_class(self.cost_of_living_adjustment)
+            if self.cost_of_living_adjustment
+            else client.java_big_decimal_class(0)
         )
-        java_provider.setEffectiveDate(client.py_date_to_java_date(self.effective_date) if self.effective_date else client.py_date_to_java_date(19000101))
+        java_provider.setEffectiveDate(
+            client.py_date_to_java_date(self.effective_date)
+            if self.effective_date
+            else client.py_date_to_java_date(19000101)
+        )
         java_provider.setTerminationDate(
-            client.py_date_to_java_date(self.termination_date) if self.termination_date else client.py_date_to_java_date(19000101)
+            client.py_date_to_java_date(self.termination_date)
+            if self.termination_date
+            else client.py_date_to_java_date(19000101)
         )
         java_provider.setFiscalYearBeginDate(
-            client.py_date_to_java_date(self.fiscal_year_begin_date) if self.fiscal_year_begin_date else client.py_date_to_java_date(19000101)
+            client.py_date_to_java_date(self.fiscal_year_begin_date)
+            if self.fiscal_year_begin_date
+            else client.py_date_to_java_date(19000101)
         )
         java_provider.setProviderCcn(self.provider_ccn if self.provider_ccn else "")
+
 
 __all__ = ["IPSFDatabase", "IPSFProvider", "IPSF"]
