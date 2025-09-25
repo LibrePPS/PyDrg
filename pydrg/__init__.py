@@ -35,6 +35,7 @@ from .input.claim import (
     ICDConvertOption,
     IrfPai,
     OasisAssessment,
+    Modules,
 )
 
 # IOCE (OPPS code editor)
@@ -101,6 +102,7 @@ __all__ = [
     "ICDConvertOptions",
     "IrfPai",
     "OasisAssessment",
+    "Modules",
     # MSDRG
     "DrgClient",
     "MsdrgOutput",

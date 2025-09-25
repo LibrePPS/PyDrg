@@ -67,27 +67,27 @@ class CMSDownloader:
         "gfc": ["gfc-base-api-3.4.9.jar"],
         "grpc": ["protobuf-java-3.22.2.jar", "protobuf-java-3.21.7.jar"],
         "msdrg": [
-            "msdrg-binary-access-1.4.2.jar",
-            "msdrg-model-v2-2.10.0.jar",
-            "msdrg-v430-43.0.0.2.jar",
-            "MCE-2.0-43.0.0.1.jar",
-            "mce-proto-1.2.0.jar",
-            "Utility-1.1.1.jar",
+            r"msdrg-binary-access-[\d\.]+\.jar",
+            r"msdrg-model-v2-[\d\.]+\.jar",
+            r"msdrg-v\d+-[\d\.]+\.jar",
+            r"MCE-[\d\.]+-?[\d\.]+\.jar",
+            r"mce-proto-[\d\.]+\.jar",
+            r"Utility-[\d\.]+\.jar",
         ],
-        "ioce": ["ioce-standalone-26.2.0.7.jar"],
+        "ioce": [r"ioce-standalone-[\d\.]+\.jar"],
         "hhag": ["HomeHealth.jar"],
         "cmg": ["CMG_550.jar", "irf-proto-1.2.0.jar", "gfc-base-factory-3.4.9.jar"],
         "pricers": [
-            "esrd-pricer-application-2.8.0.jar",
-            "fqhc-pricer-application-2.7.0.jar",
-            "hha-pricer-application-2.5.0.jar",
-            "hospice-pricer-application-2.4.0.jar",
-            "ipf-pricer-application-2.5.0.jar",
-            "ipps-pricer-application-2.10.0.jar",
-            "irf-pricer-application-2.5.0.jar",
-            "ltch-pricer-application-2.5.0.jar",
-            "opps-pricer-application-2.11.0.jar",
-            "snf-pricer-application-2.4.1.jar",
+            r"esrd-pricer-application-[\d\.]+\.jar",
+            r"fqhc-pricer-application-[\d\.]+\.jar",
+            r"hha-pricer-application-[\d\.]+\.jar",
+            r"hospice-pricer-application-[\d\.]+\.jar",
+            r"ipf-pricer-application-[\d\.]+\.jar",
+            r"ipps-pricer-application-[\d\.]+\.jar",
+            r"irf-pricer-application-[\d\.]+\.jar",
+            r"ltch-pricer-application-[\d\.]+\.jar",
+            r"opps-pricer-application-[\d\.]+\.jar",
+            r"snf-pricer-application-[\d\.]+\.jar",
         ],
     }
 
@@ -223,17 +223,23 @@ class CMSDownloader:
         if component not in self.REQUIRED_JARS:
             return []
 
-        required = set(self.REQUIRED_JARS[component])
+        required = self.REQUIRED_JARS[component]
 
-        # For pricers component, check the pricers directory
         if component == "pricers":
             existing = existing_jars["pricers"]
         else:
             existing = existing_jars["main"]
 
-        # Now all components use exact filename matching
-        missing = required - existing
-        return list(missing)
+        if component in ["pricers", "ioce", "msdrg"]:
+            missing = []
+            for req_pattern in required:
+                pattern = re.compile(req_pattern)
+                if not any(pattern.match(jar) for jar in existing):
+                    missing.append(req_pattern)
+            return missing
+        else:
+            missing = set(required) - set(existing)
+            return list(missing)
 
     def is_component_complete(self, component, existing_jars=None):
         """
@@ -543,7 +549,17 @@ class CMSDownloader:
 
                 # If we have a specific list of missing JARs, only move those
                 if missing_jars is not None:
-                    if jar_filename not in missing_jars:
+                    use_regex = prefix in ["ioce", "msdrg"]
+                    is_in_missing_list = False
+                    if use_regex:
+                        if any(
+                            re.match(pattern, jar_filename) for pattern in missing_jars
+                        ):
+                            is_in_missing_list = True
+                    elif jar_filename in missing_jars:
+                        is_in_missing_list = True
+
+                    if not is_in_missing_list:
                         self.logger.info(
                             f"Skipping {jar_filename} - not in missing JARs list"
                         )
@@ -1012,14 +1028,16 @@ class CMSDownloader:
                     full_url = urljoin(self.CMS_URL, link)
                     expected_jar = self.map_url_to_jar_filename(full_url)
 
-                    if expected_jar and expected_jar in missing_jars:
+                    if expected_jar and any(
+                        re.match(pattern, expected_jar) for pattern in missing_jars
+                    ):
                         filtered_links.append(link)
                         self.logger.info(
                             f"Will download {self.get_filename_from_url(full_url)} for missing JAR: {expected_jar}"
                         )
                     elif expected_jar:
                         self.logger.info(
-                            f"Skipping {self.get_filename_from_url(full_url)} as JAR {expected_jar} already exists"
+                            f"Skipping {self.get_filename_from_url(full_url)} as a matching JAR already exists"
                         )
                     else:
                         self.logger.warning(

@@ -15,6 +15,7 @@ from .claim import (
     ICDConvertOptions,
     IrfPai,
     OasisAssessment,
+    Modules
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "ICDConvertOptions",
     "IrfPai",
     "OasisAssessment",
+    "Modules",
 ]

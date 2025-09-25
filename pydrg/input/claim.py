@@ -1,10 +1,31 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from .oasis import OasisAssessment
 from .irf_pai import IrfPai
+
+
+class Modules(Enum):
+    # Editors
+    MCE = "MCE"
+    IOCE = "IOCE"
+    # Groupers
+    MSDRG = "MSDRG"
+    HHAG = "HHAG"
+    CMG = "CMG"
+    # Pricers
+    IPPS = "IPPS"
+    OPPS = "OPPS"
+    IRF = "IRF"
+    HHA = "HHA"
+    SNF = "SNF"
+    LTCH = "LTCH"
+    PSYCH = "PSYCH"
+    ESRD = "ESRD"
+    HOSPICE = "HOSPICE"
+    FQHC = "FQHC"
 
 
 class ICDConvertOption(Enum):
@@ -101,6 +122,8 @@ class Claim(BaseModel):
     irf_pai: Optional[IrfPai] = None
     esrd_initial_date: Optional[datetime] = None
     demo_codes: List[str] = Field(default_factory=list)
+    opps_flag: Optional[Literal[1, 2]] = 1  # 1=Opps, 2=Non-Opps
+    modules: List[Modules] = Field(default_factory=list)
 
     @field_validator("los", mode="after")
     @classmethod

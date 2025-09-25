@@ -109,20 +109,43 @@ class TestFileCheckingMethods:
         assert missing == []
 
     def test_get_missing_jars_for_component_pricers(self, tmp_path):
-        """Test detecting missing pricer JARs."""
+        """Test detecting missing pricer JARs using regex."""
         downloader = CMSDownloader(
             jars_dir=str(tmp_path / "jars"), download_dir=str(tmp_path / "downloads")
         )
 
+        # One pricer JAR exists.
         existing_jars = {
             "main": set(),
             "pricers": {"ipps-pricer-application-2.10.0.jar"},
         }
         missing = downloader.get_missing_jars_for_component("pricers", existing_jars)
 
-        # Should be missing most pricer JARs
-        assert len(missing) > 0
-        assert "opps-pricer-application-2.11.0.jar" in missing
+        # Should be missing patterns for all other pricers
+        assert len(missing) == len(downloader.REQUIRED_JARS["pricers"]) - 1
+
+        # Check that the pattern for the existing jar is NOT in missing
+        assert r"ipps-pricer-application-[\d\.]+\.jar" not in missing
+
+        # Check that a pattern for a missing jar IS in missing
+        assert r"opps-pricer-application-[\d\.]+\.jar" in missing
+
+    def test_get_missing_jars_for_component_ioce(self, tmp_path):
+        """Test detecting missing ioce JARs using regex."""
+        downloader = CMSDownloader(
+            jars_dir=str(tmp_path / "jars"), download_dir=str(tmp_path / "downloads")
+        )
+
+        # No ioce JAR exists.
+        existing_jars = {"main": set(), "pricers": set()}
+        missing = downloader.get_missing_jars_for_component("ioce", existing_jars)
+        assert len(missing) == 1
+        assert r"ioce-standalone-[\d\.]+\.jar" in missing
+
+        # An ioce JAR exists.
+        existing_jars = {"main": {"ioce-standalone-26.2.0.7.jar"}, "pricers": set()}
+        missing = downloader.get_missing_jars_for_component("ioce", existing_jars)
+        assert len(missing) == 0
 
     def test_get_missing_jars_for_component_invalid_component(self, tmp_path):
         """Test handling of invalid component names."""
@@ -586,6 +609,47 @@ class TestDownloadLogic:
 
         assert (tmp_path / "jars" / "jar3.jar").exists()  # Should extract jar3.jar
         assert (tmp_path / "jars" / "jar3.jar").read_text() == "fake jar 3 content"
+
+        # Clean up temp directory
+        shutil.rmtree(temp_dir)
+
+    def test_process_zip_for_jars_selective_extraction_regex(self, tmp_path):
+        """Test that process_zip_for_jars only extracts specified missing JARs using regex."""
+        downloader = CMSDownloader(
+            jars_dir=str(tmp_path / "jars"), download_dir=str(tmp_path / "downloads")
+        )
+
+        # Create directories
+        (tmp_path / "jars").mkdir()
+        (tmp_path / "downloads").mkdir()
+
+        # Create a test ZIP file with multiple JARs
+        zip_path = tmp_path / "downloads" / "test-ioce-package.zip"
+        temp_dir = tmp_path / "temp_create_zip_ioce"
+        temp_dir.mkdir()
+
+        # Create some fake JAR files
+        jar1_path = temp_dir / "ioce-standalone-1.2.3.jar"
+        jar2_path = temp_dir / "another-file.jar"
+        jar1_path.write_text("fake ioce jar content")
+        jar2_path.write_text("fake other jar content")
+
+        # Create ZIP file containing all JARs
+        import zipfile
+
+        with zipfile.ZipFile(zip_path, "w") as zip_ref:
+            zip_ref.write(jar1_path, "ioce-standalone-1.2.3.jar")
+            zip_ref.write(jar2_path, "another-file.jar")
+
+        # Test selective extraction with regex
+        missing_jars = [r"ioce-standalone-[\d\.]+\.jar"]
+        downloader.process_zip_for_jars(
+            str(zip_path), "ioce", missing_jars=missing_jars
+        )
+
+        # Verify results
+        assert (tmp_path / "jars" / "ioce-standalone-1.2.3.jar").exists()
+        assert not (tmp_path / "jars" / "another-file.jar").exists()
 
         # Clean up temp directory
         shutil.rmtree(temp_dir)

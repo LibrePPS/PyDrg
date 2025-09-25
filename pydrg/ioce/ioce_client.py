@@ -226,7 +226,10 @@ class IoceClient:
 
         # Set Ioce flag (1=Opps, 2=Non-Opps)
         # For Opps processing, we default to "1"
-        oce_claim.setOppsFlag("1")
+        if claim.opps_flag:
+            oce_claim.setOppsFlag(str(claim.opps_flag))
+        else:
+            oce_claim.setOppsFlag("1")  # Default to Opps
 
         # Set provider identifiers
         if claim.billing_provider and claim.billing_provider.npi:

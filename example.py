@@ -18,6 +18,7 @@ from pydrg.input import (
     OccurrenceCode,
     ProcedureCode,
     ICDConvertOptions,
+    Modules,
     ICDConvertOption,
 )
 from pydrg.pypps import Pypps
@@ -313,6 +314,12 @@ def run_pricers(pypps: Pypps):
         fqhc_output = pypps.fqhc_client.process(fqhc_claim, ioce_output)
         print(fqhc_output.model_dump_json(indent=2))
 
+def run_pypps_process(pypps: Pypps):
+    claim = claim_example()
+    claim.modules = [Modules.MCE, Modules.MSDRG, Modules.IPPS, Modules.PSYCH]
+    claim.claimid = "PYPPPS_CLAIM_001"
+    results = pypps.process(claim)
+    print(results.model_dump_json(indent=2, exclude_none=True))
 
 def main():
     """Main function to run all examples."""
@@ -327,6 +334,7 @@ def main():
         pypps.setup_clients()
         run_groupers(pypps)
         run_pricers(pypps)
+        run_pypps_process(pypps)
 
 
 if __name__ == "__main__":

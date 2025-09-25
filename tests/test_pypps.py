@@ -14,6 +14,7 @@ from pydrg.input import (
     PoaType,
     IrfPai,
     OasisAssessment,
+    Modules,
 )
 from pydrg.pypps import Pypps
 
@@ -106,6 +107,12 @@ def test_ipps_pricer_if_available(pypps_or_skip):
     drg_output = pypps_or_skip.drg_client.process(claim)
     output = pypps_or_skip.ipps_client.process(claim, drg_output)
     assert hasattr(output, "model_dump")
+
+def test_pypps_process(pypps_or_skip):
+    claim = claim_example()
+    claim.modules = [Modules.MCE, Modules.MSDRG, Modules.IPPS]
+    output = pypps_or_skip.process(claim)
+    assert hasattr(output, "model_dump"), "Pypps output should be a pydantic model"
 
 
 def test_opps_pricer_if_available(pypps_or_skip):

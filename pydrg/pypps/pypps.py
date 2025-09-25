@@ -6,26 +6,28 @@ from contextlib import ExitStack
 from threading import RLock
 import atexit
 from sqlalchemy import inspect
+from pydantic import BaseModel
 
 from pydrg.helpers.cms_downloader import CMSDownloader
-from pydrg.ioce.ioce_client import IoceClient
-from pydrg.hhag.hhag_client import HhagClient
-from pydrg.mce.mce_client import MceClient
-from pydrg.msdrg.drg_client import DrgClient
-from pydrg.pricers.hospice import HospiceClient
-from pydrg.pricers.ipf import IpfClient
-from pydrg.pricers.ipps import IppsClient
-from pydrg.pricers.snf import SnfClient
+from pydrg.ioce.ioce_client import IoceClient, IoceOutput
+from pydrg.hhag.hhag_client import HhagClient, HhagOutput
+from pydrg.mce.mce_client import MceClient, MceOutput
+from pydrg.msdrg.drg_client import DrgClient, MsdrgOutput
+from pydrg.pricers.hospice import HospiceClient, HospiceOutput
+from pydrg.pricers.ipf import IpfClient, IpfOutput
+from pydrg.pricers.ipps import IppsClient, IppsOutput
+from pydrg.pricers.snf import SnfClient, SnfOutput
 from pydrg.pricers.ipsf import IPSFDatabase
-from pydrg.pricers.ltch import LtchClient
-from pydrg.pricers.hha import HhaClient
-from pydrg.pricers.irf import IrfClient
-from pydrg.pricers.esrd import EsrdClient
-from pydrg.pricers.fqhc import FqhcClient
-from pydrg.pricers.opps import OppsClient
+from pydrg.pricers.ltch import LtchClient, LtchOutput
+from pydrg.pricers.hha import HhaClient, HhaOutput
+from pydrg.pricers.irf import IrfClient, IrfOutput
+from pydrg.pricers.esrd import EsrdClient, EsrdOutput
+from pydrg.pricers.fqhc import FqhcClient, FqhcOutput
+from pydrg.pricers.opps import OppsClient, OppsOutput
 from pydrg.pricers.opsf import OPSFDatabase
 from pydrg.converter import ICDConverter
-from pydrg.irfg.irfg_client import IrfgClient
+from pydrg.irfg.irfg_client import IrfgClient, IrfgOutput
+from pydrg.input.claim import Modules, Claim
 import pydrg.helpers.zipCL_loader as zipCL_loader
 
 PRICERS = {
@@ -40,6 +42,27 @@ PRICERS = {
     "Opps": "opps-pricer",
     "Snf": "snf-pricer",
 }
+
+class PyppsOutput(BaseModel):
+    #Editors
+    ioce: Optional[IoceOutput] = None
+    mce: Optional[MceOutput] = None
+    #Groupers
+    hhag: Optional[HhagOutput] = None
+    msdrg: Optional[MsdrgOutput] = None
+    cmg: Optional[IrfgOutput] = None
+    #Pricers
+    ipps: Optional[IppsOutput] = None
+    opps: Optional[OppsOutput] = None 
+    psych: Optional[IpfOutput] = None
+    ltch: Optional[LtchOutput] = None
+    irf: Optional[IrfOutput] = None
+    hospice: Optional[HospiceOutput] = None
+    snf: Optional[SnfOutput] = None
+    hha: Optional[HhaOutput] = None
+    esrd: Optional[EsrdOutput] = None
+    fqhc: Optional[FqhcOutput] = None
+    error: Optional[str] = None
 
 
 class Pypps:
@@ -301,6 +324,112 @@ class Pypps:
                 self.logger.warning(
                     f"{pricer} pricer JAR not found in {self.pricers_path}. Please ensure it is downloaded."
                 )
+
+    def process(self, claim:Claim) ->PyppsOutput:
+        """Process a claim through the appropriate modules based on its configuration."""
+        if not self._initialized:
+            self.setup_clients()
+            self._initialized = True
+
+        if not isinstance(claim, Claim):
+            raise ValueError("Input must be an instance of Claim")
+        #Validate the claim
+        Claim.model_validate(claim)
+
+        results = PyppsOutput()
+        if len(claim.modules) == 0:
+            results.error = "No modules specified in claim"
+            return results
+        #Claims Flow Editors -> Groupers -> Pricers
+        #Create unique list of modules preserving order
+        unique_modules = []
+        for module in claim.modules:
+            if module not in unique_modules:
+                unique_modules.append(module)
+        #Editors
+        if Modules.MCE in unique_modules:
+            if self.mce_client is None:
+                results.error = "MCE client not initialized"
+                return results
+            results.mce = self.mce_client.process(claim)
+        if Modules.IOCE in unique_modules:
+            if self.ioce_client is None:
+                results.error = "IOCE client not initialized"
+                return results
+            results.ioce = self.ioce_client.process(claim)
+        #Groupers
+        if Modules.MSDRG in unique_modules:
+            if self.drg_client is None:
+                results.error = "DRG client not initialized"
+                return results
+            results.msdrg = self.drg_client.process(claim)
+        if Modules.HHAG in unique_modules:
+            if self.hhag_client is None:
+                results.error = "HHAG client not initialized"
+                return results
+            results.hhag = self.hhag_client.process(claim)
+        if Modules.CMG in unique_modules:
+            if self.irfg_client is None:
+                results.error = "IRFG client not initialized"
+                return results
+            results.cmg = self.irfg_client.process(claim)
+        #Pricers
+        if Modules.IPPS in unique_modules:
+            if self.ipps_client is None:
+                results.error = "IPPS client not initialized"
+                return results
+            else:
+                results.ipps = self.ipps_client.process(claim, results.msdrg)
+        if Modules.OPPS in unique_modules:
+            if self.opps_client is None:
+                results.error = "OPPS client not initialized"
+                return results
+            results.opps = self.opps_client.process(claim, results.ioce)
+        if Modules.PSYCH in unique_modules:
+            if self.ipf_client is None:
+                results.error = "IPF client not initialized"
+                return results
+            results.psych = self.ipf_client.process(claim, results.msdrg)
+        if Modules.LTCH in unique_modules:
+            if self.ltch_client is None:
+                results.error = "LTCH client not initialized"
+                return results
+            results.ltch = self.ltch_client.process(claim, results.msdrg)
+        if Modules.IRF in unique_modules:
+            if self.irf_client is None:
+                results.error = "IRF client not initialized"
+                return results
+            results.irf = self.irf_client.process(claim, results.cmg)
+        if Modules.HOSPICE in unique_modules:
+            if self.hospice_client is None:
+                results.error = "Hospice client not initialized"
+                return results
+            results.hospice = self.hospice_client.process(claim)
+        if Modules.SNF in unique_modules:
+            if self.snf_client is None:
+                results.error = "SNF client not initialized"
+                return results
+            results.snf = self.snf_client.process(claim)
+        if Modules.HHA in unique_modules:
+            if self.hha_client is None:
+                results.error = "HHA client not initialized"
+                return results
+            results.hha = self.hha_client.process(claim, results.hhag)
+        if Modules.ESRD in unique_modules:
+            if self.esrd_client is None:
+                results.error = "ESRD client not initialized"
+                return results
+            results.esrd = self.esrd_client.process(claim)
+        if Modules.FQHC in unique_modules:
+            if self.fqhc_client is None:
+                results.error = "FQHC client not initialized"
+                return results
+            if results.ioce is None:
+                results.error = "FQHC pricer requires IOCE module to be run"
+                return results
+            else:
+                results.fqhc = self.fqhc_client.process(claim, results.ioce)
+        return results
 
     def shutdown(self):
         """Deprecated: Use cleanup() method or context manager pattern instead"""
