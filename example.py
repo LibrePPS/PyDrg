@@ -331,7 +331,6 @@ def main():
     with Pypps(
         build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False
     ) as pypps:
-        pypps.setup_clients()
         run_groupers(pypps)
         run_pricers(pypps)
         run_pypps_process(pypps)

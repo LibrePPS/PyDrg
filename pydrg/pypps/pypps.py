@@ -118,6 +118,13 @@ class Pypps:
         # Setup databases with resource management
         self._setup_databases(db_backend)
 
+        # Setup CMS downloader if requested
+        if self.build_jar_dirs:
+            self.cms_downloader = CMSDownloader(
+                jars_dir=self.jar_path, log_level=self.logger.level
+            )
+            self.cms_downloader.build_jar_environment(False)
+
         # Setup JVM with thread safety
         self._setup_jvm()
 
@@ -217,13 +224,6 @@ class Pypps:
                 self.logger.warning(
                     f"Zip code data files does not exist: {flat_data_path}"
                 )
-
-        # Setup CMS downloader if requested
-        if self.build_jar_dirs:
-            self.cms_downloader = CMSDownloader(
-                jars_dir=self.jar_path, log_level=self.logger.level
-            )
-            self.cms_downloader.build_jar_environment(False)
 
     def _validate_databases(self):
         """Validate that required database tables exist"""
@@ -327,9 +327,6 @@ class Pypps:
 
     def process(self, claim:Claim) ->PyppsOutput:
         """Process a claim through the appropriate modules based on its configuration."""
-        if not self._initialized:
-            self.setup_clients()
-            self._initialized = True
 
         if not isinstance(claim, Claim):
             raise ValueError("Input must be an instance of Claim")
