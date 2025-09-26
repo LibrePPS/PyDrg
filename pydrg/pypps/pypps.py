@@ -4,7 +4,6 @@ from typing import Optional, Literal
 import jpype
 from contextlib import ExitStack
 from threading import RLock
-import atexit
 from sqlalchemy import inspect
 from pydantic import BaseModel
 
@@ -79,14 +78,12 @@ class Pypps:
         build_db: bool = False,
         log_level: int = logging.INFO,
         extra_classpaths: list[str] = [],
-        auto_cleanup: bool = True,
         db_backend: Literal["sqlite", "postgresql"] = "sqlite",
     ):
         # Store configuration
         self.extra_classpaths = extra_classpaths or []
         self.jar_path = jar_path
         self.db_path = db_path
-        self.auto_cleanup = auto_cleanup
         self.build_jar_dirs = build_jar_dirs
         self.build_db = build_db
 
@@ -130,10 +127,6 @@ class Pypps:
 
         # Track active instances for cleanup
         Pypps._active_instances.add(self)
-
-        # Register automatic cleanup
-        if auto_cleanup:
-            atexit.register(self.cleanup)
 
     def __enter__(self):
         """Context manager entry"""
