@@ -12,6 +12,7 @@ from pydrg.helpers.utils import (
     float_or_none,
     py_date_to_java_date,
     create_supported_years,
+    handle_java_exceptions,
 )
 from pydrg.input.claim import Claim
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -406,6 +407,7 @@ class HospiceClient:
         pricing_request.setClaimData(claim_object)
         return pricing_request
 
+    @handle_java_exceptions
     def process(self, claim: Claim) -> HospiceOutput:
         pricing_request = self.create_input_claim(claim)
         pricing_response = self.dispatch_obj.process(pricing_request)

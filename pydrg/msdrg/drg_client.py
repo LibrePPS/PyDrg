@@ -17,6 +17,7 @@ from pydrg.input.claim import (
 from pydrg.msdrg.msdrg_output import MsdrgOutput, MsdrgOutputDxCode, MsdrgOutputPrCode
 from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.converter.icd_converter import ICDConverter, ICD10ConvertOutput
+from pydrg.helpers.utils import handle_java_exceptions
 
 MSDRG_VSTART = "400"
 
@@ -514,6 +515,7 @@ class DrgClient:
 
         return output
 
+    @handle_java_exceptions
     def process(
         self,
         claim: Claim,

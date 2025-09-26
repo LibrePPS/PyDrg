@@ -13,6 +13,7 @@ from pydrg.helpers.utils import (
     float_or_none,
     py_date_to_java_date,
     create_supported_years,
+    handle_java_exceptions,
 )
 from pydrg.helpers import Zip9Data
 from pydrg.input.claim import Claim
@@ -336,6 +337,7 @@ class FqhcClient:
         pricing_request.setClaimData(claim_object)
         return pricing_request
 
+    @handle_java_exceptions
     def process(self, claim: Claim, ioce_output: IoceOutput) -> FqhcOutput:
         pricing_request = self.create_input_claim(claim, ioce_output)
         pricing_response = self.dispatch_obj.process(pricing_request)

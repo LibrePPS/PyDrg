@@ -12,6 +12,7 @@ from pydrg.helpers.utils import (
     float_or_none,
     py_date_to_java_date,
     create_supported_years,
+    handle_java_exceptions,
 )
 from pydrg.pricers.ipsf import IPSFProvider
 from pydrg.hhag import HhagOutput
@@ -381,6 +382,7 @@ class HhaClient:
             return self.dispatch_obj.process(pricing_request)
         raise ValueError("Dispatch object does not have a process method.")
 
+    @handle_java_exceptions
     def process(self, claim: Claim, hhag_output: Optional[HhagOutput] = None):
         """
         Process the claim and return the SNF pricing response.

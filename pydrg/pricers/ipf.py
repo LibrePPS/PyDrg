@@ -12,6 +12,7 @@ from pydrg.helpers.utils import (
     float_or_none,
     py_date_to_java_date,
     create_supported_years,
+    handle_java_exceptions,
 )
 from pydrg.input.claim import Claim
 from pydrg.msdrg.msdrg_output import MsdrgOutput
@@ -386,6 +387,7 @@ class IpfClient:
         pricing_request.setProviderData(provider_object)
         return pricing_request
 
+    @handle_java_exceptions
     def process(
         self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
     ) -> IpfOutput:

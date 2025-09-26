@@ -4,6 +4,7 @@ import jpype
 
 from pydrg.input.claim import Claim
 from pydrg.plugins import apply_client_methods, run_client_load_classes
+from pydrg.helpers.utils import handle_java_exceptions
 
 from .mce_output import MceOutput
 
@@ -99,6 +100,7 @@ class MceClient:
             mce_record.addCode(self.mce_pr_class(pr.code.replace(".", "")))
         return mce_record
 
+    @handle_java_exceptions
     def process(self, claim: Claim):
         mce_input = self.create_input(claim)
         self.mce_component.process(mce_input)

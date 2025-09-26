@@ -10,6 +10,7 @@ from pydrg.input.claim import (
 )
 from pydrg.ioce.ioce_output import IoceOutput
 from pydrg.plugins import apply_client_methods, run_client_load_classes
+from pydrg.helpers.utils import handle_java_exceptions
 
 
 class IoceClient:
@@ -294,6 +295,7 @@ class IoceClient:
 
         return oce_claim
 
+    @handle_java_exceptions
     def process(self, claim, include_descriptions: bool = True):
         """Process a claim through IOCE and return IoceOutput"""
         try:

@@ -11,6 +11,7 @@ from pydrg.helpers.utils import (
     py_date_to_java_date,
     create_supported_years,
     ReturnCode,
+    handle_java_exceptions,
 )
 from pydrg.input.claim import Claim
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -321,6 +322,7 @@ class IrfClient:
             return self.dispatch_obj.process(pricing_request)
         raise ValueError("Dispatch object does not have a process method.")
 
+    @handle_java_exceptions
     def process(self, claim: Claim, irfg: Optional[IrfgOutput] = None) -> IrfOutput:
         """
         Process the claim and return the IRF pricing response.

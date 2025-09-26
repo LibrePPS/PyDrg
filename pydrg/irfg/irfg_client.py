@@ -8,6 +8,7 @@ from pydrg.input.claim import (
 )
 from pydrg.helpers.utils import (
     py_date_to_java_date,
+    handle_java_exceptions,
 )
 
 from pydrg.plugins import apply_client_methods, run_client_load_classes
@@ -126,6 +127,7 @@ class IrfgClient:
             claim_obj.setAssessments(assessments)
         return claim_obj
 
+    @handle_java_exceptions
     def process(self, claim: Claim) -> IrfgOutput:
         """
         Process the given claim and return the DRG output.

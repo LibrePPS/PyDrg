@@ -1,6 +1,7 @@
 import jpype
 from pydrg.input.claim import Claim
 from pydrg.hhag.hhag_output import HhagOutput
+from pydrg.helpers.utils import handle_java_exceptions
 
 
 class HhagClient:
@@ -109,6 +110,7 @@ class HhagClient:
         claim_obj.setTransferring("00")
         claim_obj.setAmbulation("00")
 
+    @handle_java_exceptions
     def process(self, claim: Claim):
         """
         Process the claim through the HHAG system.

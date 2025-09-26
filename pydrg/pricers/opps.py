@@ -12,6 +12,7 @@ from pydrg.helpers.utils import (
     float_or_none,
     py_date_to_java_date,
     create_supported_years,
+    handle_java_exceptions,
 )
 from pydrg.input.claim import Claim
 from pydrg.ioce.ioce_output import IoceOutput
@@ -284,6 +285,7 @@ class OppsClient:
         opps_claim_object.setIoceServiceLines(ioce_lines)
         return opps_claim_object
 
+    @handle_java_exceptions
     def process(self, claim: Claim, ioce_output: Optional[IoceOutput] = None):
         """
         Process the python claim object through the CMS OPPS Java Pricer.
