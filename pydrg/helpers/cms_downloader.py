@@ -935,6 +935,9 @@ class CMSDownloader:
 
             # Get list of all ZIP files in the download directory
             zip_files = glob.glob(os.path.join(self.download_dir, "*.zip"))
+            if "pricers" in dest_dir:
+                #restrict zip files to those containing "pricer" in the name
+                zip_files = [zf for zf in zip_files if "pricer" in os.path.basename(zf).lower()]
             self.logger.info(f"Found {len(zip_files)} ZIP files to process")
 
             for zip_file in zip_files:
@@ -946,7 +949,7 @@ class CMSDownloader:
                     or "hhgs" in zip_filename.lower()
                 ):
                     continue
-
+                
                 self.process_zip_for_jars(zip_file, "pricer", dest_dir)
 
             self.logger.info("JAR extraction from pricer ZIPs complete")
