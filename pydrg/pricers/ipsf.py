@@ -68,7 +68,7 @@ DATATYPES = {
     "capital_pps_payment_code": {"type": "TEXT", "position": 38},
     "hospital_specific_capital_rate": {"type": "REAL", "position": 39},
     "old_capital_hold_harmless_rate": {"type": "REAL", "position": 40},
-    "old_capital_hold_harmless_rate_effective_date": {"type": "TEXT", "position": 41},
+    "new_capital_hold_harmless_rate": {"type": "REAL", "position": 41},
     "capital_cost_to_charge_ratio": {"type": "REAL", "position": 42},
     "new_hospital": {"type": "TEXT", "position": 43},
     "capital_indirect_medical_education_ratio": {"type": "REAL", "position": 44},
@@ -156,7 +156,7 @@ class IPSF(Base):
     capital_pps_payment_code = Column(String)
     hospital_specific_capital_rate = Column(Float)
     old_capital_hold_harmless_rate = Column(Float)
-    old_capital_hold_harmless_rate_effective_date = Column(String)
+    new_capital_hold_harmless_rate = Column(Float)
     capital_cost_to_charge_ratio = Column(Float)
     new_hospital = Column(String)
     capital_indirect_medical_education_ratio = Column(Float)
@@ -404,7 +404,7 @@ class IPSFProvider(BaseModel):
     capital_pps_payment_code: str = ""
     hospital_specific_capital_rate: float = 0.0
     old_capital_hold_harmless_rate: float = 0.0
-    old_capital_hold_harmless_rate_effective_date: str = ""
+    new_capital_hold_harmless_rate: float = 0.0
     capital_cost_to_charge_ratio: float = 0.0  # Default to 0.0 if not provided in data.
     new_hospital: str = ""
     capital_indirect_medical_education_ratio: float = (
