@@ -82,7 +82,7 @@ from .converter import (
 )
 
 # High-level orchestrator
-from .pypps.pypps import Pypps
+from .pypps.pypps import Pypps, PyppsOutput
 
 __all__ = [
     # Input models
@@ -160,4 +160,5 @@ __all__ = [
     "ICD10ConvertOutput",
     # Orchestrator
     "Pypps",
+    "PyppsOutput"
 ]
