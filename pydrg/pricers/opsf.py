@@ -176,19 +176,12 @@ class OPSFProvider(BaseModel):
     carrier_code: Optional[str] = None
     locality_code: Optional[str] = None
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        # Allow plugins to load extra/override Java classes before pricer setup
-        try:
-            run_client_load_classes(self)
-        except Exception:
-            # Plugins are optional; ignore failures here to avoid breaking core use
-            pass
-        # Bind plugin-provided methods to this client instance
+    def model_post_init(self, __context: Any) -> None:
+        self.model_config["extra"] = "allow"
         try:
             apply_client_methods(self)
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError(f"Error applying client methods") from e
 
     def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
         """Populate this model using prepared statements + cached sessionmaker."""
