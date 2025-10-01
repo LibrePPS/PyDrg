@@ -77,7 +77,7 @@ class Provider(BaseModel):
     facility_name: str = ""
     first_name: str = ""
     last_name: str = ""
-    contract_id: int = 0
+    contract_id: str = "0"
     address: Address = Field(default_factory=Address)
     carrier: str = ""
     locality: str = ""

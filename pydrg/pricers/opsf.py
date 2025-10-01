@@ -16,6 +16,7 @@ from sqlalchemy import (
     bindparam,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydantic import BaseModel
 import jpype
 
@@ -174,6 +175,20 @@ class OPSFProvider(BaseModel):
     last_updated: Optional[str] = None  # Date in YYYY-MM-DD format
     carrier_code: Optional[str] = None
     locality_code: Optional[str] = None
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        # Allow plugins to load extra/override Java classes before pricer setup
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            # Plugins are optional; ignore failures here to avoid breaking core use
+            pass
+        # Bind plugin-provided methods to this client instance
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
 
     def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
         """Populate this model using prepared statements + cached sessionmaker."""

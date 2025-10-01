@@ -15,7 +15,7 @@ from sqlalchemy import (
     bindparam,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-
+from pydrg.plugins import apply_client_methods, run_client_load_classes
 from pydrg.input.claim import Provider
 
 IPSF_URL = "https://pds.mps.cms.gov/fiss/v2/inpatient/export?fromDate=2023-01-01&toDate=2030-12-31"
@@ -445,6 +445,21 @@ class IPSFProvider(BaseModel):
     pass_through_amount_for_supply_chain: float = (
         0.0  # Default to 0.0 if not provided in data.
     )
+    
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        # Allow plugins to load extra/override Java classes before pricer setup
+        try:
+            run_client_load_classes(self)
+        except Exception:
+            # Plugins are optional; ignore failures here to avoid breaking core use
+            pass
+        # Bind plugin-provided methods to this client instance
+        try:
+            apply_client_methods(self)
+        except Exception:
+            pass
+
 
     def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
         eng_id = id(engine)
