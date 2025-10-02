@@ -311,7 +311,7 @@ class IpfClient:
         return ect_units
 
     def create_input_claim(
-        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
+        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None, **kwargs
     ) -> jpype.JObject:
         if self.db is None:
             raise ValueError("Database connection is required for IpfClient.")
@@ -368,7 +368,7 @@ class IpfClient:
             else:
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int, **kwargs)
             claim_object.setProviderCcn(ipsf_provider.provider_ccn)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
@@ -376,7 +376,7 @@ class IpfClient:
             else:
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int, **kwargs)
             claim_object.setProviderCcn(ipsf_provider.provider_ccn)
         else:
             raise ValueError(
@@ -386,10 +386,17 @@ class IpfClient:
         pricing_request.setClaimData(claim_object)
         pricing_request.setProviderData(provider_object)
         return pricing_request
+    
+    def process_claim(
+        self, claim: Claim, pricing_request: jpype.JObject
+    ) -> jpype.JObject:
+        if hasattr(self.dispatch_obj, "process"):
+            return self.dispatch_obj.process(pricing_request)
+        raise ValueError("Dispatch object does not have a process method.")
 
     @handle_java_exceptions
     def process(
-        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
+        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None, **kwargs
     ) -> IpfOutput:
         """
         Processes the python claim object through the CMS IPF Java Pricer.
@@ -397,8 +404,8 @@ class IpfClient:
         self.logger.debug(
             f"IpfClient processing claim on thread {current_thread().ident}"
         )
-        pricing_request = self.create_input_claim(claim, drg_output)
-        pricing_response = self.dispatch_obj.process(pricing_request)
+        pricing_request = self.create_input_claim(claim, drg_output, **kwargs)
+        pricing_response = self.process_claim(claim, pricing_request)
         ipf_output = IpfOutput()
         ipf_output.claim_id = claim.claimid
         ipf_output.from_java(pricing_response)

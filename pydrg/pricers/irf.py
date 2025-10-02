@@ -249,7 +249,7 @@ class IrfClient:
             )
 
     def create_input_claim(
-        self, claim: Claim, irfg: Optional[IrfgOutput] = None
+        self, claim: Claim, irfg: Optional[IrfgOutput] = None, **kwargs
     ) -> jpype.JObject:
         if self.db is None:
             raise ValueError("Database connection is required for IrfClient.")
@@ -297,14 +297,14 @@ class IrfClient:
             elif isinstance(claim.thru_date, str):
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int, **kwargs)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
                 date_int = int(claim.thru_date.strftime("%Y%m%d"))
             elif isinstance(claim.thru_date, str):
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int, **kwargs)
         else:
             raise ValueError(
                 "Either billing or servicing provider must be provided for IPPS pricing."
@@ -323,7 +323,7 @@ class IrfClient:
         raise ValueError("Dispatch object does not have a process method.")
 
     @handle_java_exceptions
-    def process(self, claim: Claim, irfg: Optional[IrfgOutput] = None) -> IrfOutput:
+    def process(self, claim: Claim, irfg: Optional[IrfgOutput] = None, **kwargs) -> IrfOutput:
         """
         Process the claim and return the IRF pricing response.
 
@@ -332,7 +332,7 @@ class IrfClient:
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")
-        pricing_request = self.create_input_claim(claim, irfg)
+        pricing_request = self.create_input_claim(claim, irfg, **kwargs)
         pricing_response = self.process_claim(claim, pricing_request)
         irf_output = IrfOutput()
         irf_output.claim_id = claim.claimid

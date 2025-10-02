@@ -753,7 +753,8 @@ class IppsClient:
         return py_date_to_java_date(self, py_date)
 
     def create_input_claim(
-        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None
+        self, claim: Claim, drg_output: Optional[MsdrgOutput] = None,
+        **kwargs
     ) -> jpype.JObject:
         claim_object = self.ipps_claim_data_class()
         provider_data = self.inpatient_prov_data()
@@ -845,14 +846,14 @@ class IppsClient:
             else:
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.billing_provider, date_int, **kwargs)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
                 date_int = int(claim.thru_date.strftime("%Y%m%d"))
             else:
                 date_int = int(claim.thru_date.replace("-", ""))
             ipsf_provider = IPSFProvider()
-            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
+            ipsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int, **kwargs)
         else:
             raise ValueError(
                 "Either billing or servicing provider must be provided for IPPS pricing."
@@ -870,7 +871,7 @@ class IppsClient:
         raise ValueError("Dispatch object does not have a process method.")
 
     @handle_java_exceptions
-    def process(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None):
+    def process(self, claim: Claim, drg_output: Optional[MsdrgOutput] = None, **kwargs) -> IppsOutput:
         """
         Process the claim and return the IPPS pricing response.
 
@@ -883,7 +884,7 @@ class IppsClient:
         self.logger.debug(
             f"IppsClient processing claim on thread {current_thread().ident}"
         )
-        pricing_request = self.create_input_claim(claim, drg_output)
+        pricing_request = self.create_input_claim(claim, drg_output, **kwargs)
         pricing_response = self.process_claim(claim, pricing_request)
         ipps_output = IppsOutput()
         ipps_output.claim_id = claim.claimid

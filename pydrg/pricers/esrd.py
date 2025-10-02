@@ -779,7 +779,7 @@ class EsrdClient:
                     dialysis_dates.add(line.service_date)
         return len(dialysis_dates)
 
-    def create_input_claim(self, claim: Claim) -> jpype.JObject:
+    def create_input_claim(self, claim: Claim, **kwargs) -> jpype.JObject:
         if self.db is None:
             raise ValueError("Database connection is required for ESRD pricing")
         claim_object = self.esrd_pricer_claim_data_class()
@@ -889,14 +889,14 @@ class EsrdClient:
             else:
                 date_int = int(str(claim.thru_date).replace("-", ""))
             opsf_provider = OPSFProvider()
-            opsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            opsf_provider.from_sqlite(self.db, claim.billing_provider, date_int, **kwargs)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
                 date_int = int(claim.thru_date.strftime("%Y%m%d"))
             else:
                 date_int = int(str(claim.thru_date).replace("-", ""))
             opsf_provider = OPSFProvider()
-            opsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
+            opsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int, **kwargs)
         else:
             raise ValueError(
                 "Either billing or servicing provider must be provided for IPPS pricing."
@@ -920,7 +920,7 @@ class EsrdClient:
         raise ValueError("Dispatch object does not have a process method.")
 
     @handle_java_exceptions
-    def process(self, claim: Claim):
+    def process(self, claim: Claim, **kwargs) -> EsrdOutput:
         """
         Process the claim and return the SNF pricing response.
 
@@ -929,7 +929,7 @@ class EsrdClient:
         """
         if not isinstance(claim, Claim):
             raise ValueError("claim must be an instance of Claim")
-        pricing_request = self.create_input_claim(claim)
+        pricing_request = self.create_input_claim(claim, **kwargs)
         pricing_response = self.process_claim(claim, pricing_request)
         esrd_output = EsrdOutput()
         esrd_output.claim_id = claim.claimid

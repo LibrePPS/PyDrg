@@ -452,47 +452,58 @@ class IPSFProvider(BaseModel):
         except Exception as e:
             raise RuntimeError(f"Error applying client methods") from e
 
-    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
+    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):
+        local_session = False
         eng_id = id(engine)
         sess_factory = _SESSION_FACTORY_CACHE.get(eng_id)
         if sess_factory is None:
             sess_factory = sessionmaker(bind=engine, future=True)
             _SESSION_FACTORY_CACHE[eng_id] = sess_factory
-        with sess_factory() as session:
-            params: dict[str, int | str] = {"date_int": date_int}
-            if provider.other_id:
-                params["ccn"] = provider.other_id
-                query = IPSF_BY_CCN
-            elif provider.npi:
-                params["npi"] = provider.npi
-                query = IPSF_BY_NPI
-            else:
-                raise ValueError("Provider must have either an NPI or other_id")
-            row = session.execute(query, params).scalar_one_or_none()
-            if row is None:
-                raise ValueError(
-                    f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
-                )
-            for field in DATATYPES.keys():
-                if hasattr(row, field):
-                    setattr(self, field, getattr(row, field))
-            if self.termination_date in (19000101, 0, None):
-                self.termination_date = 20991231
-            extra = (
-                provider.additional_data.get("ipsf")
-                if hasattr(provider, "additional_data")
-                else None
+        session = None
+        if "session" in kwargs:
+            session = kwargs["session"]
+            if not isinstance(session, Session):
+                raise ValueError("Provided session is not a valid SQLAlchemy Session.")
+        if session is None:
+            session = sess_factory()
+            local_session = True
+
+        params: dict[str, int | str] = {"date_int": date_int}
+        if provider.other_id:
+            params["ccn"] = provider.other_id
+            query = IPSF_BY_CCN
+        elif provider.npi:
+            params["npi"] = provider.npi
+            query = IPSF_BY_NPI
+        else:
+            raise ValueError("Provider must have either an NPI or other_id")
+        row = session.execute(query, params).scalar_one_or_none()
+        if row is None:
+            raise ValueError(
+                f"No IPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
             )
-            if isinstance(extra, dict):
-                for k, v in extra.items():
-                    if hasattr(self, k):
-                        setattr(self, k, v)
-            return self
+        for field in DATATYPES.keys():
+            if hasattr(row, field):
+                setattr(self, field, getattr(row, field))
+        if self.termination_date in (19000101, 0, None):
+            self.termination_date = 20991231
+        extra = (
+            provider.additional_data.get("ipsf")
+            if hasattr(provider, "additional_data")
+            else None
+        )
+        if isinstance(extra, dict):
+            for k, v in extra.items():
+                if hasattr(self, k):
+                    setattr(self, k, v)
+        if local_session:
+            session.close()
+        return self
 
     def from_sqlite(
-        self, conn: sqlalchemy.Engine, provider: Provider, date_int: int
+        self, conn: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs
     ):  # backward compat
-        return self.from_db(conn, provider, date_int)
+        return self.from_db(conn, provider, date_int, **kwargs)
 
     def set_java_values(self, java_provider, client):
         if not hasattr(client, "java_integer_class") or not hasattr(

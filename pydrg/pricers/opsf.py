@@ -183,47 +183,59 @@ class OPSFProvider(BaseModel):
         except Exception as e:
             raise RuntimeError(f"Error applying client methods") from e
 
-    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int):
+    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):
         """Populate this model using prepared statements + cached sessionmaker."""
+        local_session = False
         eng_id = id(engine)
         sess_factory = _SESSION_FACTORY_CACHE.get(eng_id)
         if sess_factory is None:
             sess_factory = sessionmaker(bind=engine, future=True)
             _SESSION_FACTORY_CACHE[eng_id] = sess_factory
-        with sess_factory() as session:
-            params: dict[str, int | str] = {"date_int": date_int}
-            if provider.other_id:
-                params["ccn"] = provider.other_id
-                query = OPSF_BY_CCN
-            elif provider.npi:
-                params["npi"] = provider.npi
-                query = OPSF_BY_NPI
-            else:
-                raise ValueError("Provider must have either an NPI or other_id")
-            result = session.execute(query, params).scalar_one_or_none()
-            if result is None:
-                raise ValueError(
-                    f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
-                )
-            for field in DATATYPES.keys():
-                if hasattr(result, field):
-                    setattr(self, field, getattr(result, field))
-            if self.termination_date in (19000101, 0, None):
-                self.termination_date = 20991231
-            extra = (
-                provider.additional_data.get("opsf")
-                if hasattr(provider, "additional_data")
-                else None
+        session = None
+        # Check if a session was passed in kwargs
+        if "session" in kwargs:
+            session = kwargs["session"]
+            if not isinstance(session, Session):
+                raise ValueError("Provided session is not a valid SQLAlchemy Session.")
+        if session is None:
+            session = sess_factory()
+            local_session = True
+
+        params: dict[str, int | str] = {"date_int": date_int}
+        if provider.other_id:
+            params["ccn"] = provider.other_id
+            query = OPSF_BY_CCN
+        elif provider.npi:
+            params["npi"] = provider.npi
+            query = OPSF_BY_NPI
+        else:
+            raise ValueError("Provider must have either an NPI or other_id")
+        result = session.execute(query, params).scalar_one_or_none()
+        if result is None:
+            raise ValueError(
+                f"No OPSF data found for provider {provider.other_id or provider.npi} on date {date_int}."
             )
-            if isinstance(extra, dict):
-                for k, v in extra.items():
-                    if hasattr(self, k):
-                        setattr(self, k, v)
-            return self
+        for field in DATATYPES.keys():
+            if hasattr(result, field):
+                setattr(self, field, getattr(result, field))
+        if self.termination_date in (19000101, 0, None):
+            self.termination_date = 20991231
+        extra = (
+            provider.additional_data.get("opsf")
+            if hasattr(provider, "additional_data")
+            else None
+        )
+        if isinstance(extra, dict):
+            for k, v in extra.items():
+                if hasattr(self, k):
+                    setattr(self, k, v)
+        if local_session:
+            session.close()
+        return self
 
     # Backwards compatibility alias
-    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int):  # type: ignore
-        return self.from_db(conn, provider, date_int)
+    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):  # type: ignore
+        return self.from_db(conn, provider, date_int, **kwargs)
 
     def set_java_values(self, java_obj: jpype.JObject, client):
         if (

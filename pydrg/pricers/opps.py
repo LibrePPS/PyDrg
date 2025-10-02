@@ -286,7 +286,7 @@ class OppsClient:
         return opps_claim_object
 
     @handle_java_exceptions
-    def process(self, claim: Claim, ioce_output: Optional[IoceOutput] = None):
+    def process(self, claim: Claim, ioce_output: Optional[IoceOutput] = None, **kwargs):
         """
         Process the python claim object through the CMS OPPS Java Pricer.
         """
@@ -295,7 +295,7 @@ class OppsClient:
         self.logger.debug(
             f"OppsClient processing claim on thread {current_thread().ident}"
         )
-        opps_claim_object = self.create_input_claim(claim, ioce_output)
+        opps_claim_object = self.create_input_claim(claim, ioce_output, **kwargs)
         pricing_request = self.opps_price_request_class()
         pricing_request.setClaimData(opps_claim_object)
         provider_data = self.outpatient_prov_data_class()
@@ -307,14 +307,14 @@ class OppsClient:
                 date_int = int(str(claim.thru_date).replace("-", ""))
             opsf_provider = OPSFProvider()
 
-            opsf_provider.from_sqlite(self.db, claim.billing_provider, date_int)
+            opsf_provider.from_sqlite(self.db, claim.billing_provider, date_int, **kwargs)
         elif claim.servicing_provider is not None:
             if isinstance(claim.thru_date, datetime):
                 date_int = int(claim.thru_date.strftime("%Y%m%d"))
             else:
                 date_int = int(str(claim.thru_date).replace("-", ""))
             opsf_provider = OPSFProvider()
-            opsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int)
+            opsf_provider.from_sqlite(self.db, claim.servicing_provider, date_int, **kwargs)
         else:
             raise ValueError(
                 "Either billing or servicing provider must be provided for IPPS pricing."
