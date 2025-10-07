@@ -4,9 +4,9 @@ from typing import Optional, Literal
 import jpype
 from contextlib import ExitStack
 from threading import RLock
-from sqlalchemy import inspect
 from pydantic import BaseModel
 
+from pydrg.database.manager import DatabaseManager
 from pydrg.helpers.cms_downloader import CMSDownloader
 from pydrg.ioce.ioce_client import IoceClient, IoceOutput
 from pydrg.hhag.hhag_client import HhagClient, HhagOutput
@@ -16,18 +16,14 @@ from pydrg.pricers.hospice import HospiceClient, HospiceOutput
 from pydrg.pricers.ipf import IpfClient, IpfOutput
 from pydrg.pricers.ipps import IppsClient, IppsOutput
 from pydrg.pricers.snf import SnfClient, SnfOutput
-from pydrg.pricers.ipsf import IPSFDatabase
 from pydrg.pricers.ltch import LtchClient, LtchOutput
 from pydrg.pricers.hha import HhaClient, HhaOutput
 from pydrg.pricers.irf import IrfClient, IrfOutput
 from pydrg.pricers.esrd import EsrdClient, EsrdOutput
 from pydrg.pricers.fqhc import FqhcClient, FqhcOutput
 from pydrg.pricers.opps import OppsClient, OppsOutput
-from pydrg.pricers.opsf import OPSFDatabase
-from pydrg.converter import ICDConverter
 from pydrg.irfg.irfg_client import IrfgClient, IrfgOutput
 from pydrg.input.claim import Modules, Claim
-import pydrg.helpers.zipCL_loader as zipCL_loader
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -68,7 +64,6 @@ class Pypps:
     # Class-level locks and tracking for thread safety
     _jvm_lock = RLock()  # Thread-safe JVM operations
     _jvm_started = False  # Track if we started the JVM
-    _active_instances = set()  # Track active instances for cleanup
 
     def __init__(
         self,
@@ -113,7 +108,9 @@ class Pypps:
         self._ensure_directories()
 
         # Setup databases with resource management
-        self._setup_databases(db_backend)
+        self.db_manager = DatabaseManager(db_path, db_backend, build_db, log_level)
+        self._exit_stack.enter_context(self.db_manager)
+        self.icd10_converter = self.db_manager.icd10_converter
 
         # Setup CMS downloader if requested
         if self.build_jar_dirs:
@@ -124,9 +121,6 @@ class Pypps:
 
         # Setup JVM with thread safety
         self._setup_jvm()
-
-        # Track active instances for cleanup
-        Pypps._active_instances.add(self)
 
     def __enter__(self):
         """Context manager entry"""
@@ -139,6 +133,10 @@ class Pypps:
         """Context manager exit with proper cleanup"""
         self.cleanup()
         return False  # Don't suppress exceptions
+
+    def cleanup(self):
+        """Comprehensive cleanup of all resources"""
+        self._exit_stack.close()
 
     def _ensure_directories(self):
         """Ensure required directories exist"""
@@ -176,105 +174,6 @@ class Pypps:
                 except Exception as e:
                     self.logger.warning(f"Error shutting down JVM: {e}")
 
-    def _setup_databases(self, db_backend: Literal["sqlite", "postgresql"]):
-        """Setup databases with proper resource management"""
-        try:
-            # Create database instances and register cleanup
-            self.opsf_db = self._exit_stack.enter_context(
-                OPSFDatabase(self.db_path, db_backend)
-            )
-            self.ipsf_db = self._exit_stack.enter_context(
-                IPSFDatabase(self.db_path, db_backend)
-            )
-            self.icd10_converter = ICDConverter(self.ipsf_db.engine)
-
-            if self.build_db:
-                self._build_databases()
-            else:
-                self._validate_databases()
-
-        except Exception as e:
-            self.logger.error(f"Database setup failed: {e}")
-            raise RuntimeError(f"Database initialization failed: {e}") from e
-
-    def _build_databases(self):
-        """Build databases if requested"""
-        self.opsf_db.to_sqlite()
-        self.ipsf_db.to_sqlite()
-        self.icd10_converter.download_icd_conversion_file()
-
-        # Setup zip code loader
-        flat_data_path = os.path.abspath(zipCL_loader.__file__)
-        if flat_data_path is None:
-            self.logger.warning("Could not find flat_data_path for zip code loader")
-        else:
-            flat_data_path = os.path.dirname(flat_data_path)
-            flat_data_path = os.path.join(flat_data_path, "zipCL-data")
-            if os.path.exists(flat_data_path):
-                self.logger.info(f"Loading zip code data from {flat_data_path}")
-                zipCL_loader.load_records(flat_data_path, self.opsf_db.engine)
-            else:
-                self.logger.warning(
-                    f"Zip code data files does not exist: {flat_data_path}"
-                )
-
-    def _validate_databases(self):
-        """Validate that required database tables exist"""
-        try:
-            opsf_exists = False
-            ipsf_exists = False
-            # Use inspectors so this works across sqlite, postgres, etc.
-            try:
-                opsf_inspector = inspect(self.opsf_db.engine)
-                opsf_exists = "opsf" in opsf_inspector.get_table_names()
-            except Exception as e:  # pragma: no cover - defensive
-                self.logger.debug(f"Inspector failed for OPSF DB: {e}")
-            try:
-                ipsf_inspector = inspect(self.ipsf_db.engine)
-                ipsf_exists = "ipsf" in ipsf_inspector.get_table_names()
-            except Exception as e:  # pragma: no cover
-                self.logger.debug(f"Inspector failed for IPSF DB: {e}")
-
-            if not opsf_exists:
-                self.logger.warning(
-                    "OPSF table does not exist. Please run build_db=True to create the database."
-                )
-            if not ipsf_exists:
-                self.logger.warning(
-                    "IPSF table does not exist. Please run build_db=True to create the database."
-                )
-        except Exception as e:
-            self.logger.warning(f"Database validation failed: {e}")
-
-    def cleanup(self):
-        """Comprehensive cleanup of all resources"""
-        if hasattr(self, "_exit_stack"):
-            try:
-                self._exit_stack.close()
-                self.logger.info("Resources cleaned up successfully")
-            except Exception as e:
-                self.logger.warning(f"Error during cleanup: {e}")
-            finally:
-                # Remove from active instances
-                Pypps._active_instances.discard(self)
-
-    @classmethod
-    def cleanup_all_instances(cls):
-        """Fallback nuclear cleanup for all active instances"""
-        instances = list(cls._active_instances)
-        for instance in instances:
-            try:
-                instance.cleanup()
-            except Exception as e:
-                logging.getLogger("Pypps").warning(f"Error cleaning up instance: {e}")
-
-    def update_opsf_db(self):
-        """Update the OPSF database with the latest data."""
-        self.opsf_db.to_sqlite(create_table=False)
-
-    def update_ipsf_db(self):
-        """Update the IPSF database with the latest data."""
-        self.ipsf_db.to_sqlite(create_table=False)
 
     def setup_clients(self):
         """Initialize the CMS clients."""
@@ -306,7 +205,7 @@ class Pypps:
                         self,
                         f"{pricer.lower()}_client",
                         globals()[f"{pricer}Client"](
-                            jar_path, self.opsf_db.engine, self.logger
+                            jar_path, self.db_manager.engine, self.logger
                         ),
                     )
                 except KeyError:
@@ -421,13 +320,3 @@ class Pypps:
                 results.fqhc = self.fqhc_client.process(claim, results.ioce)
         return results
 
-    def shutdown(self):
-        """Deprecated: Use cleanup() method or context manager pattern instead"""
-        import warnings
-
-        warnings.warn(
-            "shutdown() is deprecated. Use cleanup() method or context manager pattern instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.cleanup()
