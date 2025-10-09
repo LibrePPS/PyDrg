@@ -217,7 +217,7 @@ class Pypps:
                     f"{pricer} pricer JAR not found in {self.pricers_path}. Please ensure it is downloaded."
                 )
 
-    def process(self, claim:Claim) ->PyppsOutput:
+    def process(self, claim:Claim, **kwargs) ->PyppsOutput:
         """Process a claim through the appropriate modules based on its configuration."""
 
         if not isinstance(claim, Claim):
@@ -251,7 +251,7 @@ class Pypps:
             if self.drg_client is None:
                 results.error = "DRG client not initialized"
                 return results
-            results.msdrg = self.drg_client.process(claim)
+            results.msdrg = self.drg_client.process(claim, icd_converter=self.icd10_converter)
         if Modules.HHAG in unique_modules:
             if self.hhag_client is None:
                 results.error = "HHAG client not initialized"
@@ -268,27 +268,27 @@ class Pypps:
                 results.error = "IPPS client not initialized"
                 return results
             else:
-                results.ipps = self.ipps_client.process(claim, results.msdrg)
+                results.ipps = self.ipps_client.process(claim, results.msdrg, **kwargs)
         if Modules.OPPS in unique_modules:
             if self.opps_client is None:
                 results.error = "OPPS client not initialized"
                 return results
-            results.opps = self.opps_client.process(claim, results.ioce)
+            results.opps = self.opps_client.process(claim, results.ioce, **kwargs)
         if Modules.PSYCH in unique_modules:
             if self.ipf_client is None:
                 results.error = "IPF client not initialized"
                 return results
-            results.psych = self.ipf_client.process(claim, results.msdrg)
+            results.psych = self.ipf_client.process(claim, results.msdrg, **kwargs)
         if Modules.LTCH in unique_modules:
             if self.ltch_client is None:
                 results.error = "LTCH client not initialized"
                 return results
-            results.ltch = self.ltch_client.process(claim, results.msdrg)
+            results.ltch = self.ltch_client.process(claim, results.msdrg, **kwargs)
         if Modules.IRF in unique_modules:
             if self.irf_client is None:
                 results.error = "IRF client not initialized"
                 return results
-            results.irf = self.irf_client.process(claim, results.cmg)
+            results.irf = self.irf_client.process(claim, results.cmg, **kwargs)
         if Modules.HOSPICE in unique_modules:
             if self.hospice_client is None:
                 results.error = "Hospice client not initialized"
@@ -298,17 +298,17 @@ class Pypps:
             if self.snf_client is None:
                 results.error = "SNF client not initialized"
                 return results
-            results.snf = self.snf_client.process(claim)
+            results.snf = self.snf_client.process(claim, **kwargs)
         if Modules.HHA in unique_modules:
             if self.hha_client is None:
                 results.error = "HHA client not initialized"
                 return results
-            results.hha = self.hha_client.process(claim, results.hhag)
+            results.hha = self.hha_client.process(claim, results.hhag, **kwargs)
         if Modules.ESRD in unique_modules:
             if self.esrd_client is None:
                 results.error = "ESRD client not initialized"
                 return results
-            results.esrd = self.esrd_client.process(claim)
+            results.esrd = self.esrd_client.process(claim, **kwargs)
         if Modules.FQHC in unique_modules:
             if self.fqhc_client is None:
                 results.error = "FQHC client not initialized"

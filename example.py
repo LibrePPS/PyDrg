@@ -329,7 +329,7 @@ def main():
     )
     # Set build_db=True to create the database if it does not exist
     with Pypps(
-        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False
+        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=True
     ) as pypps:
         run_groupers(pypps)
         run_pricers(pypps)
