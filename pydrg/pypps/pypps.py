@@ -24,6 +24,7 @@ from pydrg.pricers.fqhc import FqhcClient, FqhcOutput
 from pydrg.pricers.opps import OppsClient, OppsOutput
 from pydrg.irfg.irfg_client import IrfgClient, IrfgOutput
 from pydrg.input.claim import Modules, Claim
+from pydrg.helpers.utils import handle_java_exceptions
 
 PRICERS = {
     "Esrd": "esrd-pricer",
@@ -216,7 +217,8 @@ class Pypps:
                 self.logger.warning(
                     f"{pricer} pricer JAR not found in {self.pricers_path}. Please ensure it is downloaded."
                 )
-
+    
+    @handle_java_exceptions
     def process(self, claim:Claim, **kwargs) ->PyppsOutput:
         """Process a claim through the appropriate modules based on its configuration."""
 
