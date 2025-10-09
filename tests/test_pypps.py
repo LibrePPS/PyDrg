@@ -75,7 +75,7 @@ def pypps_or_skip():
     try:
         yield pypps
     finally:
-        pypps.shutdown()
+        pypps.cleanup()
 
 
 def test_mce_process_example_claim(pypps_or_skip):
