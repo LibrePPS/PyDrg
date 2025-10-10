@@ -224,7 +224,7 @@ class OppsClient:
         return py_date_to_java_date(self, py_date)
 
     def create_input_claim(
-        self, claim: Claim, ioce_output: Optional[IoceOutput] = None
+        self, claim: Claim, ioce_output: Optional[IoceOutput] = None, **kwargs
     ) -> jpype.JObject:
         opps_claim_object = self.opps_claim_data_class()
 

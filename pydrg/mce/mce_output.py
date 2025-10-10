@@ -64,7 +64,6 @@ class MceOutputDxCode(BaseModel):
 class MceOutputPrCode(BaseModel):
     code: str
     edit_flags: List[str] = Field(default_factory=list)
-    age_conflict_type: Optional[str] = None
 
 
 class MceOutput(BaseModel):
@@ -131,14 +130,10 @@ class MceOutput(BaseModel):
                 elif char != "0" and isinstance(edit, dict):
                     sub_edit = edit.get(int(char), "Unknown")
                     edit_flags.append(sub_edit)
-            age_conflict_type = pr.getAgeConflictType()
-            if age_conflict_type is not None:
-                age_conflict_type = str(age_conflict_type.name())
             self.procedure_codes.append(
                 MceOutputPrCode(
                     code=pr_code,
                     edit_flags=edit_flags,
-                    age_conflict_type=age_conflict_type,
                 )
             )
         return
