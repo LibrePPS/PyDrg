@@ -339,7 +339,7 @@ class LtchClient:
             f"LtchClient processing claim on thread {current_thread().ident}"
         )
         pricing_request = self.create_input_claim(claim, drg_output, **kwargs)
-        pricing_response = self.process_claim(claim, pricing_request)
+        pricing_response = self.process_claim(claim, pricing_request, **kwargs)
         ltch_output = LtchOutput()
         ltch_output.claim_id = claim.claimid
         ltch_output.from_java(pricing_response)
