@@ -44,7 +44,6 @@ class FqhcLineOutput(BaseModel):
 
 class FqhcOutput(BaseModel):
     claim_id: str = ""
-    ioce_output: Optional[IoceOutput] = None
     calculation_version: Optional[str] = None
     return_code: Optional[ReturnCode] = None
     total_payment: Optional[float] = None
@@ -344,5 +343,4 @@ class FqhcClient:
         fqhc_output = FqhcOutput()
         fqhc_output.claim_id = claim.claimid
         fqhc_output.from_java(pricing_response)
-        fqhc_output.ioce_output = ioce_output
         return fqhc_output
