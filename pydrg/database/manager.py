@@ -64,14 +64,20 @@ class DatabaseManager:
         self.ipsf_db.to_sqlite()
         self.icd10_converter.download_icd_conversion_file()
         flat_data_path = os.path.abspath(zipCL_loader.__file__)
-        if flat_data_path is None or flat_data_path == "":
+        if (
+            flat_data_path is None
+            or flat_data_path == ""
+            or not os.path.exists(flat_data_path)
+        ):
             flat_data_path = os.getenv("ZIP_CL_PATH", "")
         # Setup zip code loader
         if flat_data_path is None or flat_data_path == "":
-            self.logger.warning("Could not find flat_data_path for zip code loader")
+            self.logger.warning("Could not find flat_data_path for zip code loader.")
         else:
             flat_data_path = os.path.dirname(flat_data_path)
             flat_data_path = os.path.join(flat_data_path, "zipCL-data")
+            if not os.path.exists(flat_data_path):
+                flat_data_path = os.environ.get("ZIP_CL_PATH", "")
             if os.path.exists(flat_data_path):
                 self.logger.info(f"Loading zip code data from {flat_data_path}")
                 zipCL_loader.load_records(flat_data_path, self.opsf_db.engine)
