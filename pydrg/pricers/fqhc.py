@@ -1,7 +1,6 @@
 import os
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
 from typing import Optional, List
 from logging import Logger, getLogger
 
@@ -185,15 +184,87 @@ class FqhcClient:
     def py_date_to_java_date(self, py_date):
         return py_date_to_java_date(self, py_date)
 
+    def get_carrier_locality(self, claim: Claim, **kwargs):
+        if claim.billing_provider is not None:
+            if claim.billing_provider.carrier.strip() != "":
+                return (claim.billing_provider.carrier, claim.billing_provider.locality)
+        elif claim.billing_provider is not None:
+            if claim.billing_provider.locality.strip() != "":
+                return (
+                    claim.billing_provider.locality,
+                    claim.billing_provider.locality,
+                )
+
+        zip_code = ""
+        plus4 = ""
+        if claim.billing_provider is not None:
+            if claim.billing_provider.address is not None:
+                zip_code = str(claim.billing_provider.address.zip)
+                plus4 = str(claim.billing_provider.address.zip4)
+        elif claim.servicing_provider is not None:
+            if claim.servicing_provider.address is not None:
+                zip_code = str(claim.servicing_provider.address.zip)
+                plus4 = str(claim.servicing_provider.address.zip4)
+
+        if zip_code.strip() == "":
+            raise ValueError(
+                "No Carrier/Locality provided and no Zip code available to lookup Carrier/Locality Information"
+            )
+
+        session = None
+        local_session = False
+        if "session" in kwargs:
+            if isinstance(kwargs["session"], Session):
+                session = kwargs["session"]
+            else:
+                raise ValueError("Invalid Database Session")
+        else:
+            session = Session(self.db)
+            local_session = True
+
+        if session is None:
+            raise ValueError("No session provided")
+
+        result = (
+            session.query(
+                Zip9Data.zip_code,
+                Zip9Data.carrier,
+                Zip9Data.pricing_locality,
+                Zip9Data.plus_four,
+            )
+            .filter(
+                Zip9Data.zip_code == zip_code,
+                Zip9Data.effective_date <= claim.from_date,
+                Zip9Data.end_date >= claim.thru_date,
+            )
+            .order_by(Zip9Data.plus_four.desc())
+            .all()
+        )
+
+        if not result:
+            raise ValueError("No matching zip code found")
+
+        for row in result:
+            zip_code_val, carrier_val, loc_val, plus_four_val = row
+            if plus_four_val is None or str(plus_four_val).strip() == "":
+                if local_session:
+                    session.close()
+                return (carrier_val, plus_four_val)
+            elif plus4 != "" and plus4 == plus_four_val:
+                if local_session:
+                    session.close()
+                return (carrier_val, loc_val)
+        if local_session:
+            session.close()
+        raise ValueError("No matching zip code found")
+
     def create_input_claim(
-        self, claim: Claim, ioce_output: IoceOutput
+        self, claim: Claim, ioce_output: IoceOutput, **kwargs
     ) -> jpype.JObject:
         claim_object = self.fqhc_pricer_claim_data_class()
         pricing_request = self.fqhc_pricer_request_class()
 
         found_carrier_locality = False
-        zip_code = ""
-        plus4 = ""
         if claim.billing_provider is not None:
             if claim.billing_provider.address is not None:
                 if (
@@ -203,10 +274,6 @@ class FqhcClient:
                     claim_object.setCarrier(claim.billing_provider.carrier)
                     claim_object.setLocality(claim.billing_provider.locality)
                     found_carrier_locality = True
-                else:
-                    if claim.billing_provider.address.zip.strip() != "":
-                        zip_code = claim.billing_provider.address.zip.strip()
-                        plus4 = claim.billing_provider.address.zip4.strip()
         elif claim.servicing_provider is not None:
             if claim.servicing_provider.address is not None:
                 if (
@@ -216,65 +283,13 @@ class FqhcClient:
                     claim_object.setCarrier(claim.servicing_provider.carrier)
                     claim_object.setLocality(claim.servicing_provider.locality)
                     found_carrier_locality = True
-                else:
-                    if claim.servicing_provider.address.zip.strip() != "":
-                        zip_code = claim.servicing_provider.address.zip.strip()
-                        plus4 = claim.servicing_provider.address.zip4.strip()
-
-        if found_carrier_locality == False and zip_code == "":
-            raise ValueError(
-                "Either billing or servicing provider with a carrier and locality is required."
-            )
-
-        if self.db is not None and found_carrier_locality == False:
-            try:
-                with Session(self.db) as session:
-                    result = (
-                        session.query(
-                            Zip9Data.zip_code,
-                            Zip9Data.carrier,
-                            Zip9Data.pricing_locality,
-                            Zip9Data.plus_four,
-                        )
-                        .filter(
-                            Zip9Data.zip_code == zip_code,
-                            Zip9Data.effective_date <= claim.from_date,
-                            Zip9Data.end_date >= claim.thru_date,
-                        )
-                        .order_by(Zip9Data.plus_four.desc())
-                        .all()
-                    )
-                    if result:
-                        for row in result:
-                            zip_code_val, carrier_val, loc_val, plus_four_val = row
-                            if (
-                                plus_four_val is None
-                                or str(plus_four_val).strip() == ""
-                            ):
-                                claim_object.setCarrierCode(carrier_val)
-                                claim_object.setLocalityCode(loc_val)
-                                found_carrier_locality = True
-                                break
-                            elif plus4 != "" and plus4 == str(plus_four_val).strip():
-                                claim_object.setCarrierCode(carrier_val)
-                                claim_object.setLocalityCode(loc_val)
-                                found_carrier_locality = True
-                                break
-                    if not found_carrier_locality:
-                        raise ValueError(
-                            f"Failed to find carrier and locality for zip code: {zip_code}"
-                        )
-            except Exception:
-                raise ValueError("Failed to lookup carrier and locality from zip code.")
-        else:
-            raise ValueError(
-                "Database connection is required to lookup carrier and locality from zip code."
-            )
 
         if not found_carrier_locality:
-            raise ValueError(
-                "Failed to find carrier and locality information needed for pricing."
-            )
+            carrier, locality = self.get_carrier_locality(claim, **kwargs)
+            if carrier is None or locality is None:
+                raise ValueError("Carrier and locality could not be determined.")
+            claim_object.setCarrierCode(carrier)
+            claim_object.setLocalityCode(locality)
 
         demo_codes = self.array_list_class()
         for code in claim.demo_codes:
@@ -337,8 +352,8 @@ class FqhcClient:
         return pricing_request
 
     @handle_java_exceptions
-    def process(self, claim: Claim, ioce_output: IoceOutput) -> FqhcOutput:
-        pricing_request = self.create_input_claim(claim, ioce_output)
+    def process(self, claim: Claim, ioce_output: IoceOutput, **kwargs) -> FqhcOutput:
+        pricing_request = self.create_input_claim(claim, ioce_output, **kwargs)
         pricing_response = self.dispatch_obj.process(pricing_request)
         fqhc_output = FqhcOutput()
         fqhc_output.claim_id = claim.claimid

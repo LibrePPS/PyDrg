@@ -16,7 +16,7 @@ from sqlalchemy import (
     bindparam,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from pydrg.plugins import apply_client_methods, run_client_load_classes
+from pydrg.plugins import apply_client_methods
 from pydantic import BaseModel
 import jpype
 
@@ -181,9 +181,11 @@ class OPSFProvider(BaseModel):
         try:
             apply_client_methods(self)
         except Exception as e:
-            raise RuntimeError(f"Error applying client methods") from e
+            raise RuntimeError("Error applying client methods") from e
 
-    def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):
+    def from_db(
+        self, engine: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs
+    ):
         """Populate this model using prepared statements + cached sessionmaker."""
         local_session = False
         eng_id = id(engine)
@@ -234,7 +236,9 @@ class OPSFProvider(BaseModel):
         return self
 
     # Backwards compatibility alias
-    def from_sqlite(self, conn: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):  # type: ignore
+    def from_sqlite(
+        self, conn: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs
+    ):  # type: ignore
         return self.from_db(conn, provider, date_int, **kwargs)
 
     def set_java_values(self, java_obj: jpype.JObject, client):
@@ -401,7 +405,7 @@ class OPSFDatabase:
     def _row_iter(self, csv_path: str) -> Iterable[Dict[str, Any]]:
         with open(csv_path, "r", newline="") as fh:
             reader = csv.reader(fh)
-            header = next(reader, None)  # discard header
+            next(reader, None)  # discard header
             for row in reader:
                 if not row or len(row) < len(DATATYPES):
                     continue

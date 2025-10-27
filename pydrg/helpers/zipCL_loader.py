@@ -15,9 +15,8 @@ from sqlalchemy import (
     String,
     Index,
     create_engine,
-    inspect,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.engine import Engine
 
 OPEN_END_YEAR = 9999

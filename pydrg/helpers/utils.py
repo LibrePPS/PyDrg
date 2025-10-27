@@ -94,13 +94,15 @@ def create_supported_years(pps: str) -> jpype.JObject:
             year -= 1
     return java_array
 
+
 def handle_java_exceptions(func):
     """
     Decorator to catch and handle Java exceptions from jpype calls.
-    
+
     This decorator wraps methods that call Java code and provides detailed
     error information when Java exceptions occur, including the Java stack trace.
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -109,26 +111,26 @@ def handle_java_exceptions(func):
             # Extract Java exception details
             java_class = java_ex.__class__.__name__
             java_message = str(java_ex)
-            
+
             # Try to get more detailed information from the Java exception
             java_stack_trace = None
-            if hasattr(java_ex, 'stacktrace'):
+            if hasattr(java_ex, "stacktrace"):
                 java_stack_trace = java_ex.stacktrace()
-            elif hasattr(java_ex, 'printStackTrace'):
+            elif hasattr(java_ex, "printStackTrace"):
                 string_io = io.StringIO()
                 try:
                     with redirect_stderr(string_io):
                         java_ex.printStackTrace()
                     java_stack_trace = string_io.getvalue()
-                except:
+                except Exception:
                     java_stack_trace = "Stack trace not available"
-            
+
             error_msg = f"Java exception occurred in {func.__name__}:\n"
             error_msg += f"Java Exception Type: {java_class}\n"
             error_msg += f"Java Message: {java_message}\n"
             if java_stack_trace:
                 error_msg += f"Java Stack Trace:\n{java_stack_trace}"
-            
+
             raise RuntimeError(error_msg) from java_ex
-    
+
     return wrapper

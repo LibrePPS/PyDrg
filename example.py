@@ -7,7 +7,6 @@ from pydrg.helpers.claim_examples import (
     opps_claim_example,
 )
 from pydrg.input import (
-    Claim,
     DiagnosisCode,
     LineItem,
     PoaType,
@@ -314,12 +313,14 @@ def run_pricers(pypps: Pypps):
         fqhc_output = pypps.fqhc_client.process(fqhc_claim, ioce_output)
         print(fqhc_output.model_dump_json(indent=2))
 
+
 def run_pypps_process(pypps: Pypps):
     claim = claim_example()
     claim.modules = [Modules.MCE, Modules.MSDRG, Modules.IPPS, Modules.PSYCH]
     claim.claimid = "PYPPPS_CLAIM_001"
     results = pypps.process(claim)
     print(results.model_dump_json(indent=2, exclude_none=True))
+
 
 def main():
     """Main function to run all examples."""
@@ -329,7 +330,7 @@ def main():
     )
     # Set build_db=True to create the database if it does not exist
     with Pypps(
-        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=True
+        build_jar_dirs=True, jar_path=jar_path, db_path=db_path, build_db=False
     ) as pypps:
         run_groupers(pypps)
         run_pricers(pypps)

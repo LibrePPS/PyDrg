@@ -398,6 +398,8 @@ class DrgClient:
                         poa_value = self.poa_values.U
                     elif dx.poa == PoaType.W:
                         poa_value = self.poa_values.W
+                    else:
+                        poa_value = self.poa_values.U
                     java_dxs.add(
                         self.drg_dx_class(
                             self.mapped_dx_or_self(dx.code.replace(".", ""), mappings),

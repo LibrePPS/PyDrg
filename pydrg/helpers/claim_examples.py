@@ -17,9 +17,9 @@ def claim_example():
     claim.patient_status = "01"
     claim.patient.age = 65
     claim.patient.sex = "M"
-    claim.admit_date = datetime(2025, 10, 1)
-    claim.from_date = datetime(2025, 10, 1)
-    claim.thru_date = datetime(2025, 10, 10)
+    claim.admit_date = datetime(2025, 7, 1)
+    claim.from_date = datetime(2025, 7, 1)
+    claim.thru_date = datetime(2025, 7, 10)
     claim.los = 9
     claim.secondary_dxs.append(DiagnosisCode(code="I82411", poa=PoaType.N))
     claim.billing_provider = Provider()

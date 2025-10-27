@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict
 
 import pluggy
 
-from .hookspecs import hookimpl, hookspec, project_name
+from .hookspecs import project_name
 
 _plugin_manager: pluggy.PluginManager | None = None
 

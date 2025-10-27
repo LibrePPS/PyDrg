@@ -15,7 +15,7 @@ from sqlalchemy import (
     bindparam,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from pydrg.plugins import apply_client_methods, run_client_load_classes
+from pydrg.plugins import apply_client_methods
 from pydrg.input.claim import Provider
 
 IPSF_URL = "https://pds.mps.cms.gov/fiss/v2/inpatient/export?fromDate=2023-01-01&toDate=2030-12-31"
@@ -450,7 +450,7 @@ class IPSFProvider(BaseModel):
         try:
             apply_client_methods(self)
         except Exception as e:
-            raise RuntimeError(f"Error applying client methods") from e
+            raise RuntimeError("Error applying client methods") from e
 
     def from_db(self, engine: sqlalchemy.Engine, provider: Provider, date_int: int, **kwargs):
         local_session = False
