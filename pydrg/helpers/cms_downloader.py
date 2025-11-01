@@ -78,16 +78,16 @@ class CMSDownloader:
         "hhag": ["HomeHealth.jar"],
         "cmg": ["CMG_550.jar", "irf-proto-1.2.0.jar", "gfc-base-factory-3.4.9.jar"],
         "pricers": [
-            r"esrd-pricer-application-[\d\.]+\.jar",
-            r"fqhc-pricer-application-[\d\.]+\.jar",
-            r"hha-pricer-application-[\d\.]+\.jar",
-            r"hospice-pricer-application-[\d\.]+\.jar",
-            r"ipf-pricer-application-[\d\.]+\.jar",
-            r"ipps-pricer-application-[\d\.]+\.jar",
-            r"irf-pricer-application-[\d\.]+\.jar",
-            r"ltch-pricer-application-[\d\.]+\.jar",
-            r"opps-pricer-application-[\d\.]+\.jar",
-            r"snf-pricer-application-[\d\.]+\.jar",
+            r"esrd-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"fqhc-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"hha-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"hospice-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"ipf-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"ipps-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"irf-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"ltch-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"opps-pricer-[\w\-\.]+(?:\.jar|\.zip)",
+            r"snf-pricer-[\w\-\.]+(?:\.jar|\.zip)",
         ],
     }
 
@@ -435,32 +435,20 @@ class CMSDownloader:
         try:
             filename = self.get_filename_from_url(url)
 
-            # Pattern matching for pricer URLs
-            # Example: snf-pricer-20250-v241-executable-jar.zip -> snf-pricer-application-2.4.1.jar
-            pricer_pattern = r"(\w+)-pricer-\d+-v(\d+)-executable(?:-jar)?\.zip"
+            # Updated pattern matching for pricer URLs
+            # Example: ipps-pricer-2026-0-v2-11-0-executable-jar.zip
+            pricer_pattern = (
+                r"(\w+)-pricer-(\d+(?:-\d+)*)-v(\d+(?:-\d+)*)-executable(?:-jar)?\.zip"
+            )
             match = re.match(pricer_pattern, filename)
 
             if match:
                 pricer_type = match.group(1)
-                version_str = match.group(2)
+                main_version = match.group(2)  # e.g., "2026-0"
+                sub_version = match.group(3)  # e.g., "2-11-0"
 
-                # Convert version string to dotted format
-                # v241 -> 2.4.1, v280 -> 2.8.0, v2100 -> 2.10.0, etc.
-                if len(version_str) == 3:
-                    # Format: XYZ -> X.Y.Z
-                    version = f"{version_str[0]}.{version_str[1]}.{version_str[2]}"
-                elif len(version_str) == 4:
-                    # Format: XYZW -> X.YZ.W or XY.Z.W depending on context
-                    if version_str.startswith("2") and len(version_str) == 4:
-                        # For versions like 2100 -> 2.10.0
-                        version = (
-                            f"{version_str[0]}.{version_str[1:3]}.{version_str[3]}"
-                        )
-                    else:
-                        version = f"{version_str[0]}.{version_str[1]}.{version_str[2:]}"
-                else:
-                    # Fallback for other patterns
-                    version = version_str
+                # Convert sub_version to dotted format
+                version = sub_version.replace("-", ".")
 
                 jar_filename = f"{pricer_type}-pricer-application-{version}.jar"
                 return jar_filename
@@ -936,8 +924,10 @@ class CMSDownloader:
             # Get list of all ZIP files in the download directory
             zip_files = glob.glob(os.path.join(self.download_dir, "*.zip"))
             if "pricers" in dest_dir:
-                #restrict zip files to those containing "pricer" in the name
-                zip_files = [zf for zf in zip_files if "pricer" in os.path.basename(zf).lower()]
+                # restrict zip files to those containing "pricer" in the name
+                zip_files = [
+                    zf for zf in zip_files if "pricer" in os.path.basename(zf).lower()
+                ]
             self.logger.info(f"Found {len(zip_files)} ZIP files to process")
 
             for zip_file in zip_files:
@@ -949,7 +939,7 @@ class CMSDownloader:
                     or "hhgs" in zip_filename.lower()
                 ):
                     continue
-                
+
                 self.process_zip_for_jars(zip_file, "pricer", dest_dir)
 
             self.logger.info("JAR extraction from pricer ZIPs complete")
